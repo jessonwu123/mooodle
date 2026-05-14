@@ -51,14 +51,14 @@ export function Sparkline({ points, width = 140, height = 36 }: Props) {
           x2={width - padX}
           y1={height - padY}
           y2={height - padY}
-          stroke="hsl(var(--border))"
+          stroke="var(--border)"
           strokeDasharray="2 2"
         />
         {n > 1 && (
           <path
             d={d}
             fill="none"
-            stroke="hsl(var(--primary))"
+            stroke="var(--primary)"
             strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -70,14 +70,14 @@ export function Sparkline({ points, width = 140, height = 36 }: Props) {
             cx={x}
             cy={y}
             r={i === xy.length - 1 ? 2.5 : 1.5}
-            fill="hsl(var(--primary))"
+            fill="var(--primary)"
           />
         ))}
         <circle
           cx={last[0]}
           cy={last[1]}
           r={4}
-          fill="hsl(var(--primary))"
+          fill="var(--primary)"
           fillOpacity={0.2}
         />
       </svg>
