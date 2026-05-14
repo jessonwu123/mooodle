@@ -77,8 +77,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "description", content: "查看学生每节课的专注力、互动性、纪律和准确率评分" },
       { name: "author", content: "课堂档案" },
       { property: "og:title", content: "学生课堂表现档案" },
-      { property: "og:description", content: "查看学生每节课的课堂表现" },
+      { property: "og:description", content: "查看学生每节课的专注力、互动性、纪律和准确率评分" },
       { property: "og:type", content: "website" },
+      { name: "twitter:title", content: "学生课堂表现档案" },
+      { name: "twitter:description", content: "查看学生每节课的专注力、互动性、纪律和准确率评分" },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/060d8c95-b01e-43b0-9c6a-5e537fc7d410/id-preview-565be069--3dd5f5e0-1336-4d26-858d-3ccea85aeb60.lovable.app-1778766906689.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/060d8c95-b01e-43b0-9c6a-5e537fc7d410/id-preview-565be069--3dd5f5e0-1336-4d26-858d-3ccea85aeb60.lovable.app-1778766906689.png" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       {
