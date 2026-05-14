@@ -113,12 +113,14 @@ function AdminHome() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          <Link to="/admin/teachers">
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <ShieldCheck className="h-4 w-4" />
-              教师管理
-            </Button>
-          </Link>
+          {isAdmin && (
+            <Link to="/admin/teachers">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <ShieldCheck className="h-4 w-4" />
+                教师管理
+              </Button>
+            </Link>
+          )}
           <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button className="gap-1.5 bg-green-500 text-primary-foreground shadow-[var(--shadow-soft)] hover:bg-green-600">
