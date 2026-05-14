@@ -1,0 +1,208 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { Plus, Users, ChevronRight, Trash2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+
+export const Route = createFileRoute("/admin/")({
+  component: AdminHome,
+});
+
+interface Student {
+  id: string;
+  name: string;
+  ratingCount?: number;
+}
+
+function AdminHome() {
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("students")
+      .select("id, name, ratings(count)")
+      .order("created_at", { ascending: false });
+    if (error) {
+      toast.error("加载失败");
+      setLoading(false);
+      return;
+    }
+    setStudents(
+      (data ?? []).map((s: { id: string; name: string; ratings: { count: number }[] }) => ({
+        id: s.id,
+        name: s.name,
+        ratingCount: s.ratings?.[0]?.count ?? 0,
+      })),
+    );
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    setBusy(true);
+    const { error } = await supabase.from("students").insert({ name: trimmed });
+    setBusy(false);
+    if (error) {
+      toast.error("创建失败：" + error.message);
+      return;
+    }
+    toast.success("已创建学生档案");
+    setNewName("");
+    setOpen(false);
+    load();
+  };
+
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from("students").delete().eq("id", id);
+    if (error) {
+      toast.error("删除失败");
+      return;
+    }
+    toast.success("已删除");
+    load();
+  };
+
+  return (
+    <div>
+      <div className="mb-8 flex items-end justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Users className="h-4 w-4" />
+            学生管理
+          </div>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight text-foreground">
+            学生档案
+          </h1>
+        </div>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-1.5 bg-[var(--gradient-hero)] text-primary-foreground shadow-[var(--shadow-soft)] hover:opacity-90">
+              <Plus className="h-4 w-4" />
+              新增学生
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>新增学生档案</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleCreate} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">学生姓名</Label>
+                <Input
+                  id="name"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="请输入学生姓名"
+                  maxLength={50}
+                  autoFocus
+                />
+              </div>
+              <DialogFooter>
+                <Button type="submit" disabled={busy || !newName.trim()}>
+                  {busy ? "创建中..." : "创建"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {loading ? (
+        <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
+          加载中...
+        </div>
+      ) : students.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center">
+          <p className="mb-4 text-sm text-muted-foreground">还没有学生档案</p>
+          <Button onClick={() => setOpen(true)} variant="outline" className="gap-1.5">
+            <Plus className="h-4 w-4" />
+            创建第一个学生
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {students.map((s) => (
+            <div
+              key={s.id}
+              className="flex items-center justify-between rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-soft)]"
+            >
+              <Link
+                to="/admin/student/$id"
+                params={{ id: s.id }}
+                className="flex flex-1 items-center gap-4"
+              >
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-accent/60 text-base font-semibold text-accent-foreground">
+                  {s.name.slice(0, 1)}
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium text-foreground">{s.name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {s.ratingCount} 节课记录
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </Link>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="icon" className="ml-2 text-muted-foreground hover:text-destructive">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>删除「{s.name}」？</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      该学生的所有课堂评分记录也将被删除，且无法恢复。
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>取消</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => handleDelete(s.id)}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      确认删除
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
