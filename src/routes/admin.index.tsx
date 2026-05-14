@@ -145,6 +145,7 @@ function AdminHome() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {loading ? (
