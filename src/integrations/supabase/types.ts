@@ -61,6 +61,44 @@ export type Database = {
           },
         ]
       }
+      progress_items: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          item_name: string
+          percentage: number
+          rating_id: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          item_name: string
+          percentage: number
+          rating_id: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          item_name?: string
+          percentage?: number
+          rating_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "progress_items_rating_id_fkey"
+            columns: ["rating_id"]
+            isOneToOne: false
+            referencedRelation: "ratings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ratings: {
         Row: {
           accuracy: number
@@ -73,6 +111,7 @@ export type Database = {
           lesson_date: string
           lesson_name: string | null
           overall_assessment: number | null
+          overall_progress: number | null
           student_id: string
           summary: string | null
         }
@@ -87,6 +126,7 @@ export type Database = {
           lesson_date: string
           lesson_name?: string | null
           overall_assessment?: number | null
+          overall_progress?: number | null
           student_id: string
           summary?: string | null
         }
@@ -101,6 +141,7 @@ export type Database = {
           lesson_date?: string
           lesson_name?: string | null
           overall_assessment?: number | null
+          overall_progress?: number | null
           student_id?: string
           summary?: string | null
         }
