@@ -51,13 +51,6 @@ const dimensions = [
   { key: "accuracy" as const, label: "做题准确率" },
 ];
 
-const dimensions = [
-  { key: "focus" as const, label: "专注力" },
-  { key: "interaction" as const, label: "互动性" },
-  { key: "discipline" as const, label: "课堂纪律" },
-  { key: "accuracy" as const, label: "做题准确率" },
-];
-
 const today = () => new Date().toISOString().slice(0, 10);
 
 function ManageStudent() {
@@ -69,6 +62,9 @@ function ManageStudent() {
   const [busy, setBusy] = useState(false);
 
   const [date, setDate] = useState(today());
+  const [lessonName, setLessonName] = useState("");
+  const [summary, setSummary] = useState("");
+  const [overall, setOverall] = useState(5);
   const [scores, setScores] = useState({
     focus: 5,
     interaction: 5,
