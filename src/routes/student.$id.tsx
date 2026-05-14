@@ -245,7 +245,11 @@ function StudentProfile() {
           </TabsContent>
 
           <TabsContent value="comprehensive">
-            <ComprehensiveAssessment studentId={id} editable={false} />
+            <ComprehensiveAssessment
+              studentId={id}
+              editable={false}
+              timestamps={timestamps}
+            />
           </TabsContent>
         </Tabs>
       </main>
