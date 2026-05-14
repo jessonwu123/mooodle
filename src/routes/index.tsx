@@ -93,7 +93,7 @@ function Index() {
               type="submit"
               disabled={searching || !name.trim()}
               size="lg"
-              className="h-12 gap-2 bg-[var(--gradient-hero)] text-primary-foreground shadow-[var(--shadow-soft)] hover:opacity-90"
+              className="h-12 gap-2 bg-primary text-primary-foreground shadow-[var(--shadow-soft)] hover:bg-primary/90 disabled:bg-primary/70 disabled:text-primary-foreground disabled:opacity-100"
             >
               <Search className="h-4 w-4" />
               {searching ? "查找中..." : "查看档案"}
