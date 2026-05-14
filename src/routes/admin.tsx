@@ -11,15 +11,15 @@ export const Route = createFileRoute("/admin")({
 
 function AdminLayout() {
   const navigate = useNavigate();
-  const { session, isAdmin, loading } = useAuth();
+  const { session, isTeacher, loading } = useAuth();
 
   useEffect(() => {
-    if (!loading && (!session || !isAdmin)) {
+    if (!loading && (!session || !isTeacher)) {
       navigate({ to: "/login" });
     }
-  }, [session, isAdmin, loading, navigate]);
+  }, [session, isTeacher, loading, navigate]);
 
-  if (loading || !session || !isAdmin) {
+  if (loading || !session || !isTeacher) {
     return (
       <div className="flex min-h-screen items-center justify-center text-muted-foreground">
         加载中...
