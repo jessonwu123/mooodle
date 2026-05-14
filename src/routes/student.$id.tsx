@@ -113,92 +113,105 @@ function StudentProfile() {
           </div>
         </div>
 
-        {ratings.length > 0 && (
-          <section className="mb-10 rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]">
-            <div className="mb-4 flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" />
-              <h2 className="text-base font-semibold text-foreground">总体平均</h2>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-              {dimensions.map((d) => {
-                const a = avg(d.key);
-                return (
-                  <div key={d.key} className="rounded-xl bg-muted/50 p-4">
-                    <div className="mb-2 text-xs font-medium text-muted-foreground">
-                      {d.label}
-                    </div>
-                    <div className="mb-1.5 text-2xl font-bold text-foreground">
-                      {a.toFixed(1)}
-                    </div>
-                    <StarRating value={Math.round(a)} size="sm" readOnly />
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
+        <Tabs defaultValue="lessons" className="w-full">
+          <TabsList className="mb-6 grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="lessons">课堂记录</TabsTrigger>
+            <TabsTrigger value="comprehensive">综合素质</TabsTrigger>
+          </TabsList>
 
-        <section>
-          <h2 className="mb-4 text-base font-semibold text-foreground">课堂记录</h2>
-          {ratings.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center text-sm text-muted-foreground">
-              暂无课堂记录
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {ratings.map((r) => (
-                <article
-                  key={r.id}
-                  className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]"
-                >
-                  <div className="mb-3">
-                    <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                      <Calendar className="h-4 w-4 text-primary" />
-                      {new Date(r.lesson_date).toLocaleDateString("zh-CN", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                        weekday: "short",
-                      })}
-                    </div>
-                    {r.lesson_name && (
-                      <div className="mt-1 text-base font-semibold text-foreground">
-                        {r.lesson_name}
-                      </div>
-                    )}
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {dimensions.map((d) => (
-                      <div
-                        key={d.key}
-                        className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2"
-                      >
-                        <span className="text-sm text-muted-foreground">
+          <TabsContent value="lessons" className="space-y-8">
+            {ratings.length > 0 && (
+              <section className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]">
+                <div className="mb-4 flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  <h2 className="text-base font-semibold text-foreground">总体平均</h2>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+                  {dimensions.map((d) => {
+                    const a = avg(d.key);
+                    return (
+                      <div key={d.key} className="rounded-xl bg-muted/50 p-4">
+                        <div className="mb-2 text-xs font-medium text-muted-foreground">
                           {d.label}
-                        </span>
-                        <StarRating value={r[d.key]} size="sm" readOnly />
+                        </div>
+                        <div className="mb-1.5 text-2xl font-bold text-foreground">
+                          {a.toFixed(1)}
+                        </div>
+                        <StarRating value={Math.round(a)} size="sm" readOnly />
                       </div>
-                    ))}
-                    {r.overall_assessment != null && (
-                      <div className="flex items-center justify-between rounded-lg bg-primary/10 px-3 py-2 sm:col-span-2">
-                        <span className="text-sm font-semibold text-foreground">
-                          整体表现
-                        </span>
-                        <StarRating value={r.overall_assessment} size="sm" readOnly />
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            <section>
+              <h2 className="mb-4 text-base font-semibold text-foreground">课堂记录</h2>
+              {ratings.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center text-sm text-muted-foreground">
+                  暂无课堂记录
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {ratings.map((r) => (
+                    <article
+                      key={r.id}
+                      className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]"
+                    >
+                      <div className="mb-3">
+                        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                          <Calendar className="h-4 w-4 text-primary" />
+                          {new Date(r.lesson_date).toLocaleDateString("zh-CN", {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                            weekday: "short",
+                          })}
+                        </div>
+                        {r.lesson_name && (
+                          <div className="mt-1 text-base font-semibold text-foreground">
+                            {r.lesson_name}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  {r.summary && (
-                    <div className="mt-3 whitespace-pre-wrap rounded-lg bg-muted/40 px-3 py-2 text-sm text-foreground">
-                      <div className="mb-1 text-xs font-medium text-muted-foreground">课堂总结</div>
-                      {r.summary}
-                    </div>
-                  )}
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {dimensions.map((d) => (
+                          <div
+                            key={d.key}
+                            className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2"
+                          >
+                            <span className="text-sm text-muted-foreground">
+                              {d.label}
+                            </span>
+                            <StarRating value={r[d.key]} size="sm" readOnly />
+                          </div>
+                        ))}
+                        {r.overall_assessment != null && (
+                          <div className="flex items-center justify-between rounded-lg bg-primary/10 px-3 py-2 sm:col-span-2">
+                            <span className="text-sm font-semibold text-foreground">
+                              整体表现
+                            </span>
+                            <StarRating value={r.overall_assessment} size="sm" readOnly />
+                          </div>
+                        )}
+                      </div>
+                      {r.summary && (
+                        <div className="mt-3 whitespace-pre-wrap rounded-lg bg-muted/40 px-3 py-2 text-sm text-foreground">
+                          <div className="mb-1 text-xs font-medium text-muted-foreground">课堂总结</div>
+                          {r.summary}
+                        </div>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          </TabsContent>
+
+          <TabsContent value="comprehensive">
+            <ComprehensiveAssessment studentId={id} editable={false} />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
