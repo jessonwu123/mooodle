@@ -103,25 +103,6 @@ function Index() {
             提示：请输入与老师登记一致的姓名。
           </p>
         </form>
-
-        <div className="mt-12 grid gap-4 sm:grid-cols-2">
-          {[
-            { title: "专注力", desc: "课堂上的注意力集中程度" },
-            { title: "互动性", desc: "回答问题与师生互动情况" },
-            { title: "课堂纪律", desc: "遵守课堂规则的表现" },
-            { title: "做题准确率", desc: "练习与作业的正确程度" },
-          ].map((item) => (
-            <div
-              key={item.title}
-              className="rounded-xl border border-border/60 bg-card/60 p-4"
-            >
-              <div className="mb-1 text-sm font-semibold text-foreground">
-                {item.title}
-              </div>
-              <div className="text-xs text-muted-foreground">{item.desc}</div>
-            </div>
-          ))}
-        </div>
       </main>
     </div>
   );
