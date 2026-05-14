@@ -38,6 +38,7 @@ interface Student {
 }
 
 function AdminHome() {
+  const { session } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -45,10 +46,12 @@ function AdminHome() {
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
+    if (!session?.user.id) return;
     setLoading(true);
     const { data, error } = await supabase
       .from("students")
       .select("id, name, ratings(count)")
+      .eq("created_by", session.user.id)
       .order("created_at", { ascending: false });
     if (error) {
       toast.error("加载失败");
@@ -67,7 +70,8 @@ function AdminHome() {
 
   useEffect(() => {
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user.id]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
