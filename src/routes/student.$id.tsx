@@ -82,10 +82,7 @@ function StudentProfile() {
 
   const handleTabChange = (v: string) => {
     setActiveTab(v);
-    // Opening the tab itself does NOT mark categories viewed — only opening
-    // a specific accordion does. This way the per-category dots persist.
   };
-  void markViewed; // imported for component use; keep linter happy
 
   const avg = (key: keyof Rating) => {
     if (ratings.length === 0) return 0;
