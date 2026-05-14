@@ -12,6 +12,13 @@ export const Route = createFileRoute("/student/$id")({
   component: StudentProfile,
 });
 
+interface ProgressItem {
+  id: string;
+  item_name: string;
+  percentage: number;
+  sort_order: number;
+}
+
 interface Rating {
   id: string;
   lesson_date: string;
@@ -22,6 +29,8 @@ interface Rating {
   interaction: number;
   discipline: number;
   accuracy: number;
+  overall_progress: number | null;
+  progress_items: ProgressItem[];
 }
 
 const dimensions = [
@@ -67,10 +76,18 @@ function StudentProfile() {
       });
       const { data: r } = await supabase
         .from("ratings")
-        .select("id, lesson_date, lesson_name, summary, overall_assessment, focus, interaction, discipline, accuracy")
+        .select(
+          "id, lesson_date, lesson_name, summary, overall_assessment, focus, interaction, discipline, accuracy, overall_progress, progress_items(id, item_name, percentage, sort_order)",
+        )
         .eq("student_id", id)
         .order("lesson_date", { ascending: false });
-      setRatings(r ?? []);
+      const normalized = ((r ?? []) as unknown as Rating[]).map((row) => ({
+        ...row,
+        progress_items: (row.progress_items ?? []).slice().sort(
+          (a, b) => a.sort_order - b.sort_order,
+        ),
+      }));
+      setRatings(normalized);
       setLoading(false);
     })();
   }, [id]);
