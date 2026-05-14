@@ -51,7 +51,7 @@ function StudentProfile() {
       setStudent(s);
       const { data: r } = await supabase
         .from("ratings")
-        .select("id, lesson_date, focus, interaction, discipline, accuracy")
+        .select("id, lesson_date, lesson_name, summary, overall_assessment, focus, interaction, discipline, accuracy")
         .eq("student_id", id)
         .order("lesson_date", { ascending: false });
       setRatings(r ?? []);
