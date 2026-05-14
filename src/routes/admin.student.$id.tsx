@@ -27,6 +27,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ComprehensiveAssessment } from "@/components/comprehensive-assessment";
 
 export const Route = createFileRoute("/admin/student/$id")({
   component: ManageStudent,
