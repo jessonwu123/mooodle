@@ -172,21 +172,33 @@ function ManageStudent() {
               新增课堂评分
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto">
             <DialogHeader>
               <DialogTitle>新增课堂评分</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSave} className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="date">上课日期</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  required
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="date">上课日期</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    required
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lessonName">本节课名称</Label>
+                  <Input
+                    id="lessonName"
+                    placeholder="如：分数加减法"
+                    value={lessonName}
+                    onChange={(e) => setLessonName(e.target.value)}
+                  />
+                </div>
               </div>
+
               <div className="space-y-3">
                 {dimensions.map((d) => (
                   <div
@@ -204,7 +216,25 @@ function ManageStudent() {
                     />
                   </div>
                 ))}
+                <div className="flex items-center justify-between rounded-lg bg-primary/10 px-4 py-3">
+                  <span className="text-sm font-semibold text-foreground">
+                    整体表现评估
+                  </span>
+                  <StarRating value={overall} onChange={setOverall} />
+                </div>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="summary">课堂总结</Label>
+                <Textarea
+                  id="summary"
+                  rows={4}
+                  placeholder="本节课内容、亮点、需改进之处等"
+                  value={summary}
+                  onChange={(e) => setSummary(e.target.value)}
+                />
+              </div>
+
               <DialogFooter>
                 <Button type="submit" disabled={busy}>
                   {busy ? "保存中..." : "保存评分"}
