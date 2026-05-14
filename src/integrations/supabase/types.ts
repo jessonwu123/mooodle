@@ -192,6 +192,7 @@ export type Database = {
           created_at: string
           email: string
           is_admin: boolean
+          is_teacher: boolean
           student_count: number
           user_id: string
         }[]
