@@ -15,7 +15,6 @@ import { toast } from "sonner";
 import {
   type AssessmentCategory,
   type AssessmentTimestamps,
-  CATEGORY_TIMESTAMP_COLUMN,
   isUnread,
   markViewed,
 } from "@/lib/assessment-updates";
