@@ -62,6 +62,11 @@ function ManageStudent() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [timestamps, setTimestamps] = useState<AssessmentTimestamps>({
+    knowledge: null,
+    thinking: null,
+    learning_quality: null,
+  });
 
   const [date, setDate] = useState(today());
   const [lessonName, setLessonName] = useState("");
@@ -77,14 +82,27 @@ function ManageStudent() {
   const load = async () => {
     setLoading(true);
     const [{ data: s }, { data: r }] = await Promise.all([
-      supabase.from("students").select("name").eq("id", id).maybeSingle(),
+      supabase
+        .from("students")
+        .select("name, knowledge_updated_at, thinking_updated_at, learning_quality_updated_at")
+        .eq("id", id)
+        .maybeSingle(),
       supabase
         .from("ratings")
         .select("id, lesson_date, lesson_name, summary, overall_assessment, focus, interaction, discipline, accuracy")
         .eq("student_id", id)
         .order("lesson_date", { ascending: false }),
     ]);
-    setStudent(s);
+    if (s) {
+      setStudent({ name: s.name });
+      setTimestamps({
+        knowledge: s.knowledge_updated_at,
+        thinking: s.thinking_updated_at,
+        learning_quality: s.learning_quality_updated_at,
+      });
+    } else {
+      setStudent(null);
+    }
     setRatings(r ?? []);
     setLoading(false);
   };
