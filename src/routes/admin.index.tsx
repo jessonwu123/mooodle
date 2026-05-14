@@ -46,6 +46,32 @@ function AdminHome() {
   const [open, setOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [summaryFor, setSummaryFor] = useState<Student | null>(null);
+  const [summaryText, setSummaryText] = useState("");
+  const [summaryLoading, setSummaryLoading] = useState(false);
+
+  const openSummary = async (s: Student) => {
+    setSummaryFor(s);
+    setSummaryText("");
+    setSummaryLoading(true);
+    try {
+      const text = await buildStudentMonthlySummary(s.id, s.name);
+      setSummaryText(text);
+    } catch (e) {
+      toast.error("生成总结失败");
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  const copySummary = async () => {
+    try {
+      await navigator.clipboard.writeText(summaryText);
+      toast.success("已复制到剪贴板");
+    } catch {
+      toast.error("复制失败，请手动选择文本");
+    }
+  };
 
   const load = async () => {
     if (!session?.user.id) return;
