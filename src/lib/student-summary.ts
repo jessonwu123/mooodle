@@ -29,7 +29,7 @@ export async function buildStudentMonthlySummary(
   since.setDate(since.getDate() - 30);
   const sinceISO = since.toISOString().slice(0, 10);
 
-  const [{ data: ratings }, { data: items }] = await Promise.all([
+  const [{ data: ratings }, { data: items }, { data: histories }] = await Promise.all([
     supabase
       .from("ratings")
       .select(
@@ -40,11 +40,16 @@ export async function buildStudentMonthlySummary(
       .order("lesson_date", { ascending: false }),
     supabase
       .from("assessment_items")
-      .select("category, item_name, rating, comment, updated_at, sort_order")
+      .select("id, category, item_name, rating, comment, updated_at, sort_order")
       .eq("student_id", studentId)
-      .gte("updated_at", since.toISOString())
       .order("category")
       .order("sort_order"),
+    supabase
+      .from("assessment_item_history")
+      .select("item_id, rating, comment, created_at")
+      .eq("student_id", studentId)
+      .gte("created_at", since.toISOString())
+      .order("created_at", { ascending: true }),
   ]);
 
   const lines: string[] = [];
