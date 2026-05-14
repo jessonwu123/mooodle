@@ -12,6 +12,13 @@ export const Route = createFileRoute("/student/$id")({
   component: StudentProfile,
 });
 
+interface ProgressItem {
+  id: string;
+  item_name: string;
+  percentage: number;
+  sort_order: number;
+}
+
 interface Rating {
   id: string;
   lesson_date: string;
@@ -22,6 +29,8 @@ interface Rating {
   interaction: number;
   discipline: number;
   accuracy: number;
+  overall_progress: number | null;
+  progress_items: ProgressItem[];
 }
 
 const dimensions = [
@@ -67,10 +76,18 @@ function StudentProfile() {
       });
       const { data: r } = await supabase
         .from("ratings")
-        .select("id, lesson_date, lesson_name, summary, overall_assessment, focus, interaction, discipline, accuracy")
+        .select(
+          "id, lesson_date, lesson_name, summary, overall_assessment, focus, interaction, discipline, accuracy, overall_progress, progress_items(id, item_name, percentage, sort_order)",
+        )
         .eq("student_id", id)
         .order("lesson_date", { ascending: false });
-      setRatings(r ?? []);
+      const normalized = ((r ?? []) as unknown as Rating[]).map((row) => ({
+        ...row,
+        progress_items: (row.progress_items ?? []).slice().sort(
+          (a, b) => a.sort_order - b.sort_order,
+        ),
+      }));
+      setRatings(normalized);
       setLoading(false);
     })();
   }, [id]);
@@ -207,6 +224,9 @@ function StudentProfile() {
                           </div>
                         )}
                       </div>
+                      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        学生表现
+                      </div>
                       <div className="grid gap-3 sm:grid-cols-2">
                         {dimensions.map((d) => (
                           <div
@@ -228,6 +248,36 @@ function StudentProfile() {
                           </div>
                         )}
                       </div>
+                      {(r.progress_items.length > 0 || r.overall_progress != null) && (
+                        <>
+                          <div className="mt-4 mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            授课进度
+                          </div>
+                          <div className="space-y-2">
+                            {r.progress_items.map((p) => (
+                              <div
+                                key={p.id}
+                                className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2"
+                              >
+                                <span className="text-sm text-foreground">{p.item_name}</span>
+                                <span className="text-sm font-semibold text-primary">
+                                  {p.percentage}%
+                                </span>
+                              </div>
+                            ))}
+                            {r.overall_progress != null && (
+                              <div className="flex items-center justify-between rounded-lg bg-primary/10 px-3 py-2">
+                                <span className="text-sm font-semibold text-foreground">
+                                  整体吸收程度
+                                </span>
+                                <span className="text-sm font-bold text-primary">
+                                  {r.overall_progress}%
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
                       {r.summary && (
                         <div className="mt-3 whitespace-pre-wrap rounded-lg bg-muted/40 px-3 py-2 text-sm text-foreground">
                           <div className="mb-1 text-xs font-medium text-muted-foreground">课堂总结</div>

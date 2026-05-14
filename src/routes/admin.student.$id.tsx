@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Plus, Calendar, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Calendar, Trash2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { StarRating } from "@/components/star-rating";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,13 @@ export const Route = createFileRoute("/admin/student/$id")({
   component: ManageStudent,
 });
 
+interface ProgressItem {
+  id?: string;
+  item_name: string;
+  percentage: number;
+  sort_order: number;
+}
+
 interface Rating {
   id: string;
   lesson_date: string;
@@ -45,6 +52,8 @@ interface Rating {
   interaction: number;
   discipline: number;
   accuracy: number;
+  overall_progress: number | null;
+  progress_items: ProgressItem[];
 }
 
 const dimensions = [
@@ -55,6 +64,11 @@ const dimensions = [
 ];
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+function clampPct(n: number) {
+  if (Number.isNaN(n)) return 0;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
 
 function ManageStudent() {
   const { id } = Route.useParams();
@@ -79,6 +93,8 @@ function ManageStudent() {
     discipline: 5,
     accuracy: 5,
   });
+  const [overallProgress, setOverallProgress] = useState<number>(80);
+  const [progressItems, setProgressItems] = useState<ProgressItem[]>([]);
 
   const load = async () => {
     setLoading(true);
@@ -90,7 +106,9 @@ function ManageStudent() {
         .maybeSingle(),
       supabase
         .from("ratings")
-        .select("id, lesson_date, lesson_name, summary, overall_assessment, focus, interaction, discipline, accuracy")
+        .select(
+          "id, lesson_date, lesson_name, summary, overall_assessment, focus, interaction, discipline, accuracy, overall_progress, progress_items(id, item_name, percentage, sort_order)",
+        )
         .eq("student_id", id)
         .order("lesson_date", { ascending: false }),
     ]);
@@ -104,7 +122,13 @@ function ManageStudent() {
     } else {
       setStudent(null);
     }
-    setRatings(r ?? []);
+    const normalized = ((r ?? []) as unknown as Rating[]).map((row) => ({
+      ...row,
+      progress_items: (row.progress_items ?? []).slice().sort(
+        (a, b) => a.sort_order - b.sort_order,
+      ),
+    }));
+    setRatings(normalized);
     setLoading(false);
   };
 
@@ -118,26 +142,64 @@ function ManageStudent() {
     setSummary("");
     setOverall(5);
     setScores({ focus: 5, interaction: 5, discipline: 5, accuracy: 5 });
+    setOverallProgress(80);
+    setProgressItems([]);
+  };
+
+  const addProgressRow = () => {
+    setProgressItems((prev) => [
+      ...prev,
+      { item_name: "", percentage: 80, sort_order: prev.length },
+    ]);
+  };
+
+  const updateProgressRow = (idx: number, patch: Partial<ProgressItem>) => {
+    setProgressItems((prev) => prev.map((p, i) => (i === idx ? { ...p, ...patch } : p)));
+  };
+
+  const removeProgressRow = (idx: number) => {
+    setProgressItems((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     const { data: userData } = await supabase.auth.getUser();
-    const { error } = await supabase.from("ratings").insert({
-      student_id: id,
-      lesson_date: date,
-      lesson_name: lessonName.trim() || null,
-      summary: summary.trim() || null,
-      overall_assessment: overall,
-      ...scores,
-      created_by: userData.user?.id,
-    });
-    setBusy(false);
-    if (error) {
-      toast.error("保存失败：" + error.message);
+    const { data: inserted, error } = await supabase
+      .from("ratings")
+      .insert({
+        student_id: id,
+        lesson_date: date,
+        lesson_name: lessonName.trim() || null,
+        summary: summary.trim() || null,
+        overall_assessment: overall,
+        ...scores,
+        overall_progress: clampPct(overallProgress),
+        created_by: userData.user?.id,
+      })
+      .select("id")
+      .single();
+    if (error || !inserted) {
+      setBusy(false);
+      toast.error("保存失败：" + (error?.message ?? ""));
       return;
     }
+    const validItems = progressItems
+      .map((p, i) => ({
+        rating_id: inserted.id,
+        item_name: p.item_name.trim(),
+        percentage: clampPct(p.percentage),
+        sort_order: i,
+        created_by: userData.user?.id,
+      }))
+      .filter((p) => p.item_name.length > 0);
+    if (validItems.length > 0) {
+      const { error: piErr } = await supabase.from("progress_items").insert(validItems);
+      if (piErr) {
+        toast.error("知识点保存失败：" + piErr.message);
+      }
+    }
+    setBusy(false);
     toast.success("已保存课堂评分");
     setOpen(false);
     resetForm();
@@ -228,11 +290,13 @@ function ManageStudent() {
                     </div>
                   </div>
 
-                  <div className="space-y-3">
+                  {/* 学生表现 */}
+                  <section className="space-y-3 rounded-xl border border-border bg-muted/20 p-3">
+                    <div className="text-sm font-semibold text-foreground">学生表现</div>
                     {dimensions.map((d) => (
                       <div
                         key={d.key}
-                        className="flex items-center justify-between rounded-lg bg-muted/40 px-4 py-3"
+                        className="flex items-center justify-between rounded-lg bg-background/70 px-3 py-2"
                       >
                         <span className="text-sm font-medium text-foreground">
                           {d.label}
@@ -245,13 +309,94 @@ function ManageStudent() {
                         />
                       </div>
                     ))}
-                    <div className="flex items-center justify-between rounded-lg bg-primary/10 px-4 py-3">
+                    <div className="flex items-center justify-between rounded-lg bg-primary/10 px-3 py-2">
                       <span className="text-sm font-semibold text-foreground">
                         整体表现评估
                       </span>
                       <StarRating value={overall} onChange={setOverall} />
                     </div>
-                  </div>
+                  </section>
+
+                  {/* 授课进度 */}
+                  <section className="space-y-3 rounded-xl border border-border bg-muted/20 p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-semibold text-foreground">授课进度</div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={addProgressRow}
+                        className="h-7 gap-1 px-2 text-xs"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        添加知识点
+                      </Button>
+                    </div>
+
+                    {progressItems.length === 0 && (
+                      <div className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
+                        暂无知识点，点击上方"添加知识点"
+                      </div>
+                    )}
+                    {progressItems.map((p, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-2 rounded-lg bg-background/70 px-2 py-2"
+                      >
+                        <Input
+                          value={p.item_name}
+                          onChange={(e) =>
+                            updateProgressRow(i, { item_name: e.target.value })
+                          }
+                          placeholder="知识点名称"
+                          className="h-8 flex-1"
+                        />
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={p.percentage}
+                            onChange={(e) =>
+                              updateProgressRow(i, {
+                                percentage: clampPct(Number(e.target.value)),
+                              })
+                            }
+                            className="h-8 w-16 text-right"
+                          />
+                          <span className="text-xs text-muted-foreground">%</span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          onClick={() => removeProgressRow(i)}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+
+                    <div className="flex items-center justify-between rounded-lg bg-primary/10 px-3 py-2">
+                      <span className="text-sm font-semibold text-foreground">
+                        整体吸收程度
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={overallProgress}
+                          onChange={(e) =>
+                            setOverallProgress(clampPct(Number(e.target.value)))
+                          }
+                          className="h-8 w-16 text-right"
+                        />
+                        <span className="text-xs text-muted-foreground">%</span>
+                      </div>
+                    </div>
+                  </section>
 
                   <div className="space-y-2">
                     <Label htmlFor="summary">课堂总结</Label>
@@ -328,6 +473,10 @@ function ManageStudent() {
                       </AlertDialogContent>
                     </AlertDialog>
                   </div>
+
+                  <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    学生表现
+                  </div>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {dimensions.map((d) => (
                       <div
@@ -345,6 +494,38 @@ function ManageStudent() {
                       </div>
                     )}
                   </div>
+
+                  {(r.progress_items.length > 0 || r.overall_progress != null) && (
+                    <>
+                      <div className="mt-4 mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        授课进度
+                      </div>
+                      <div className="space-y-2">
+                        {r.progress_items.map((p) => (
+                          <div
+                            key={p.id}
+                            className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2"
+                          >
+                            <span className="text-sm text-foreground">{p.item_name}</span>
+                            <span className="text-sm font-semibold text-primary">
+                              {p.percentage}%
+                            </span>
+                          </div>
+                        ))}
+                        {r.overall_progress != null && (
+                          <div className="flex items-center justify-between rounded-lg bg-primary/10 px-3 py-2">
+                            <span className="text-sm font-semibold text-foreground">
+                              整体吸收程度
+                            </span>
+                            <span className="text-sm font-bold text-primary">
+                              {r.overall_progress}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+
                   {r.summary && (
                     <div className="mt-3 whitespace-pre-wrap rounded-lg bg-muted/40 px-3 py-2 text-sm text-foreground">
                       {r.summary}

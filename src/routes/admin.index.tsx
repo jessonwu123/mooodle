@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, Users, ChevronRight, Trash2, ShieldCheck } from "lucide-react";
+import { Plus, Users, ChevronRight, Trash2, ShieldCheck, FileText, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
+import { buildStudentMonthlySummary } from "@/lib/student-summary";
 
 export const Route = createFileRoute("/admin/")({
   component: AdminHome,
@@ -44,6 +46,32 @@ function AdminHome() {
   const [open, setOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [summaryFor, setSummaryFor] = useState<Student | null>(null);
+  const [summaryText, setSummaryText] = useState("");
+  const [summaryLoading, setSummaryLoading] = useState(false);
+
+  const openSummary = async (s: Student) => {
+    setSummaryFor(s);
+    setSummaryText("");
+    setSummaryLoading(true);
+    try {
+      const text = await buildStudentMonthlySummary(s.id, s.name);
+      setSummaryText(text);
+    } catch (e) {
+      toast.error("生成总结失败");
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  const copySummary = async () => {
+    try {
+      await navigator.clipboard.writeText(summaryText);
+      toast.success("已复制到剪贴板");
+    } catch {
+      toast.error("复制失败，请手动选择文本");
+    }
+  };
 
   const load = async () => {
     if (!session?.user.id) return;
@@ -214,10 +242,58 @@ function AdminHome() {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="ml-1 text-muted-foreground hover:text-primary"
+                title="导出最近一个月总结"
+                onClick={() => openSummary(s)}
+              >
+                <FileText className="h-4 w-4" />
+              </Button>
             </div>
           ))}
         </div>
       )}
+
+      <Dialog
+        open={!!summaryFor}
+        onOpenChange={(v) => {
+          if (!v) {
+            setSummaryFor(null);
+            setSummaryText("");
+          }
+        }}
+      >
+        <DialogContent className="max-h-[85vh] max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {summaryFor?.name} · 最近一个月学习总结
+            </DialogTitle>
+          </DialogHeader>
+          {summaryLoading ? (
+            <div className="py-10 text-center text-sm text-muted-foreground">
+              生成中...
+            </div>
+          ) : (
+            <>
+              <Textarea
+                readOnly
+                value={summaryText}
+                rows={18}
+                className="font-mono text-xs"
+                onFocus={(e) => e.currentTarget.select()}
+              />
+              <DialogFooter>
+                <Button onClick={copySummary} className="gap-1.5">
+                  <Copy className="h-4 w-4" />
+                  一键复制
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
