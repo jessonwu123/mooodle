@@ -12,7 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as StudentIdRouteImport } from './routes/student.$id'
+import { Route as AdminStudentIdRouteImport } from './routes/admin.student.$id'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -29,42 +31,70 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
 const StudentIdRoute = StudentIdRouteImport.update({
   id: '/student/$id',
   path: '/student/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminStudentIdRoute = AdminStudentIdRouteImport.update({
+  id: '/student/$id',
+  path: '/student/$id',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
   '/student/$id': typeof StudentIdRoute
+  '/admin/': typeof AdminIndexRoute
+  '/admin/student/$id': typeof AdminStudentIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
   '/login': typeof LoginRoute
   '/student/$id': typeof StudentIdRoute
+  '/admin': typeof AdminIndexRoute
+  '/admin/student/$id': typeof AdminStudentIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
   '/student/$id': typeof StudentIdRoute
+  '/admin/': typeof AdminIndexRoute
+  '/admin/student/$id': typeof AdminStudentIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/login' | '/student/$id'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/login'
+    | '/student/$id'
+    | '/admin/'
+    | '/admin/student/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/login' | '/student/$id'
-  id: '__root__' | '/' | '/admin' | '/login' | '/student/$id'
+  to: '/' | '/login' | '/student/$id' | '/admin' | '/admin/student/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/login'
+    | '/student/$id'
+    | '/admin/'
+    | '/admin/student/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRoute
+  AdminRoute: typeof AdminRouteWithChildren
   LoginRoute: typeof LoginRoute
   StudentIdRoute: typeof StudentIdRoute
 }
@@ -92,6 +122,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/student/$id': {
       id: '/student/$id'
       path: '/student/$id'
@@ -99,12 +136,31 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudentIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/student/$id': {
+      id: '/admin/student/$id'
+      path: '/student/$id'
+      fullPath: '/admin/student/$id'
+      preLoaderRoute: typeof AdminStudentIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
+interface AdminRouteChildren {
+  AdminIndexRoute: typeof AdminIndexRoute
+  AdminStudentIdRoute: typeof AdminStudentIdRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminIndexRoute: AdminIndexRoute,
+  AdminStudentIdRoute: AdminStudentIdRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRoute,
+  AdminRoute: AdminRouteWithChildren,
   LoginRoute: LoginRoute,
   StudentIdRoute: StudentIdRoute,
 }
