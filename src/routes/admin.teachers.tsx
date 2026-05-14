@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeft, UserPlus, Trash2, ShieldCheck } from "lucide-react";
+import { ArrowLeft, UserPlus, Trash2, ShieldCheck, ChevronRight, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,8 @@ interface Teacher {
   user_id: string;
   email: string;
   created_at: string;
+  is_admin: boolean;
+  student_count: number;
 }
 
 function TeachersPage() {
@@ -38,13 +40,16 @@ function TeachersPage() {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.rpc("list_admin_users");
+    const { data, error } = await (supabase.rpc as any)("list_all_teachers");
     if (error) {
       toast.error("加载失败：" + error.message);
       setLoading(false);
       return;
     }
-    setTeachers((data ?? []) as Teacher[]);
+    setTeachers(((data ?? []) as Teacher[]).map((t) => ({
+      ...t,
+      student_count: Number(t.student_count ?? 0),
+    })));
     setLoading(false);
   };
 
@@ -77,13 +82,13 @@ function TeachersPage() {
     setBusy(false);
     if (insErr) {
       if (insErr.code === "23505") {
-        toast.info("该账号已经是教师");
+        toast.info("该账号已经是管理员");
       } else {
         toast.error("授权失败：" + insErr.message);
       }
       return;
     }
-    toast.success("已授予教师权限");
+    toast.success("已授予管理员权限");
     setEmail("");
     load();
   };
@@ -98,7 +103,7 @@ function TeachersPage() {
       toast.error("撤销失败：" + error.message);
       return;
     }
-    toast.success("已撤销教师权限");
+    toast.success("已撤销管理员权限");
     load();
   };
 
@@ -121,7 +126,7 @@ function TeachersPage() {
           教师管理
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          授予其他注册用户教师权限后，对方即可登录管理后台、管理学生档案与评分。
+          下方列出系统中全部已注册账号。点击任意账号可查看该老师创建的学生档案；管理员可在此处授予或撤销其他账号的管理员权限。
         </p>
       </div>
 
@@ -130,7 +135,7 @@ function TeachersPage() {
         className="mb-8 rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]"
       >
         <Label htmlFor="email" className="mb-2 block">
-          授予教师权限（按邮箱）
+          授予管理员权限（按邮箱）
         </Label>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Input
@@ -152,12 +157,12 @@ function TeachersPage() {
           </Button>
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          提示：对方需先在登录页用该邮箱完成注册，然后你才能在此处授权。
+          提示：管理员可以查看和修改所有老师的学生档案；普通教师账号仅可管理自己创建的学生。
         </p>
       </form>
 
       <div className="mb-3 text-sm font-medium text-foreground">
-        当前教师列表
+        全部教师账号
       </div>
       {loading ? (
         <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
@@ -165,7 +170,7 @@ function TeachersPage() {
         </div>
       ) : teachers.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center text-sm text-muted-foreground">
-          暂无教师账号
+          暂无注册账号
         </div>
       ) : (
         <div className="space-y-2">
@@ -174,33 +179,45 @@ function TeachersPage() {
             return (
               <div
                 key={t.user_id}
-                className="flex items-center justify-between rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-card)]"
+                className="flex items-center gap-2 rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-soft)]"
               >
-                <div className="flex items-center gap-3">
+                <Link
+                  to="/admin/teachers/$teacherId"
+                  params={{ teacherId: t.user_id }}
+                  className="flex flex-1 items-center gap-3"
+                >
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/60 text-accent-foreground">
-                    <ShieldCheck className="h-5 w-5" />
+                    {t.is_admin ? <ShieldCheck className="h-5 w-5" /> : <Users className="h-5 w-5" />}
                   </div>
-                  <div>
-                    <div className="text-sm font-medium text-foreground">
+                  <div className="flex-1">
+                    <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
                       {t.email}
+                      {t.is_admin && (
+                        <span className="rounded-md bg-primary/15 px-1.5 py-0.5 text-xs text-primary">
+                          管理员
+                        </span>
+                      )}
                       {isSelf && (
-                        <span className="ml-2 rounded-md bg-accent/60 px-1.5 py-0.5 text-xs text-accent-foreground">
+                        <span className="rounded-md bg-accent/60 px-1.5 py-0.5 text-xs text-accent-foreground">
                           你自己
                         </span>
                       )}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      授权时间：{new Date(t.created_at).toLocaleString("zh-CN")}
+                      创建学生 {t.student_count} 人 · 注册时间：
+                      {new Date(t.created_at).toLocaleString("zh-CN")}
                     </div>
                   </div>
-                </div>
-                {!isSelf && (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </Link>
+                {t.is_admin && !isSelf && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
                         variant="ghost"
                         size="icon"
                         className="text-muted-foreground hover:text-destructive"
+                        title="撤销管理员"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -208,10 +225,10 @@ function TeachersPage() {
                     <AlertDialogContent>
                       <AlertDialogHeader>
                         <AlertDialogTitle>
-                          撤销「{t.email}」的教师权限？
+                          撤销「{t.email}」的管理员权限？
                         </AlertDialogTitle>
                         <AlertDialogDescription>
-                          撤销后该账号将无法再访问管理后台。账号本身不会被删除。
+                          撤销后，该账号将变成普通教师，仅能管理自己创建的学生。账号本身不会被删除。
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
