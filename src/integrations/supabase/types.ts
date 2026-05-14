@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      assessment_items: {
+        Row: {
+          category: Database["public"]["Enums"]["assessment_category"]
+          comment: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          item_name: string
+          rating: number | null
+          sort_order: number
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["assessment_category"]
+          comment?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          item_name: string
+          rating?: number | null
+          sort_order?: number
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["assessment_category"]
+          comment?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          item_name?: string
+          rating?: number | null
+          sort_order?: number
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_items_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ratings: {
         Row: {
           accuracy: number
@@ -121,6 +168,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin"
+      assessment_category: "knowledge" | "thinking" | "learning_quality"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -249,6 +297,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin"],
+      assessment_category: ["knowledge", "thinking", "learning_quality"],
     },
   },
 } as const
