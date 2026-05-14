@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash2, BookOpen, Brain, Sparkles } from "lucide-react";
+import { Plus, Trash2, BookOpen, Brain, Sparkles, BellRing } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { StarRating } from "@/components/star-rating";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,14 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { toast } from "sonner";
+import {
+  type AssessmentCategory,
+  type AssessmentTimestamps,
+  isUnread,
+  markViewed,
+} from "@/lib/assessment-updates";
 
-type Category = "knowledge" | "thinking" | "learning_quality";
+type Category = AssessmentCategory;
 
 interface Item {
   id: string;
@@ -33,11 +39,19 @@ const CATEGORIES: { key: Category; label: string; icon: typeof BookOpen; desc: s
 interface Props {
   studentId: string;
   editable: boolean;
+  timestamps: AssessmentTimestamps;
+  onTimestampChange?: (category: Category, at: string) => void;
 }
 
-export function ComprehensiveAssessment({ studentId, editable }: Props) {
+export function ComprehensiveAssessment({
+  studentId,
+  editable,
+  timestamps,
+  onTimestampChange,
+}: Props) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const [openValues, setOpenValues] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,15 +79,54 @@ export function ComprehensiveAssessment({ studentId, editable }: Props) {
   const removeItem = (id: string) =>
     setItems((prev) => prev.filter((i) => i.id !== id));
 
+  const handleMarkUpdated = async (category: Category) => {
+    const now = new Date().toISOString();
+    const patch =
+      category === "knowledge"
+        ? { knowledge_updated_at: now }
+        : category === "thinking"
+          ? { thinking_updated_at: now }
+          : { learning_quality_updated_at: now };
+    const { error } = await supabase
+      .from("students")
+      .update(patch)
+      .eq("id", studentId);
+    if (error) {
+      toast.error("更新失败：" + error.message);
+      return;
+    }
+    onTimestampChange?.(category, now);
+    toast.success("已通知家长查看更新");
+  };
+
+  const handleAccordionChange = (values: string[]) => {
+    if (!editable) {
+      // mark newly opened categories as viewed
+      const newlyOpened = values.filter((v) => !openValues.includes(v)) as Category[];
+      newlyOpened.forEach((cat) => {
+        const ts = timestamps[cat];
+        if (ts) markViewed(studentId, cat, ts);
+      });
+    }
+    setOpenValues(values);
+  };
+
   if (loading) {
     return <div className="text-center text-sm text-muted-foreground">加载中...</div>;
   }
 
   return (
-    <Accordion type="multiple" className="space-y-3">
+    <Accordion
+      type="multiple"
+      className="space-y-3"
+      value={openValues}
+      onValueChange={handleAccordionChange}
+    >
       {CATEGORIES.map((cat) => {
         const list = items.filter((i) => i.category === cat.key);
         const Icon = cat.icon;
+        const ts = timestamps[cat.key];
+        const unread = !editable && isUnread(studentId, cat.key, ts);
         return (
           <AccordionItem
             key={cat.key}
@@ -81,14 +134,36 @@ export function ComprehensiveAssessment({ studentId, editable }: Props) {
             className="rounded-2xl border border-border bg-card px-5 shadow-[var(--shadow-card)]"
           >
             <AccordionTrigger className="hover:no-underline">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <div className="flex w-full items-center gap-3 pr-2">
+                <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
                   <Icon className="h-4 w-4" />
+                  {unread && (
+                    <span className="absolute -right-1 -top-1 flex h-3 w-3">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+                      <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
+                    </span>
+                  )}
                 </div>
-                <div className="text-left">
-                  <div className="text-base font-semibold text-foreground">{cat.label}</div>
+                <div className="flex-1 text-left">
+                  <div className="flex items-center gap-2 text-base font-semibold text-foreground">
+                    {cat.label}
+                    {unread && (
+                      <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-600">
+                        有更新
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs text-muted-foreground">
                     {cat.desc} · 共 {list.length} 项
+                    {ts && (
+                      <>
+                        {" · 上次更新 "}
+                        {new Date(ts).toLocaleDateString("zh-CN", {
+                          month: "numeric",
+                          day: "numeric",
+                        })}
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -103,6 +178,21 @@ export function ComprehensiveAssessment({ studentId, editable }: Props) {
                 onPatch={patchItem}
                 onRemove={removeItem}
               />
+              {editable && (
+                <div className="flex items-center justify-end gap-2 border-t border-border/60 pt-3">
+                  <span className="text-xs text-muted-foreground">
+                    完成评分后点击右侧按钮通知家长
+                  </span>
+                  <Button
+                    type="button"
+                    onClick={() => handleMarkUpdated(cat.key)}
+                    className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    <BellRing className="h-4 w-4" />
+                    标记为已更新
+                  </Button>
+                </div>
+              )}
             </AccordionContent>
           </AccordionItem>
         );

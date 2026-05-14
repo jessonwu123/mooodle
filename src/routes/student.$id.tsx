@@ -6,6 +6,7 @@ import { StarRating } from "@/components/star-rating";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ComprehensiveAssessment } from "@/components/comprehensive-assessment";
+import { type AssessmentTimestamps, isUnread } from "@/lib/assessment-updates";
 
 export const Route = createFileRoute("/student/$id")({
   component: StudentProfile,
@@ -36,13 +37,21 @@ function StudentProfile() {
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound404, setNotFound] = useState(false);
+  const [timestamps, setTimestamps] = useState<AssessmentTimestamps>({
+    knowledge: null,
+    thinking: null,
+    learning_quality: null,
+  });
+  const [activeTab, setActiveTab] = useState("lessons");
 
   useEffect(() => {
     (async () => {
       setLoading(true);
       const { data: s } = await supabase
         .from("students")
-        .select("name")
+        .select(
+          "name, knowledge_updated_at, thinking_updated_at, learning_quality_updated_at",
+        )
         .eq("id", id)
         .maybeSingle();
       if (!s) {
@@ -50,7 +59,12 @@ function StudentProfile() {
         setLoading(false);
         return;
       }
-      setStudent(s);
+      setStudent({ name: s.name });
+      setTimestamps({
+        knowledge: s.knowledge_updated_at,
+        thinking: s.thinking_updated_at,
+        learning_quality: s.learning_quality_updated_at,
+      });
       const { data: r } = await supabase
         .from("ratings")
         .select("id, lesson_date, lesson_name, summary, overall_assessment, focus, interaction, discipline, accuracy")
@@ -60,6 +74,15 @@ function StudentProfile() {
       setLoading(false);
     })();
   }, [id]);
+
+  const hasUnread =
+    isUnread(id, "knowledge", timestamps.knowledge) ||
+    isUnread(id, "thinking", timestamps.thinking) ||
+    isUnread(id, "learning_quality", timestamps.learning_quality);
+
+  const handleTabChange = (v: string) => {
+    setActiveTab(v);
+  };
 
   const avg = (key: keyof Rating) => {
     if (ratings.length === 0) return 0;
@@ -113,10 +136,20 @@ function StudentProfile() {
           </div>
         </div>
 
-        <Tabs defaultValue="lessons" className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="mb-6 grid w-full max-w-md grid-cols-2">
             <TabsTrigger value="lessons">课堂记录</TabsTrigger>
-            <TabsTrigger value="comprehensive">综合素质</TabsTrigger>
+            <TabsTrigger value="comprehensive" className="relative">
+              <span className={hasUnread ? "animate-pulse font-semibold text-red-600" : undefined}>
+                综合素质
+              </span>
+              {hasUnread && (
+                <span className="ml-2 flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-2.5 w-2.5 animate-ping rounded-full bg-red-500 opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+                </span>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="lessons" className="space-y-8">
@@ -209,7 +242,11 @@ function StudentProfile() {
           </TabsContent>
 
           <TabsContent value="comprehensive">
-            <ComprehensiveAssessment studentId={id} editable={false} />
+            <ComprehensiveAssessment
+              studentId={id}
+              editable={false}
+              timestamps={timestamps}
+            />
           </TabsContent>
         </Tabs>
       </main>
