@@ -167,7 +167,7 @@ function ManageStudent() {
           }}
         >
           <DialogTrigger asChild>
-            <Button className="gap-1.5 bg-[var(--gradient-hero)] text-primary-foreground shadow-[var(--shadow-soft)] hover:opacity-90">
+            <Button className="gap-1.5 bg-green-500 text-primary-foreground shadow-[var(--shadow-soft)] hover:bg-green-600">
               <Plus className="h-4 w-4" />
               新增课堂评分
             </Button>
