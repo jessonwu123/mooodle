@@ -357,7 +357,14 @@ function ManageStudent() {
         </TabsContent>
 
         <TabsContent value="comprehensive">
-          <ComprehensiveAssessment studentId={id} editable={true} />
+          <ComprehensiveAssessment
+            studentId={id}
+            editable={true}
+            timestamps={timestamps}
+            onTimestampChange={(cat, at) =>
+              setTimestamps((prev) => ({ ...prev, [cat]: at }))
+            }
+          />
         </TabsContent>
       </Tabs>
     </div>
