@@ -139,10 +139,20 @@ function StudentProfile() {
           </div>
         </div>
 
-        <Tabs defaultValue="lessons" className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="mb-6 grid w-full max-w-md grid-cols-2">
             <TabsTrigger value="lessons">课堂记录</TabsTrigger>
-            <TabsTrigger value="comprehensive">综合素质</TabsTrigger>
+            <TabsTrigger value="comprehensive" className="relative">
+              <span className={hasUnread ? "animate-pulse font-semibold text-red-600" : undefined}>
+                综合素质
+              </span>
+              {hasUnread && (
+                <span className="ml-2 flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-2.5 w-2.5 animate-ping rounded-full bg-red-500 opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+                </span>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="lessons" className="space-y-8">
