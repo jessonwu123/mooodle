@@ -12,6 +12,9 @@ export const Route = createFileRoute("/student/$id")({
 interface Rating {
   id: string;
   lesson_date: string;
+  lesson_name: string | null;
+  summary: string | null;
+  overall_assessment: number | null;
   focus: number;
   interaction: number;
   discipline: number;
