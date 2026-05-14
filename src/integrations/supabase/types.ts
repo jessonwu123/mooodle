@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      assessment_item_history: {
+        Row: {
+          comment: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          item_id: string
+          rating: number | null
+          student_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          item_id: string
+          rating?: number | null
+          student_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          item_id?: string
+          rating?: number | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_item_history_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assessment_items: {
         Row: {
           category: Database["public"]["Enums"]["assessment_category"]
