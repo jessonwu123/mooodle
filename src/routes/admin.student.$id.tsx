@@ -35,11 +35,21 @@ export const Route = createFileRoute("/admin/student/$id")({
 interface Rating {
   id: string;
   lesson_date: string;
+  lesson_name: string | null;
+  summary: string | null;
+  overall_assessment: number | null;
   focus: number;
   interaction: number;
   discipline: number;
   accuracy: number;
 }
+
+const dimensions = [
+  { key: "focus" as const, label: "专注力" },
+  { key: "interaction" as const, label: "互动性" },
+  { key: "discipline" as const, label: "课堂纪律" },
+  { key: "accuracy" as const, label: "做题准确率" },
+];
 
 const dimensions = [
   { key: "focus" as const, label: "专注力" },
