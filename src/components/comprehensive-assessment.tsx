@@ -193,27 +193,30 @@ function CategoryTable({
         />
       ))}
       {editable && (
-        <div className="flex items-center gap-2 pt-2">
-          <Input
-            value={newName}
-            placeholder="新增评估项目名称"
-            onChange={(e) => setNewName(e.target.value)}
+        <div className="space-y-2 pt-2">
+          <Textarea
+            value={newNames}
+            placeholder="新增评估项目（可一次添加多个，每行一个，或用逗号分隔）"
+            rows={2}
+            onChange={(e) => setNewNames(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
                 handleAdd();
               }
             }}
           />
-          <Button
-            type="button"
-            onClick={handleAdd}
-            disabled={busy || !newName.trim()}
-            className="gap-1.5 bg-green-500 text-primary-foreground hover:bg-green-600"
-          >
-            <Plus className="h-4 w-4" />
-            添加
-          </Button>
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              onClick={handleAdd}
+              disabled={busy || !newNames.trim()}
+              className="gap-1.5 bg-green-500 text-primary-foreground hover:bg-green-600"
+            >
+              <Plus className="h-4 w-4" />
+              添加（⌘/Ctrl+Enter）
+            </Button>
+          </div>
         </div>
       )}
     </div>
