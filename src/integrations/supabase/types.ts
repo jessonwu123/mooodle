@@ -24,7 +24,10 @@ export type Database = {
           id: string
           interaction: number
           lesson_date: string
+          lesson_name: string | null
+          overall_assessment: number | null
           student_id: string
+          summary: string | null
         }
         Insert: {
           accuracy: number
@@ -35,7 +38,10 @@ export type Database = {
           id?: string
           interaction: number
           lesson_date: string
+          lesson_name?: string | null
+          overall_assessment?: number | null
           student_id: string
+          summary?: string | null
         }
         Update: {
           accuracy?: number
@@ -46,7 +52,10 @@ export type Database = {
           id?: string
           interaction?: number
           lesson_date?: string
+          lesson_name?: string | null
+          overall_assessment?: number | null
           student_id?: string
+          summary?: string | null
         }
         Relationships: [
           {

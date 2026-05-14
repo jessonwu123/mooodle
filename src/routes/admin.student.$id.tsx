@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { StarRating } from "@/components/star-rating";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -34,6 +35,9 @@ export const Route = createFileRoute("/admin/student/$id")({
 interface Rating {
   id: string;
   lesson_date: string;
+  lesson_name: string | null;
+  summary: string | null;
+  overall_assessment: number | null;
   focus: number;
   interaction: number;
   discipline: number;
@@ -58,6 +62,9 @@ function ManageStudent() {
   const [busy, setBusy] = useState(false);
 
   const [date, setDate] = useState(today());
+  const [lessonName, setLessonName] = useState("");
+  const [summary, setSummary] = useState("");
+  const [overall, setOverall] = useState(5);
   const [scores, setScores] = useState({
     focus: 5,
     interaction: 5,
@@ -71,7 +78,7 @@ function ManageStudent() {
       supabase.from("students").select("name").eq("id", id).maybeSingle(),
       supabase
         .from("ratings")
-        .select("id, lesson_date, focus, interaction, discipline, accuracy")
+        .select("id, lesson_date, lesson_name, summary, overall_assessment, focus, interaction, discipline, accuracy")
         .eq("student_id", id)
         .order("lesson_date", { ascending: false }),
     ]);
@@ -86,6 +93,9 @@ function ManageStudent() {
 
   const resetForm = () => {
     setDate(today());
+    setLessonName("");
+    setSummary("");
+    setOverall(5);
     setScores({ focus: 5, interaction: 5, discipline: 5, accuracy: 5 });
   };
 
@@ -96,6 +106,9 @@ function ManageStudent() {
     const { error } = await supabase.from("ratings").insert({
       student_id: id,
       lesson_date: date,
+      lesson_name: lessonName.trim() || null,
+      summary: summary.trim() || null,
+      overall_assessment: overall,
       ...scores,
       created_by: userData.user?.id,
     });
@@ -159,21 +172,33 @@ function ManageStudent() {
               新增课堂评分
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto">
             <DialogHeader>
               <DialogTitle>新增课堂评分</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSave} className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="date">上课日期</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  required
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="date">上课日期</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    required
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lessonName">本节课名称</Label>
+                  <Input
+                    id="lessonName"
+                    placeholder="如：分数加减法"
+                    value={lessonName}
+                    onChange={(e) => setLessonName(e.target.value)}
+                  />
+                </div>
               </div>
+
               <div className="space-y-3">
                 {dimensions.map((d) => (
                   <div
@@ -191,7 +216,25 @@ function ManageStudent() {
                     />
                   </div>
                 ))}
+                <div className="flex items-center justify-between rounded-lg bg-primary/10 px-4 py-3">
+                  <span className="text-sm font-semibold text-foreground">
+                    整体表现评估
+                  </span>
+                  <StarRating value={overall} onChange={setOverall} />
+                </div>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="summary">课堂总结</Label>
+                <Textarea
+                  id="summary"
+                  rows={4}
+                  placeholder="本节课内容、亮点、需改进之处等"
+                  value={summary}
+                  onChange={(e) => setSummary(e.target.value)}
+                />
+              </div>
+
               <DialogFooter>
                 <Button type="submit" disabled={busy}>
                   {busy ? "保存中..." : "保存评分"}
@@ -213,14 +256,21 @@ function ManageStudent() {
               key={r.id}
               className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]"
             >
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <Calendar className="h-4 w-4 text-primary" />
-                  {new Date(r.lesson_date).toLocaleDateString("zh-CN", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <Calendar className="h-4 w-4 text-primary" />
+                    {new Date(r.lesson_date).toLocaleDateString("zh-CN", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </div>
+                  {r.lesson_name && (
+                    <div className="mt-1 text-base font-semibold text-foreground">
+                      {r.lesson_name}
+                    </div>
+                  )}
                 </div>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -259,7 +309,18 @@ function ManageStudent() {
                     <StarRating value={r[d.key]} size="sm" readOnly />
                   </div>
                 ))}
+                {r.overall_assessment != null && (
+                  <div className="flex items-center justify-between rounded-lg bg-primary/10 px-3 py-2 sm:col-span-2">
+                    <span className="text-sm font-semibold text-foreground">整体表现</span>
+                    <StarRating value={r.overall_assessment} size="sm" readOnly />
+                  </div>
+                )}
               </div>
+              {r.summary && (
+                <div className="mt-3 whitespace-pre-wrap rounded-lg bg-muted/40 px-3 py-2 text-sm text-foreground">
+                  {r.summary}
+                </div>
+              )}
             </article>
           ))}
         </div>
