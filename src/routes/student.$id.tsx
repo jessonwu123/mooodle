@@ -149,14 +149,21 @@ function StudentProfile() {
                   key={r.id}
                   className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]"
                 >
-                  <div className="mb-4 flex items-center gap-2 text-sm font-medium text-foreground">
-                    <Calendar className="h-4 w-4 text-primary" />
-                    {new Date(r.lesson_date).toLocaleDateString("zh-CN", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                      weekday: "short",
-                    })}
+                  <div className="mb-3">
+                    <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                      <Calendar className="h-4 w-4 text-primary" />
+                      {new Date(r.lesson_date).toLocaleDateString("zh-CN", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                        weekday: "short",
+                      })}
+                    </div>
+                    {r.lesson_name && (
+                      <div className="mt-1 text-base font-semibold text-foreground">
+                        {r.lesson_name}
+                      </div>
+                    )}
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     {dimensions.map((d) => (
@@ -170,7 +177,21 @@ function StudentProfile() {
                         <StarRating value={r[d.key]} size="sm" readOnly />
                       </div>
                     ))}
+                    {r.overall_assessment != null && (
+                      <div className="flex items-center justify-between rounded-lg bg-primary/10 px-3 py-2 sm:col-span-2">
+                        <span className="text-sm font-semibold text-foreground">
+                          整体表现
+                        </span>
+                        <StarRating value={r.overall_assessment} size="sm" readOnly />
+                      </div>
+                    )}
                   </div>
+                  {r.summary && (
+                    <div className="mt-3 whitespace-pre-wrap rounded-lg bg-muted/40 px-3 py-2 text-sm text-foreground">
+                      <div className="mb-1 text-xs font-medium text-muted-foreground">课堂总结</div>
+                      {r.summary}
+                    </div>
+                  )}
                 </article>
               ))}
             </div>
