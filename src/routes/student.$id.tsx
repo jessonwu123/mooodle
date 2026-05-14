@@ -6,6 +6,7 @@ import { StarRating } from "@/components/star-rating";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ComprehensiveAssessment } from "@/components/comprehensive-assessment";
+import { type AssessmentTimestamps, isUnread, markViewed } from "@/lib/assessment-updates";
 
 export const Route = createFileRoute("/student/$id")({
   component: StudentProfile,
