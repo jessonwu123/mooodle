@@ -39,21 +39,31 @@ export function ComprehensiveAssessment({ studentId, editable }: Props) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from("assessment_items")
-      .select("id, category, item_name, rating, comment, sort_order")
-      .eq("student_id", studentId)
-      .order("category")
-      .order("sort_order");
-    setItems((data ?? []) as Item[]);
-    setLoading(false);
-  };
-
   useEffect(() => {
-    load();
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from("assessment_items")
+        .select("id, category, item_name, rating, comment, sort_order")
+        .eq("student_id", studentId)
+        .order("category")
+        .order("sort_order");
+      if (!cancelled) {
+        setItems((data ?? []) as Item[]);
+        setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [studentId]);
+
+  const addItem = (item: Item) => setItems((prev) => [...prev, item]);
+  const patchItem = (id: string, patch: Partial<Item>) =>
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+  const removeItem = (id: string) =>
+    setItems((prev) => prev.filter((i) => i.id !== id));
 
   if (loading) {
     return <div className="text-center text-sm text-muted-foreground">加载中...</div>;
@@ -89,7 +99,9 @@ export function ComprehensiveAssessment({ studentId, editable }: Props) {
                 studentId={studentId}
                 items={list}
                 editable={editable}
-                onChange={load}
+                onAdd={addItem}
+                onPatch={patchItem}
+                onRemove={removeItem}
               />
             </AccordionContent>
           </AccordionItem>
@@ -104,57 +116,64 @@ function CategoryTable({
   studentId,
   items,
   editable,
-  onChange,
+  onAdd,
+  onPatch,
+  onRemove,
 }: {
   category: Category;
   studentId: string;
   items: Item[];
   editable: boolean;
-  onChange: () => void;
+  onAdd: (item: Item) => void;
+  onPatch: (id: string, patch: Partial<Item>) => void;
+  onRemove: (id: string) => void;
 }) {
-  const [newName, setNewName] = useState("");
+  const [newNames, setNewNames] = useState("");
   const [busy, setBusy] = useState(false);
 
   const handleAdd = async () => {
-    if (!newName.trim()) return;
+    const names = newNames
+      .split(/[\n,，]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (names.length === 0) return;
     setBusy(true);
     const { data: u } = await supabase.auth.getUser();
-    const { error } = await supabase.from("assessment_items").insert({
+    const rows = names.map((name, i) => ({
       student_id: studentId,
       category,
-      item_name: newName.trim(),
+      item_name: name,
       rating: null,
-      sort_order: items.length,
+      sort_order: items.length + i,
       created_by: u.user?.id,
-    });
+    }));
+    const { data, error } = await supabase
+      .from("assessment_items")
+      .insert(rows)
+      .select("id, category, item_name, rating, comment, sort_order");
     setBusy(false);
-    if (error) {
-      toast.error("添加失败：" + error.message);
+    if (error || !data) {
+      toast.error("添加失败：" + (error?.message ?? ""));
       return;
     }
-    setNewName("");
-    onChange();
+    (data as Item[]).forEach(onAdd);
+    toast.success(`已添加 ${data.length} 项`);
+    setNewNames("");
   };
 
   const handleUpdate = async (id: string, patch: Partial<Item>) => {
+    onPatch(id, patch); // optimistic
     const { error } = await supabase
       .from("assessment_items")
       .update(patch)
       .eq("id", id);
-    if (error) {
-      toast.error("保存失败");
-      return;
-    }
-    onChange();
+    if (error) toast.error("保存失败");
   };
 
   const handleDelete = async (id: string) => {
+    onRemove(id); // optimistic
     const { error } = await supabase.from("assessment_items").delete().eq("id", id);
-    if (error) {
-      toast.error("删除失败");
-      return;
-    }
-    onChange();
+    if (error) toast.error("删除失败");
   };
 
   return (
@@ -174,27 +193,30 @@ function CategoryTable({
         />
       ))}
       {editable && (
-        <div className="flex items-center gap-2 pt-2">
-          <Input
-            value={newName}
-            placeholder="新增评估项目名称"
-            onChange={(e) => setNewName(e.target.value)}
+        <div className="space-y-2 pt-2">
+          <Textarea
+            value={newNames}
+            placeholder="新增评估项目（可一次添加多个，每行一个，或用逗号分隔）"
+            rows={2}
+            onChange={(e) => setNewNames(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
                 handleAdd();
               }
             }}
           />
-          <Button
-            type="button"
-            onClick={handleAdd}
-            disabled={busy || !newName.trim()}
-            className="gap-1.5 bg-green-500 text-primary-foreground hover:bg-green-600"
-          >
-            <Plus className="h-4 w-4" />
-            添加
-          </Button>
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              onClick={handleAdd}
+              disabled={busy || !newNames.trim()}
+              className="gap-1.5 bg-green-500 text-primary-foreground hover:bg-green-600"
+            >
+              <Plus className="h-4 w-4" />
+              添加（⌘/Ctrl+Enter）
+            </Button>
+          </div>
         </div>
       )}
     </div>
