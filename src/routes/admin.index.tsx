@@ -38,7 +38,7 @@ interface Student {
 }
 
 function AdminHome() {
-  const { session } = useAuth();
+  const { session, isAdmin } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
