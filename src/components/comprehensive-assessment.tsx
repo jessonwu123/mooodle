@@ -81,11 +81,16 @@ export function ComprehensiveAssessment({
     setItems((prev) => prev.filter((i) => i.id !== id));
 
   const handleMarkUpdated = async (category: Category) => {
-    const col = CATEGORY_TIMESTAMP_COLUMN[category];
     const now = new Date().toISOString();
+    const patch =
+      category === "knowledge"
+        ? { knowledge_updated_at: now }
+        : category === "thinking"
+          ? { thinking_updated_at: now }
+          : { learning_quality_updated_at: now };
     const { error } = await supabase
       .from("students")
-      .update({ [col]: now })
+      .update(patch)
       .eq("id", studentId);
     if (error) {
       toast.error("更新失败：" + error.message);
