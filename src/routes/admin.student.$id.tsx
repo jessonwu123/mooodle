@@ -93,6 +93,9 @@ function ManageStudent() {
 
   const resetForm = () => {
     setDate(today());
+    setLessonName("");
+    setSummary("");
+    setOverall(5);
     setScores({ focus: 5, interaction: 5, discipline: 5, accuracy: 5 });
   };
 
@@ -103,6 +106,9 @@ function ManageStudent() {
     const { error } = await supabase.from("ratings").insert({
       student_id: id,
       lesson_date: date,
+      lesson_name: lessonName.trim() || null,
+      summary: summary.trim() || null,
+      overall_assessment: overall,
       ...scores,
       created_by: userData.user?.id,
     });
