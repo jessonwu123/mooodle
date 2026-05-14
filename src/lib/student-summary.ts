@@ -93,23 +93,46 @@ export async function buildStudentMonthlySummary(
     });
   }
 
-  // 综合素质变化
-  lines.push(`二、综合素质（最近一个月有更新的项目）`);
-  if (!items || items.length === 0) {
+  // 综合素质变化（基于最近一个月的保存历史）
+  lines.push(`二、综合素质变化（最近一个月）`);
+  const histByItem = new Map<string, { rating: number | null; comment: string | null; created_at: string }[]>();
+  (histories ?? []).forEach((h) => {
+    const list = histByItem.get(h.item_id) ?? [];
+    list.push({ rating: h.rating, comment: h.comment, created_at: h.created_at });
+    histByItem.set(h.item_id, list);
+  });
+
+  const itemsWithHistory = (items ?? []).filter((it) => histByItem.has(it.id));
+  if (itemsWithHistory.length === 0) {
     lines.push("  最近一个月综合素质无更新。");
   } else {
-    const grouped: Record<string, typeof items> = {};
-    items.forEach((it) => {
+    const grouped: Record<string, typeof itemsWithHistory> = {};
+    itemsWithHistory.forEach((it) => {
       const k = it.category as string;
       (grouped[k] ||= [] as any).push(it);
     });
     Object.keys(grouped).forEach((cat) => {
       lines.push(`  · ${CATEGORY_LABEL[cat] ?? cat}`);
       grouped[cat].forEach((it) => {
-        const r = it.rating != null ? `${it.rating}星` : "未评分";
+        const hist = histByItem.get(it.id) ?? [];
+        const first = hist[0];
+        const last = hist[hist.length - 1];
+        const fromR = first.rating != null ? `${first.rating}星` : "未评分";
+        const toR = last.rating != null ? `${last.rating}星` : "未评分";
+        const arrow = fromR === toR ? `保持 ${toR}` : `${fromR} → ${toR}`;
         lines.push(
-          `    - ${it.item_name}：${r}${it.comment ? `（${it.comment}）` : ""}`,
+          `    - ${it.item_name}：${arrow}（共 ${hist.length} 次更新）`,
         );
+        hist.forEach((h) => {
+          const date = new Date(h.created_at).toLocaleDateString("zh-CN", {
+            month: "numeric",
+            day: "numeric",
+          });
+          const r = h.rating != null ? `${h.rating}星` : "未评分";
+          lines.push(
+            `        · ${date} ${r}${h.comment ? `（${h.comment}）` : ""}`,
+          );
+        });
       });
     });
   }
