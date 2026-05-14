@@ -4,6 +4,8 @@ import { ArrowLeft, Calendar, GraduationCap, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { StarRating } from "@/components/star-rating";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ComprehensiveAssessment } from "@/components/comprehensive-assessment";
 
 export const Route = createFileRoute("/student/$id")({
   component: StudentProfile,
