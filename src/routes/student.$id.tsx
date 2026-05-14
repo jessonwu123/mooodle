@@ -37,13 +37,21 @@ function StudentProfile() {
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound404, setNotFound] = useState(false);
+  const [timestamps, setTimestamps] = useState<AssessmentTimestamps>({
+    knowledge: null,
+    thinking: null,
+    learning_quality: null,
+  });
+  const [activeTab, setActiveTab] = useState("lessons");
 
   useEffect(() => {
     (async () => {
       setLoading(true);
       const { data: s } = await supabase
         .from("students")
-        .select("name")
+        .select(
+          "name, knowledge_updated_at, thinking_updated_at, learning_quality_updated_at",
+        )
         .eq("id", id)
         .maybeSingle();
       if (!s) {
@@ -51,7 +59,12 @@ function StudentProfile() {
         setLoading(false);
         return;
       }
-      setStudent(s);
+      setStudent({ name: s.name });
+      setTimestamps({
+        knowledge: s.knowledge_updated_at,
+        thinking: s.thinking_updated_at,
+        learning_quality: s.learning_quality_updated_at,
+      });
       const { data: r } = await supabase
         .from("ratings")
         .select("id, lesson_date, lesson_name, summary, overall_assessment, focus, interaction, discipline, accuracy")
@@ -61,6 +74,18 @@ function StudentProfile() {
       setLoading(false);
     })();
   }, [id]);
+
+  const hasUnread =
+    isUnread(id, "knowledge", timestamps.knowledge) ||
+    isUnread(id, "thinking", timestamps.thinking) ||
+    isUnread(id, "learning_quality", timestamps.learning_quality);
+
+  const handleTabChange = (v: string) => {
+    setActiveTab(v);
+    // Opening the tab itself does NOT mark categories viewed — only opening
+    // a specific accordion does. This way the per-category dots persist.
+  };
+  void markViewed; // imported for component use; keep linter happy
 
   const avg = (key: keyof Rating) => {
     if (ratings.length === 0) return 0;
