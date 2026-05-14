@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Plus, Trash2, BookOpen, Brain, Sparkles, BellRing } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Plus, Trash2, BookOpen, Brain, Sparkles, BellRing, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { StarRating } from "@/components/star-rating";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import {
   isUnread,
   markViewed,
 } from "@/lib/assessment-updates";
+import { Sparkline } from "@/components/sparkline";
 
 type Category = AssessmentCategory;
 
@@ -28,6 +29,14 @@ interface Item {
   rating: number | null;
   comment: string | null;
   sort_order: number;
+}
+
+interface HistoryEntry {
+  id: string;
+  item_id: string;
+  rating: number | null;
+  comment: string | null;
+  created_at: string;
 }
 
 const CATEGORIES: { key: Category; label: string; icon: typeof BookOpen; desc: string }[] = [
@@ -50,21 +59,39 @@ export function ComprehensiveAssessment({
   onTimestampChange,
 }: Props) {
   const [items, setItems] = useState<Item[]>([]);
+  // 已保存的快照，用于判断哪些项发生了实际变化
+  const savedSnapshotRef = useRef<Map<string, { rating: number | null; comment: string | null }>>(
+    new Map(),
+  );
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [openValues, setOpenValues] = useState<string[]>([]);
+  const [savingCategory, setSavingCategory] = useState<Category | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from("assessment_items")
-        .select("id, category, item_name, rating, comment, sort_order")
-        .eq("student_id", studentId)
-        .order("category")
-        .order("sort_order");
+      const [{ data: itemsData }, { data: historyData }] = await Promise.all([
+        supabase
+          .from("assessment_items")
+          .select("id, category, item_name, rating, comment, sort_order")
+          .eq("student_id", studentId)
+          .order("category")
+          .order("sort_order"),
+        supabase
+          .from("assessment_item_history")
+          .select("id, item_id, rating, comment, created_at")
+          .eq("student_id", studentId)
+          .order("created_at", { ascending: true }),
+      ]);
       if (!cancelled) {
-        setItems((data ?? []) as Item[]);
+        const list = (itemsData ?? []) as Item[];
+        setItems(list);
+        const snap = new Map<string, { rating: number | null; comment: string | null }>();
+        list.forEach((i) => snap.set(i.id, { rating: i.rating, comment: i.comment }));
+        savedSnapshotRef.current = snap;
+        setHistory((historyData ?? []) as HistoryEntry[]);
         setLoading(false);
       }
     })();
@@ -73,11 +100,77 @@ export function ComprehensiveAssessment({
     };
   }, [studentId]);
 
-  const addItem = (item: Item) => setItems((prev) => [...prev, item]);
+  const addItem = (item: Item) => {
+    setItems((prev) => [...prev, item]);
+    savedSnapshotRef.current.set(item.id, { rating: item.rating, comment: item.comment });
+  };
   const patchItem = (id: string, patch: Partial<Item>) =>
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
-  const removeItem = (id: string) =>
+  const removeItem = (id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
+    savedSnapshotRef.current.delete(id);
+    setHistory((prev) => prev.filter((h) => h.item_id !== id));
+  };
+
+  const handleSaveCategory = async (category: Category) => {
+    setSavingCategory(category);
+    const list = items.filter((i) => i.category === category);
+    const snap = savedSnapshotRef.current;
+    const changed = list.filter((i) => {
+      const prev = snap.get(i.id);
+      if (!prev) return false; // 新增项已在新增时落库
+      return (
+        (prev.rating ?? null) !== (i.rating ?? null) ||
+        (prev.comment ?? null) !== (i.comment ?? null)
+      );
+    });
+    if (changed.length === 0) {
+      toast.info("没有需要保存的变更");
+      setSavingCategory(null);
+      return;
+    }
+
+    const { data: u } = await supabase.auth.getUser();
+    const uid = u.user?.id ?? null;
+
+    // 逐项更新 + 写入历史
+    let failed = 0;
+    const newHistoryEntries: HistoryEntry[] = [];
+    for (const it of changed) {
+      const { error: upErr } = await supabase
+        .from("assessment_items")
+        .update({ rating: it.rating, comment: it.comment })
+        .eq("id", it.id);
+      if (upErr) {
+        failed += 1;
+        continue;
+      }
+      const { data: h, error: hErr } = await supabase
+        .from("assessment_item_history")
+        .insert({
+          item_id: it.id,
+          student_id: studentId,
+          rating: it.rating,
+          comment: it.comment,
+          created_by: uid,
+        })
+        .select("id, item_id, rating, comment, created_at")
+        .single();
+      if (!hErr && h) {
+        newHistoryEntries.push(h as HistoryEntry);
+        snap.set(it.id, { rating: it.rating, comment: it.comment });
+      }
+    }
+    if (newHistoryEntries.length > 0) {
+      setHistory((prev) => [...prev, ...newHistoryEntries]);
+    }
+    setSavingCategory(null);
+    if (failed > 0) {
+      toast.error(`保存失败 ${failed} 项`);
+    } else {
+      toast.success(`已保存 ${changed.length} 项变更`);
+    }
+  };
 
   const handleMarkUpdated = async (category: Category) => {
     const now = new Date().toISOString();
@@ -101,7 +194,6 @@ export function ComprehensiveAssessment({
 
   const handleAccordionChange = (values: string[]) => {
     if (!editable) {
-      // mark newly opened categories as viewed
       const newlyOpened = values.filter((v) => !openValues.includes(v)) as Category[];
       newlyOpened.forEach((cat) => {
         const ts = timestamps[cat];
@@ -173,16 +265,27 @@ export function ComprehensiveAssessment({
                 category={cat.key}
                 studentId={studentId}
                 items={list}
+                history={history}
                 editable={editable}
                 onAdd={addItem}
                 onPatch={patchItem}
                 onRemove={removeItem}
               />
               {editable && (
-                <div className="flex items-center justify-end gap-2 border-t border-border/60 pt-3">
-                  <span className="text-xs text-muted-foreground">
-                    完成评分后点击右侧按钮通知家长
+                <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-3">
+                  <span className="mr-auto text-xs text-muted-foreground">
+                    点击"保存"将当前评分作为新一次记录写入历史
                   </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleSaveCategory(cat.key)}
+                    disabled={savingCategory === cat.key}
+                    className="gap-1.5"
+                  >
+                    <Save className="h-4 w-4" />
+                    {savingCategory === cat.key ? "保存中..." : "保存"}
+                  </Button>
                   <Button
                     type="button"
                     onClick={() => handleMarkUpdated(cat.key)}
@@ -205,6 +308,7 @@ function CategoryTable({
   category,
   studentId,
   items,
+  history,
   editable,
   onAdd,
   onPatch,
@@ -213,6 +317,7 @@ function CategoryTable({
   category: Category;
   studentId: string;
   items: Item[];
+  history: HistoryEntry[];
   editable: boolean;
   onAdd: (item: Item) => void;
   onPatch: (id: string, patch: Partial<Item>) => void;
@@ -251,17 +356,17 @@ function CategoryTable({
     setNewNames("");
   };
 
-  const handleUpdate = async (id: string, patch: Partial<Item>) => {
-    onPatch(id, patch); // optimistic
+  const handleUpdateName = async (id: string, name: string) => {
+    onPatch(id, { item_name: name });
     const { error } = await supabase
       .from("assessment_items")
-      .update(patch)
+      .update({ item_name: name })
       .eq("id", id);
-    if (error) toast.error("保存失败");
+    if (error) toast.error("名称保存失败");
   };
 
   const handleDelete = async (id: string) => {
-    onRemove(id); // optimistic
+    onRemove(id);
     const { error } = await supabase.from("assessment_items").delete().eq("id", id);
     if (error) toast.error("删除失败");
   };
@@ -277,8 +382,10 @@ function CategoryTable({
         <ItemRow
           key={item.id}
           item={item}
+          history={history.filter((h) => h.item_id === item.id)}
           editable={editable}
-          onUpdate={(patch) => handleUpdate(item.id, patch)}
+          onLocalChange={(patch) => onPatch(item.id, patch)}
+          onSaveName={(n) => handleUpdateName(item.id, n)}
           onDelete={() => handleDelete(item.id)}
         />
       ))}
@@ -315,13 +422,17 @@ function CategoryTable({
 
 function ItemRow({
   item,
+  history,
   editable,
-  onUpdate,
+  onLocalChange,
+  onSaveName,
   onDelete,
 }: {
   item: Item;
+  history: HistoryEntry[];
   editable: boolean;
-  onUpdate: (patch: Partial<Item>) => void;
+  onLocalChange: (patch: Partial<Item>) => void;
+  onSaveName: (n: string) => void;
   onDelete: () => void;
 }) {
   const [name, setName] = useState(item.item_name);
@@ -329,8 +440,18 @@ function ItemRow({
 
   useEffect(() => {
     setName(item.item_name);
+  }, [item.id, item.item_name]);
+  useEffect(() => {
     setComment(item.comment ?? "");
-  }, [item.id, item.item_name, item.comment]);
+  }, [item.id]);
+
+  // 用历史 + 当前评分（如果与最后一次历史不同）构造趋势点
+  const points = (() => {
+    const pts = history
+      .filter((h) => h.rating != null)
+      .map((h) => ({ x: new Date(h.created_at).getTime(), y: h.rating as number }));
+    return pts;
+  })();
 
   return (
     <div className="rounded-xl border border-border bg-muted/30 p-4">
@@ -341,31 +462,36 @@ function ItemRow({
               value={name}
               onChange={(e) => setName(e.target.value)}
               onBlur={() => {
-                if (name.trim() && name !== item.item_name) onUpdate({ item_name: name.trim() });
+                if (name.trim() && name !== item.item_name) onSaveName(name.trim());
               }}
               className="font-medium"
             />
           ) : (
             <div className="font-medium text-foreground">{item.item_name}</div>
           )}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="text-xs text-muted-foreground">评分</span>
             <StarRating
               value={item.rating ?? 0}
               readOnly={!editable}
-              onChange={(v) => onUpdate({ rating: v })}
+              onChange={(v) => onLocalChange({ rating: v })}
               size="sm"
             />
           </div>
+          {!editable && (
+            <div className="rounded-lg bg-background/60 px-3 py-2">
+              <div className="mb-1 text-xs text-muted-foreground">评分趋势</div>
+              <Sparkline points={points} />
+            </div>
+          )}
           {editable ? (
             <Textarea
               value={comment}
               rows={2}
               placeholder="备注（可选）"
-              onChange={(e) => setComment(e.target.value)}
-              onBlur={() => {
-                if ((comment || null) !== (item.comment || null))
-                  onUpdate({ comment: comment.trim() || null });
+              onChange={(e) => {
+                setComment(e.target.value);
+                onLocalChange({ comment: e.target.value.trim() || null });
               }}
             />
           ) : (
