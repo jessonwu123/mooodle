@@ -108,7 +108,7 @@ function LoginPage() {
             <Button
               type="submit"
               disabled={busy}
-              className="h-11 w-full bg-[var(--gradient-hero)] text-primary-foreground shadow-[var(--shadow-soft)] hover:opacity-90"
+              className="h-11 w-full bg-green-500 text-primary-foreground shadow-[var(--shadow-soft)] hover:bg-green-600"
             >
               {busy ? "处理中..." : mode === "signin" ? "登录" : "注册并登录"}
             </Button>
