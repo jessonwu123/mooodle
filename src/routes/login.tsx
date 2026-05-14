@@ -14,17 +14,17 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
-  const { session, isAdmin, loading } = useAuth();
+  const { session, isTeacher, loading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!loading && session && isAdmin) {
+    if (!loading && session && isTeacher) {
       navigate({ to: "/admin" });
     }
-  }, [session, isAdmin, loading, navigate]);
+  }, [session, isTeacher, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
