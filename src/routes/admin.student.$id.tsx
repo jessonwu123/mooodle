@@ -29,6 +29,7 @@ import {
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ComprehensiveAssessment } from "@/components/comprehensive-assessment";
+import type { AssessmentTimestamps } from "@/lib/assessment-updates";
 
 export const Route = createFileRoute("/admin/student/$id")({
   component: ManageStudent,
