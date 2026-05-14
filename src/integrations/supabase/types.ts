@@ -117,6 +117,7 @@ export type Database = {
       students: {
         Row: {
           created_at: string
+          created_by: string | null
           id: string
           knowledge_updated_at: string | null
           learning_quality_updated_at: string | null
@@ -125,6 +126,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
           id?: string
           knowledge_updated_at?: string | null
           learning_quality_updated_at?: string | null
@@ -133,6 +135,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          created_by?: string | null
           id?: string
           knowledge_updated_at?: string | null
           learning_quality_updated_at?: string | null
@@ -181,6 +184,25 @@ export type Database = {
           created_at: string
           email: string
           user_id: string
+        }[]
+      }
+      list_all_teachers: {
+        Args: never
+        Returns: {
+          created_at: string
+          email: string
+          is_admin: boolean
+          student_count: number
+          user_id: string
+        }[]
+      }
+      list_teacher_students: {
+        Args: { _teacher_id: string }
+        Returns: {
+          created_at: string
+          id: string
+          name: string
+          rating_count: number
         }[]
       }
     }
