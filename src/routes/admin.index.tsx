@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Plus, Users, ChevronRight, Trash2, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,6 +38,7 @@ interface Student {
 }
 
 function AdminHome() {
+  const { session, isAdmin } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -44,10 +46,12 @@ function AdminHome() {
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
+    if (!session?.user.id) return;
     setLoading(true);
     const { data, error } = await supabase
       .from("students")
       .select("id, name, ratings(count)")
+      .eq("created_by", session.user.id)
       .order("created_at", { ascending: false });
     if (error) {
       toast.error("加载失败");
@@ -66,7 +70,8 @@ function AdminHome() {
 
   useEffect(() => {
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user.id]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,12 +113,14 @@ function AdminHome() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          <Link to="/admin/teachers">
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <ShieldCheck className="h-4 w-4" />
-              教师管理
-            </Button>
-          </Link>
+          {isAdmin && (
+            <Link to="/admin/teachers">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <ShieldCheck className="h-4 w-4" />
+                教师管理
+              </Button>
+            </Link>
+          )}
           <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button className="gap-1.5 bg-green-500 text-primary-foreground shadow-[var(--shadow-soft)] hover:bg-green-600">
