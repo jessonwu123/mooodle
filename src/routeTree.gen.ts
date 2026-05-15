@@ -14,7 +14,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as StudentIdRouteImport } from './routes/student.$id'
-import { Route as AdminTeachersRouteImport } from './routes/admin.teachers'
+import { Route as AdminTeachersIndexRouteImport } from './routes/admin.teachers.index'
 import { Route as AdminTeachersTeacherIdRouteImport } from './routes/admin.teachers.$teacherId'
 import { Route as AdminStudentIdRouteImport } from './routes/admin.student.$id'
 
@@ -43,15 +43,15 @@ const StudentIdRoute = StudentIdRouteImport.update({
   path: '/student/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminTeachersRoute = AdminTeachersRouteImport.update({
-  id: '/teachers',
-  path: '/teachers',
+const AdminTeachersIndexRoute = AdminTeachersIndexRouteImport.update({
+  id: '/teachers/',
+  path: '/teachers/',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminTeachersTeacherIdRoute = AdminTeachersTeacherIdRouteImport.update({
-  id: '/$teacherId',
-  path: '/$teacherId',
-  getParentRoute: () => AdminTeachersRoute,
+  id: '/teachers/$teacherId',
+  path: '/teachers/$teacherId',
+  getParentRoute: () => AdminRoute,
 } as any)
 const AdminStudentIdRoute = AdminStudentIdRouteImport.update({
   id: '/student/$id',
@@ -63,31 +63,31 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
-  '/admin/teachers': typeof AdminTeachersRouteWithChildren
   '/student/$id': typeof StudentIdRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/student/$id': typeof AdminStudentIdRoute
   '/admin/teachers/$teacherId': typeof AdminTeachersTeacherIdRoute
+  '/admin/teachers/': typeof AdminTeachersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/admin/teachers': typeof AdminTeachersRouteWithChildren
   '/student/$id': typeof StudentIdRoute
   '/admin': typeof AdminIndexRoute
   '/admin/student/$id': typeof AdminStudentIdRoute
   '/admin/teachers/$teacherId': typeof AdminTeachersTeacherIdRoute
+  '/admin/teachers': typeof AdminTeachersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
-  '/admin/teachers': typeof AdminTeachersRouteWithChildren
   '/student/$id': typeof StudentIdRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/student/$id': typeof AdminStudentIdRoute
   '/admin/teachers/$teacherId': typeof AdminTeachersTeacherIdRoute
+  '/admin/teachers/': typeof AdminTeachersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -95,30 +95,30 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/login'
-    | '/admin/teachers'
     | '/student/$id'
     | '/admin/'
     | '/admin/student/$id'
     | '/admin/teachers/$teacherId'
+    | '/admin/teachers/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
-    | '/admin/teachers'
     | '/student/$id'
     | '/admin'
     | '/admin/student/$id'
     | '/admin/teachers/$teacherId'
+    | '/admin/teachers'
   id:
     | '__root__'
     | '/'
     | '/admin'
     | '/login'
-    | '/admin/teachers'
     | '/student/$id'
     | '/admin/'
     | '/admin/student/$id'
     | '/admin/teachers/$teacherId'
+    | '/admin/teachers/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -165,19 +165,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudentIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/teachers': {
-      id: '/admin/teachers'
+    '/admin/teachers/': {
+      id: '/admin/teachers/'
       path: '/teachers'
-      fullPath: '/admin/teachers'
-      preLoaderRoute: typeof AdminTeachersRouteImport
+      fullPath: '/admin/teachers/'
+      preLoaderRoute: typeof AdminTeachersIndexRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/teachers/$teacherId': {
       id: '/admin/teachers/$teacherId'
-      path: '/$teacherId'
+      path: '/teachers/$teacherId'
       fullPath: '/admin/teachers/$teacherId'
       preLoaderRoute: typeof AdminTeachersTeacherIdRouteImport
-      parentRoute: typeof AdminTeachersRoute
+      parentRoute: typeof AdminRoute
     }
     '/admin/student/$id': {
       id: '/admin/student/$id'
@@ -189,28 +189,18 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AdminTeachersRouteChildren {
-  AdminTeachersTeacherIdRoute: typeof AdminTeachersTeacherIdRoute
-}
-
-const AdminTeachersRouteChildren: AdminTeachersRouteChildren = {
-  AdminTeachersTeacherIdRoute: AdminTeachersTeacherIdRoute,
-}
-
-const AdminTeachersRouteWithChildren = AdminTeachersRoute._addFileChildren(
-  AdminTeachersRouteChildren,
-)
-
 interface AdminRouteChildren {
-  AdminTeachersRoute: typeof AdminTeachersRouteWithChildren
   AdminIndexRoute: typeof AdminIndexRoute
   AdminStudentIdRoute: typeof AdminStudentIdRoute
+  AdminTeachersTeacherIdRoute: typeof AdminTeachersTeacherIdRoute
+  AdminTeachersIndexRoute: typeof AdminTeachersIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
-  AdminTeachersRoute: AdminTeachersRouteWithChildren,
   AdminIndexRoute: AdminIndexRoute,
   AdminStudentIdRoute: AdminStudentIdRoute,
+  AdminTeachersTeacherIdRoute: AdminTeachersTeacherIdRoute,
+  AdminTeachersIndexRoute: AdminTeachersIndexRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
@@ -224,3 +214,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

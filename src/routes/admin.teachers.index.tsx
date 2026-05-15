@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/admin/teachers")({
+export const Route = createFileRoute("/admin/teachers/")({
   component: TeachersPage,
 });
 
