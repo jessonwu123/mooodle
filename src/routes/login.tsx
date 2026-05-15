@@ -86,14 +86,14 @@ function LoginPage() {
             className="space-y-4 rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]"
           >
             <div className="space-y-2">
-              <Label htmlFor="email">邮箱</Label>
+              <Label htmlFor="account">账号</Label>
               <Input
-                id="email"
-                type="email"
+                id="account"
+                type="text"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@example.com"
+                value={account}
+                onChange={(e) => setAccount(e.target.value)}
+                placeholder="可使用邮箱或自定义账号名"
               />
             </div>
             <div className="space-y-2">
