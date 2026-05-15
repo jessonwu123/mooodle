@@ -120,7 +120,7 @@ function LoginPage() {
               onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
               className="block w-full text-center text-xs text-muted-foreground hover:text-foreground"
             >
-              {mode === "signin" ? "首次使用？注册管理员账号" : "已有账号？前往登录"}
+              {mode === "signin" ? "首次使用？注册教师账号" : "已有账号？前往登录"}
             </button>
           </form>
         </div>
