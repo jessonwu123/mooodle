@@ -15,7 +15,7 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const navigate = useNavigate();
   const { session, isTeacher, loading } = useAuth();
-  const [email, setEmail] = useState("");
+  const [account, setAccount] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [busy, setBusy] = useState(false);
@@ -29,6 +29,9 @@ function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
+    // 允许使用邮箱或纯账号名，纯账号名会拼接虚拟域名
+    const trimmed = account.trim();
+    const email = trimmed.includes("@") ? trimmed : `${trimmed.toLowerCase()}@teacher.local`;
     if (mode === "signup") {
       const { error } = await supabase.auth.signUp({
         email,
@@ -47,7 +50,7 @@ function LoginPage() {
         password,
       });
       if (error) {
-        toast.error("邮箱或密码错误");
+        toast.error("账号或密码错误");
         setBusy(false);
         return;
       }
@@ -83,14 +86,14 @@ function LoginPage() {
             className="space-y-4 rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]"
           >
             <div className="space-y-2">
-              <Label htmlFor="email">邮箱</Label>
+              <Label htmlFor="account">账号</Label>
               <Input
-                id="email"
-                type="email"
+                id="account"
+                type="text"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@example.com"
+                value={account}
+                onChange={(e) => setAccount(e.target.value)}
+                placeholder="可使用邮箱或自定义账号名"
               />
             </div>
             <div className="space-y-2">
