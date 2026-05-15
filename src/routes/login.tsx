@@ -29,6 +29,9 @@ function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
+    // 允许使用邮箱或纯账号名，纯账号名会拼接虚拟域名
+    const trimmed = account.trim();
+    const email = trimmed.includes("@") ? trimmed : `${trimmed.toLowerCase()}@teacher.local`;
     if (mode === "signup") {
       const { error } = await supabase.auth.signUp({
         email,
@@ -47,7 +50,7 @@ function LoginPage() {
         password,
       });
       if (error) {
-        toast.error("邮箱或密码错误");
+        toast.error("账号或密码错误");
         setBusy(false);
         return;
       }
