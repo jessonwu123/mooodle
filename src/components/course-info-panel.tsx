@@ -115,7 +115,7 @@ export function CourseInfoPanel({ studentId }: Props) {
         total_hours: c.total_hours,
         hours_per_lesson: c.hours_per_lesson,
         schedule_start_date: c.schedule_start_date,
-        schedule_slots: c.schedule_slots ?? [],
+        schedule_slots: (c.schedule_slots ?? []) as unknown as never,
         schedule_frequency_weeks: c.schedule_frequency_weeks ?? 1,
         schedule_weekday: first?.weekday ?? null,
         schedule_start_time: first?.start_time ?? null,
