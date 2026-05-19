@@ -9,11 +9,12 @@ import {
   type CourseInfo,
   type ScheduleSlot,
   totalLessonCount,
+  totalCourseFee,
   WEEKDAY_LABELS,
   generateLessonOccurrences,
   effectiveSlots,
 } from "@/lib/course-schedule";
-import { BookOpen, CalendarClock } from "lucide-react";
+import { BookOpen, CalendarClock, Coins } from "lucide-react";
 
 interface Props {
   studentId: string;
@@ -25,6 +26,7 @@ export function CourseInfoPanel({ studentId }: Props) {
   const [c, setC] = useState<CourseInfo>({
     total_hours: null,
     hours_per_lesson: null,
+    hourly_rate: null,
     schedule_start_date: null,
     schedule_slots: [],
     schedule_frequency_weeks: 1,
@@ -36,7 +38,7 @@ export function CourseInfoPanel({ studentId }: Props) {
       const { data } = await supabase
         .from("students")
         .select(
-          "total_hours, hours_per_lesson, schedule_start_date, schedule_slots, schedule_frequency_weeks, schedule_weekday, schedule_start_time, schedule_end_time",
+          "total_hours, hours_per_lesson, hourly_rate, schedule_start_date, schedule_slots, schedule_frequency_weeks, schedule_weekday, schedule_start_time, schedule_end_time",
         )
         .eq("id", studentId)
         .maybeSingle();
@@ -44,6 +46,7 @@ export function CourseInfoPanel({ studentId }: Props) {
         const initial: CourseInfo = {
           total_hours: data.total_hours as number | null,
           hours_per_lesson: data.hours_per_lesson as number | null,
+          hourly_rate: data.hourly_rate as number | null,
           schedule_start_date: data.schedule_start_date as string | null,
           schedule_slots: (data.schedule_slots as ScheduleSlot[] | null) ?? null,
           schedule_frequency_weeks:
@@ -114,6 +117,7 @@ export function CourseInfoPanel({ studentId }: Props) {
       .update({
         total_hours: c.total_hours,
         hours_per_lesson: c.hours_per_lesson,
+        hourly_rate: c.hourly_rate,
         schedule_start_date: c.schedule_start_date,
         schedule_slots: (c.schedule_slots ?? []) as unknown as never,
         schedule_frequency_weeks: c.schedule_frequency_weeks ?? 1,
@@ -177,10 +181,36 @@ export function CourseInfoPanel({ studentId }: Props) {
               placeholder="例如 2"
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="hourly_rate">课时费（元/小时）</Label>
+            <Input
+              id="hourly_rate"
+              type="number"
+              min={0}
+              step={1}
+              value={c.hourly_rate ?? ""}
+              onChange={(e) =>
+                setC((p) => ({
+                  ...p,
+                  hourly_rate: e.target.value === "" ? null : Number(e.target.value),
+                }))
+              }
+              placeholder="例如 200"
+            />
+          </div>
         </div>
-        <div className="mt-4 flex items-center justify-between rounded-lg bg-primary/10 px-4 py-3">
-          <span className="text-sm font-medium text-foreground">总课节数</span>
-          <span className="text-lg font-bold text-primary">{lessonCount} 节</span>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="flex items-center justify-between rounded-lg bg-primary/10 px-4 py-3">
+            <span className="text-sm font-medium text-foreground">总课节数</span>
+            <span className="text-lg font-bold text-primary">{lessonCount} 节</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-4 py-3 dark:bg-emerald-900/20">
+            <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
+              <Coins className="h-3.5 w-3.5 text-emerald-600" />
+              总课时费
+            </span>
+            <span className="text-lg font-bold text-emerald-600">¥{totalCourseFee(c)}</span>
+          </div>
         </div>
       </section>
 
