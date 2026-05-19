@@ -549,6 +549,10 @@ function ManageStudent() {
             }
           />
         </TabsContent>
+
+        <TabsContent value="course">
+          <CourseInfoPanel studentId={id} />
+        </TabsContent>
       </Tabs>
     </div>
   );
