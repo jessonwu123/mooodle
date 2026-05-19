@@ -99,6 +99,30 @@ export type Database = {
           },
         ]
       }
+      cancelled_lessons: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          lesson_at: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lesson_at: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lesson_at?: string
+          student_id?: string
+        }
+        Relationships: []
+      }
       progress_items: {
         Row: {
           created_at: string
@@ -203,6 +227,8 @@ export type Database = {
           learning_quality_updated_at: string | null
           name: string
           schedule_end_time: string | null
+          schedule_frequency_weeks: number | null
+          schedule_slots: Json | null
           schedule_start_date: string | null
           schedule_start_time: string | null
           schedule_weekday: number | null
@@ -218,6 +244,8 @@ export type Database = {
           learning_quality_updated_at?: string | null
           name: string
           schedule_end_time?: string | null
+          schedule_frequency_weeks?: number | null
+          schedule_slots?: Json | null
           schedule_start_date?: string | null
           schedule_start_time?: string | null
           schedule_weekday?: number | null
@@ -233,6 +261,8 @@ export type Database = {
           learning_quality_updated_at?: string | null
           name?: string
           schedule_end_time?: string | null
+          schedule_frequency_weeks?: number | null
+          schedule_slots?: Json | null
           schedule_start_date?: string | null
           schedule_start_time?: string | null
           schedule_weekday?: number | null
