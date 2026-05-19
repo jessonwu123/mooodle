@@ -221,6 +221,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          hourly_rate: number | null
           hours_per_lesson: number | null
           id: string
           knowledge_updated_at: string | null
@@ -238,6 +239,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          hourly_rate?: number | null
           hours_per_lesson?: number | null
           id?: string
           knowledge_updated_at?: string | null
@@ -255,6 +257,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          hourly_rate?: number | null
           hours_per_lesson?: number | null
           id?: string
           knowledge_updated_at?: string | null
