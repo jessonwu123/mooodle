@@ -197,29 +197,47 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          hours_per_lesson: number | null
           id: string
           knowledge_updated_at: string | null
           learning_quality_updated_at: string | null
           name: string
+          schedule_end_time: string | null
+          schedule_start_date: string | null
+          schedule_start_time: string | null
+          schedule_weekday: number | null
           thinking_updated_at: string | null
+          total_hours: number | null
         }
         Insert: {
           created_at?: string
           created_by?: string | null
+          hours_per_lesson?: number | null
           id?: string
           knowledge_updated_at?: string | null
           learning_quality_updated_at?: string | null
           name: string
+          schedule_end_time?: string | null
+          schedule_start_date?: string | null
+          schedule_start_time?: string | null
+          schedule_weekday?: number | null
           thinking_updated_at?: string | null
+          total_hours?: number | null
         }
         Update: {
           created_at?: string
           created_by?: string | null
+          hours_per_lesson?: number | null
           id?: string
           knowledge_updated_at?: string | null
           learning_quality_updated_at?: string | null
           name?: string
+          schedule_end_time?: string | null
+          schedule_start_date?: string | null
+          schedule_start_time?: string | null
+          schedule_weekday?: number | null
           thinking_updated_at?: string | null
+          total_hours?: number | null
         }
         Relationships: []
       }
