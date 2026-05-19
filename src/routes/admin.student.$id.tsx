@@ -29,6 +29,7 @@ import {
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ComprehensiveAssessment } from "@/components/comprehensive-assessment";
+import { CourseInfoPanel } from "@/components/course-info-panel";
 import type { AssessmentTimestamps } from "@/lib/assessment-updates";
 
 export const Route = createFileRoute("/admin/student/$id")({
@@ -243,9 +244,10 @@ function ManageStudent() {
       </div>
 
       <Tabs defaultValue="lessons" className="w-full">
-        <TabsList className="mb-6 grid w-full max-w-md grid-cols-2">
+        <TabsList className="mb-6 grid w-full max-w-xl grid-cols-3">
           <TabsTrigger value="lessons">课堂记录</TabsTrigger>
           <TabsTrigger value="comprehensive">综合素质</TabsTrigger>
+          <TabsTrigger value="course">课程信息</TabsTrigger>
         </TabsList>
 
         <TabsContent value="lessons">
