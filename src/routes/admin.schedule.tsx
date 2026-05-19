@@ -6,6 +6,7 @@ import {
   ChevronRight,
   CalendarDays,
   Trash2,
+  Coins,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -17,6 +18,7 @@ import {
   generateLessonOccurrences,
   WEEKDAY_LABELS,
   lessonKey,
+  lessonFee,
 } from "@/lib/course-schedule";
 import { toast } from "sonner";
 
@@ -66,7 +68,7 @@ function SchedulePage() {
       supabase
         .from("students")
         .select(
-          "id, name, total_hours, hours_per_lesson, schedule_start_date, schedule_slots, schedule_frequency_weeks, schedule_weekday, schedule_start_time, schedule_end_time",
+          "id, name, total_hours, hours_per_lesson, hourly_rate, schedule_start_date, schedule_slots, schedule_frequency_weeks, schedule_weekday, schedule_start_time, schedule_end_time",
         )
         .eq("created_by", session.user.id),
       supabase.from("cancelled_lessons").select("student_id, lesson_at"),
@@ -121,6 +123,15 @@ function SchedulePage() {
   const inRange = occurrences.filter(
     (o) => o.date >= rangeStart && o.date < rangeEnd,
   );
+
+  const monthlyIncome = useMemo(() => {
+    return Math.round(
+      inRange.reduce((sum, o) => {
+        const fee = lessonFee(o.student.hours_per_lesson, o.student.hourly_rate);
+        return sum + fee;
+      }, 0) * 100,
+    ) / 100;
+  }, [inRange]);
 
   const shift = (dir: -1 | 1) => {
     const d = new Date(anchor);
@@ -185,6 +196,10 @@ function SchedulePage() {
           </h1>
           <div className="mt-1 text-sm text-muted-foreground">
             本{view === "week" ? "周" : "月"}共 {inRange.length} 节课
+          </div>
+          <div className="mt-1 flex items-center gap-1.5 text-sm font-medium text-emerald-600">
+            <Coins className="h-3.5 w-3.5" />
+            预计收入 ¥{monthlyIncome}
           </div>
         </div>
         <div className="flex items-center gap-2">
