@@ -181,10 +181,36 @@ export function CourseInfoPanel({ studentId }: Props) {
               placeholder="例如 2"
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="hourly_rate">课时费（元/小时）</Label>
+            <Input
+              id="hourly_rate"
+              type="number"
+              min={0}
+              step={1}
+              value={c.hourly_rate ?? ""}
+              onChange={(e) =>
+                setC((p) => ({
+                  ...p,
+                  hourly_rate: e.target.value === "" ? null : Number(e.target.value),
+                }))
+              }
+              placeholder="例如 200"
+            />
+          </div>
         </div>
-        <div className="mt-4 flex items-center justify-between rounded-lg bg-primary/10 px-4 py-3">
-          <span className="text-sm font-medium text-foreground">总课节数</span>
-          <span className="text-lg font-bold text-primary">{lessonCount} 节</span>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="flex items-center justify-between rounded-lg bg-primary/10 px-4 py-3">
+            <span className="text-sm font-medium text-foreground">总课节数</span>
+            <span className="text-lg font-bold text-primary">{lessonCount} 节</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-4 py-3 dark:bg-emerald-900/20">
+            <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
+              <Coins className="h-3.5 w-3.5 text-emerald-600" />
+              总课时费
+            </span>
+            <span className="text-lg font-bold text-emerald-600">¥{totalCourseFee(c)}</span>
+          </div>
         </div>
       </section>
 
