@@ -1,15 +1,24 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  CalendarDays,
+  Trash2,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   type CourseInfo,
-  generateLessonDates,
+  type ScheduleSlot,
+  generateLessonOccurrences,
   WEEKDAY_LABELS,
+  lessonKey,
 } from "@/lib/course-schedule";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/schedule")({
   component: SchedulePage,
@@ -22,6 +31,7 @@ interface StudentRow extends CourseInfo {
 
 interface Occurrence {
   date: Date;
+  slot: ScheduleSlot;
   student: StudentRow;
 }
 
@@ -44,34 +54,49 @@ function sameDay(a: Date, b: Date) {
 function SchedulePage() {
   const { session } = useAuth();
   const [students, setStudents] = useState<StudentRow[]>([]);
+  const [cancelled, setCancelled] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"week" | "month">("week");
   const [anchor, setAnchor] = useState(new Date());
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!session?.user.id) return;
-    (async () => {
-      setLoading(true);
-      const { data } = await supabase
+    setLoading(true);
+    const [{ data: studs }, { data: cancels }] = await Promise.all([
+      supabase
         .from("students")
         .select(
-          "id, name, total_hours, hours_per_lesson, schedule_start_date, schedule_weekday, schedule_start_time, schedule_end_time",
+          "id, name, total_hours, hours_per_lesson, schedule_start_date, schedule_slots, schedule_frequency_weeks, schedule_weekday, schedule_start_time, schedule_end_time",
         )
-        .eq("created_by", session.user.id);
-      setStudents((data ?? []) as unknown as StudentRow[]);
-      setLoading(false);
-    })();
+        .eq("created_by", session.user.id),
+      supabase.from("cancelled_lessons").select("student_id, lesson_at"),
+    ]);
+    setStudents((studs ?? []) as unknown as StudentRow[]);
+    const set = new Set<string>();
+    for (const c of cancels ?? []) {
+      set.add(
+        `${c.student_id}|${new Date(c.lesson_at as string).toISOString()}`,
+      );
+    }
+    setCancelled(set);
+    setLoading(false);
   }, [session?.user.id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const occurrences: Occurrence[] = useMemo(() => {
     const out: Occurrence[] = [];
     for (const s of students) {
-      for (const d of generateLessonDates(s)) {
-        out.push({ date: d, student: s });
+      for (const o of generateLessonOccurrences(s)) {
+        const key = `${s.id}|${lessonKey(o.date)}`;
+        if (cancelled.has(key)) continue;
+        out.push({ date: o.date, slot: o.slot, student: s });
       }
     }
     return out.sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [students]);
+  }, [students, cancelled]);
 
   const { rangeStart, rangeEnd, label } = useMemo(() => {
     if (view === "week") {
@@ -104,7 +129,24 @@ function SchedulePage() {
     setAnchor(d);
   };
 
-  // Build days grid for the period
+  const handleCancelLesson = async (o: Occurrence) => {
+    if (!confirm(`确认删除 ${o.student.name} 在 ${o.date.toLocaleString("zh-CN")} 的这节课？`))
+      return;
+    const { error } = await supabase.from("cancelled_lessons").insert({
+      student_id: o.student.id,
+      lesson_at: o.date.toISOString(),
+      created_by: session?.user.id ?? null,
+    });
+    if (error) {
+      toast.error("删除失败：" + error.message);
+      return;
+    }
+    toast.success("已删除该节课");
+    setCancelled((prev) =>
+      new Set(prev).add(`${o.student.id}|${lessonKey(o.date)}`),
+    );
+  };
+
   const days: Date[] = [];
   if (view === "week") {
     for (let i = 0; i < 7; i++) {
@@ -199,10 +241,10 @@ function SchedulePage() {
                       to="/admin/student/$id"
                       params={{ id: o.student.id }}
                       className="block truncate rounded-md bg-primary/10 px-1.5 py-1 text-[11px] text-primary hover:bg-primary/20"
-                      title={`${o.student.name} ${o.student.schedule_start_time?.slice(0, 5) ?? ""}${o.student.schedule_end_time ? "-" + o.student.schedule_end_time.slice(0, 5) : ""}`}
+                      title={`${o.student.name} ${o.slot.start_time?.slice(0, 5) ?? ""}${o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}`}
                     >
                       <span className="font-medium">
-                        {o.student.schedule_start_time?.slice(0, 5)}
+                        {o.slot.start_time?.slice(0, 5)}
                       </span>{" "}
                       {o.student.name}
                     </Link>
@@ -219,13 +261,15 @@ function SchedulePage() {
           <h2 className="mb-3 text-base font-semibold text-foreground">课程列表</h2>
           <div className="space-y-2">
             {inRange.map((o, i) => (
-              <Link
+              <div
                 key={i}
-                to="/admin/student/$id"
-                params={{ id: o.student.id }}
                 className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-soft)]"
               >
-                <div>
+                <Link
+                  to="/admin/student/$id"
+                  params={{ id: o.student.id }}
+                  className="flex-1"
+                >
                   <div className="text-sm font-medium text-foreground">
                     {o.student.name}
                   </div>
@@ -235,14 +279,20 @@ function SchedulePage() {
                       day: "numeric",
                       weekday: "short",
                     })}{" "}
-                    · {o.student.schedule_start_time?.slice(0, 5)}
-                    {o.student.schedule_end_time
-                      ? "-" + o.student.schedule_end_time.slice(0, 5)
-                      : ""}
+                    · {o.slot.start_time?.slice(0, 5)}
+                    {o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}
                   </div>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </Link>
+                </Link>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleCancelLesson(o)}
+                  className="text-muted-foreground hover:text-destructive"
+                  title="删除该节课"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             ))}
           </div>
         </div>
