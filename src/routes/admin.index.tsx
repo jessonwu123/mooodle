@@ -274,8 +274,14 @@ function AdminHome() {
                   <div className="font-medium text-foreground">{s.name}</div>
                   <div className="text-xs text-muted-foreground">
                     {s.ratingCount} 节课记录
+                    {s.username && (
+                      <span className="ml-2 text-muted-foreground/80">
+                        · 登录账号：{s.username}
+                      </span>
+                    )}
                   </div>
                 </div>
+
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </Link>
               <AlertDialog>
