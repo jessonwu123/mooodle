@@ -1,16 +1,30 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Calendar, GraduationCap, TrendingUp } from "lucide-react";
+import { ArrowLeft, Calendar, GraduationCap, TrendingUp, Settings, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { StarRating } from "@/components/star-rating";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ComprehensiveAssessment } from "@/components/comprehensive-assessment";
 import { type AssessmentTimestamps, isUnread } from "@/lib/assessment-updates";
+import { updateStudentUsername, updateStudentPassword } from "@/lib/student-account.functions";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/student/$id")({
   component: StudentProfile,
 });
+
 
 interface ProgressItem {
   id: string;
@@ -42,7 +56,9 @@ const dimensions = [
 
 function StudentProfile() {
   const { id } = Route.useParams();
-  const [student, setStudent] = useState<{ name: string } | null>(null);
+  const navigate = useNavigate();
+  const { session } = useAuth();
+  const [student, setStudent] = useState<{ name: string; username: string | null; auth_user_id: string | null } | null>(null);
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound404, setNotFound] = useState(false);
@@ -52,6 +68,10 @@ function StudentProfile() {
     learning_quality: null,
   });
   const [activeTab, setActiveTab] = useState("lessons");
+  const [acctOpen, setAcctOpen] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [acctBusy, setAcctBusy] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -59,7 +79,7 @@ function StudentProfile() {
       const { data: s } = await supabase
         .from("students")
         .select(
-          "name, knowledge_updated_at, thinking_updated_at, learning_quality_updated_at",
+          "name, username, auth_user_id, knowledge_updated_at, thinking_updated_at, learning_quality_updated_at",
         )
         .eq("id", id)
         .maybeSingle();
@@ -68,7 +88,9 @@ function StudentProfile() {
         setLoading(false);
         return;
       }
-      setStudent({ name: s.name });
+      setStudent({ name: s.name, username: s.username, auth_user_id: s.auth_user_id });
+      setNewUsername(s.username ?? "");
+
       setTimestamps({
         knowledge: s.knowledge_updated_at,
         thinking: s.thinking_updated_at,
@@ -96,6 +118,10 @@ function StudentProfile() {
     isUnread(id, "knowledge", timestamps.knowledge) ||
     isUnread(id, "thinking", timestamps.thinking) ||
     isUnread(id, "learning_quality", timestamps.learning_quality);
+
+  const isOwner = !!(student?.auth_user_id && session?.user.id === student.auth_user_id);
+
+
 
   const handleTabChange = (v: string) => {
     setActiveTab(v);
@@ -135,12 +161,117 @@ function StudentProfile() {
             返回
           </Link>
           <div className="flex items-center gap-2">
+            {isOwner && (
+              <>
+                <Dialog open={acctOpen} onOpenChange={setAcctOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-1.5">
+                      <Settings className="h-4 w-4" />
+                      账号设置
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>账号设置</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-5">
+                      <div className="space-y-2">
+                        <Label htmlFor="new-username">修改用户名</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="new-username"
+                            value={newUsername}
+                            onChange={(e) => setNewUsername(e.target.value)}
+                            maxLength={50}
+                            placeholder="新用户名"
+                          />
+                          <Button
+                            type="button"
+                            disabled={
+                              acctBusy ||
+                              !newUsername.trim() ||
+                              newUsername.trim() === (student?.username ?? "")
+                            }
+                            onClick={async () => {
+                              setAcctBusy(true);
+                              try {
+                                const res = await updateStudentUsername({
+                                  data: { newUsername: newUsername.trim() },
+                                });
+                                setStudent((p) => (p ? { ...p, username: res.username } : p));
+                                toast.success("用户名已更新");
+                              } catch (e) {
+                                toast.error(e instanceof Error ? e.message : "更新失败");
+                              } finally {
+                                setAcctBusy(false);
+                              }
+                            }}
+                          >
+                            保存
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          当前用户名：{student?.username ?? "-"}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="new-password">修改密码</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="new-password"
+                            type="password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            minLength={6}
+                            placeholder="新密码（至少 6 位）"
+                          />
+                          <Button
+                            type="button"
+                            disabled={acctBusy || newPassword.length < 6}
+                            onClick={async () => {
+                              setAcctBusy(true);
+                              try {
+                                await updateStudentPassword({
+                                  data: { newPassword },
+                                });
+                                setNewPassword("");
+                                toast.success("密码已更新");
+                              } catch (e) {
+                                toast.error(e instanceof Error ? e.message : "更新失败");
+                              } finally {
+                                setAcctBusy(false);
+                              }
+                            }}
+                          >
+                            保存
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter />
+                  </DialogContent>
+                </Dialog>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    navigate({ to: "/" });
+                  }}
+                >
+                  <LogOut className="h-4 w-4" />
+                  退出
+                </Button>
+              </>
+            )}
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--gradient-hero)] text-primary-foreground shadow-[var(--shadow-soft)]">
               <GraduationCap className="h-5 w-5" />
             </div>
           </div>
         </div>
       </header>
+
 
       <main className="mx-auto max-w-4xl px-6 py-10">
         <div className="mb-8">

@@ -219,6 +219,7 @@ export type Database = {
       }
       students: {
         Row: {
+          auth_user_id: string | null
           created_at: string
           created_by: string | null
           hourly_rate: number | null
@@ -235,8 +236,10 @@ export type Database = {
           schedule_weekday: number | null
           thinking_updated_at: string | null
           total_hours: number | null
+          username: string | null
         }
         Insert: {
+          auth_user_id?: string | null
           created_at?: string
           created_by?: string | null
           hourly_rate?: number | null
@@ -253,8 +256,10 @@ export type Database = {
           schedule_weekday?: number | null
           thinking_updated_at?: string | null
           total_hours?: number | null
+          username?: string | null
         }
         Update: {
+          auth_user_id?: string | null
           created_at?: string
           created_by?: string | null
           hourly_rate?: number | null
@@ -271,6 +276,7 @@ export type Database = {
           schedule_weekday?: number | null
           thinking_updated_at?: string | null
           total_hours?: number | null
+          username?: string | null
         }
         Relationships: []
       }
@@ -336,6 +342,7 @@ export type Database = {
           rating_count: number
         }[]
       }
+      student_login_email: { Args: { _username: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "teacher"

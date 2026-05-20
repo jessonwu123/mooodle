@@ -28,6 +28,8 @@ import {
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { buildStudentMonthlySummary } from "@/lib/student-summary";
+import { ensureStudentAccount } from "@/lib/student-account.functions";
+
 
 export const Route = createFileRoute("/admin/")({
   component: AdminHome,
@@ -36,8 +38,10 @@ export const Route = createFileRoute("/admin/")({
 interface Student {
   id: string;
   name: string;
+  username?: string | null;
   ratingCount?: number;
 }
+
 
 function AdminHome() {
   const { session, isAdmin } = useAuth();
@@ -78,7 +82,7 @@ function AdminHome() {
     setLoading(true);
     const { data, error } = await supabase
       .from("students")
-      .select("id, name, ratings(count)")
+      .select("id, name, username, auth_user_id, ratings(count)")
       .eq("created_by", session.user.id)
       .order("created_at", { ascending: false });
     if (error) {
@@ -86,15 +90,54 @@ function AdminHome() {
       setLoading(false);
       return;
     }
+    const rows = (data ?? []) as Array<{
+      id: string;
+      name: string;
+      username: string | null;
+      auth_user_id: string | null;
+      ratings: { count: number }[];
+    }>;
     setStudents(
-      (data ?? []).map((s: { id: string; name: string; ratings: { count: number }[] }) => ({
+      rows.map((s) => ({
         id: s.id,
         name: s.name,
+        username: s.username,
         ratingCount: s.ratings?.[0]?.count ?? 0,
       })),
     );
     setLoading(false);
+    // 为缺少登录账号的旧学生自动补建
+    const missing = rows.filter((s) => !s.auth_user_id);
+    for (const s of missing) {
+      try {
+        await ensureStudentAccount({ data: { studentId: s.id } });
+      } catch (e) {
+        console.error("ensureStudentAccount failed", s.id, e);
+      }
+    }
+    if (missing.length > 0) {
+      // reload to display updated usernames
+      const { data: data2 } = await supabase
+        .from("students")
+        .select("id, name, username, ratings(count)")
+        .eq("created_by", session.user.id)
+        .order("created_at", { ascending: false });
+      setStudents(
+        ((data2 ?? []) as Array<{
+          id: string;
+          name: string;
+          username: string | null;
+          ratings: { count: number }[];
+        }>).map((s) => ({
+          id: s.id,
+          name: s.name,
+          username: s.username,
+          ratingCount: s.ratings?.[0]?.count ?? 0,
+        })),
+      );
+    }
   };
+
 
   useEffect(() => {
     load();
@@ -106,17 +149,28 @@ function AdminHome() {
     const trimmed = newName.trim();
     if (!trimmed) return;
     setBusy(true);
-    const { error } = await supabase.from("students").insert({ name: trimmed });
-    setBusy(false);
-    if (error) {
-      toast.error("创建失败：" + error.message);
+    const { data: created, error } = await supabase
+      .from("students")
+      .insert({ name: trimmed })
+      .select("id")
+      .single();
+    if (error || !created) {
+      setBusy(false);
+      toast.error("创建失败：" + (error?.message ?? ""));
       return;
     }
-    toast.success("已创建学生档案");
+    try {
+      const res = await ensureStudentAccount({ data: { studentId: created.id } });
+      toast.success(`已创建学生档案（登录账号：${res.username}，初始密码：000000）`);
+    } catch (e) {
+      toast.warning("学生已创建，但登录账号创建失败：" + (e instanceof Error ? e.message : ""));
+    }
+    setBusy(false);
     setNewName("");
     setOpen(false);
     load();
   };
+
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from("students").delete().eq("id", id);
@@ -220,8 +274,14 @@ function AdminHome() {
                   <div className="font-medium text-foreground">{s.name}</div>
                   <div className="text-xs text-muted-foreground">
                     {s.ratingCount} 节课记录
+                    {s.username && (
+                      <span className="ml-2 text-muted-foreground/80">
+                        · 登录账号：{s.username}
+                      </span>
+                    )}
                   </div>
                 </div>
+
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </Link>
               <AlertDialog>

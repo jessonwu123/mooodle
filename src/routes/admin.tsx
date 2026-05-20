@@ -15,9 +15,10 @@ function AdminLayout() {
 
   useEffect(() => {
     if (!loading && (!session || !isTeacher)) {
-      navigate({ to: "/login" });
+      navigate({ to: "/" });
     }
   }, [session, isTeacher, loading, navigate]);
+
 
   if (loading || !session || !isTeacher) {
     return (
