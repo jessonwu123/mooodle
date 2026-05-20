@@ -156,10 +156,14 @@ function StudentProfile() {
     <div className="min-h-screen bg-[var(--gradient-soft)] pb-16">
       <header className="border-b border-border/40 bg-background/60 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <Link to="/" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" />
-            返回
-          </Link>
+          {isOwner ? (
+            <div />
+          ) : (
+            <Link to="/" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" />
+              返回
+            </Link>
+          )}
           <div className="flex items-center gap-2">
             {isOwner && (
               <>
