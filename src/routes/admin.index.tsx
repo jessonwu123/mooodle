@@ -28,6 +28,8 @@ import {
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { buildStudentMonthlySummary } from "@/lib/student-summary";
+import { ensureStudentAccount } from "@/lib/student-account.functions";
+
 
 export const Route = createFileRoute("/admin/")({
   component: AdminHome,
@@ -106,17 +108,28 @@ function AdminHome() {
     const trimmed = newName.trim();
     if (!trimmed) return;
     setBusy(true);
-    const { error } = await supabase.from("students").insert({ name: trimmed });
-    setBusy(false);
-    if (error) {
-      toast.error("创建失败：" + error.message);
+    const { data: created, error } = await supabase
+      .from("students")
+      .insert({ name: trimmed })
+      .select("id")
+      .single();
+    if (error || !created) {
+      setBusy(false);
+      toast.error("创建失败：" + (error?.message ?? ""));
       return;
     }
-    toast.success("已创建学生档案");
+    try {
+      const res = await ensureStudentAccount({ data: { studentId: created.id } });
+      toast.success(`已创建学生档案（登录账号：${res.username}，初始密码：000000）`);
+    } catch (e) {
+      toast.warning("学生已创建，但登录账号创建失败：" + (e instanceof Error ? e.message : ""));
+    }
+    setBusy(false);
     setNewName("");
     setOpen(false);
     load();
   };
+
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from("students").delete().eq("id", id);
