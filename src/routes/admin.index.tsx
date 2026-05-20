@@ -38,8 +38,10 @@ export const Route = createFileRoute("/admin/")({
 interface Student {
   id: string;
   name: string;
+  username?: string | null;
   ratingCount?: number;
 }
+
 
 function AdminHome() {
   const { session, isAdmin } = useAuth();
@@ -80,7 +82,7 @@ function AdminHome() {
     setLoading(true);
     const { data, error } = await supabase
       .from("students")
-      .select("id, name, ratings(count)")
+      .select("id, name, username, auth_user_id, ratings(count)")
       .eq("created_by", session.user.id)
       .order("created_at", { ascending: false });
     if (error) {
@@ -88,15 +90,54 @@ function AdminHome() {
       setLoading(false);
       return;
     }
+    const rows = (data ?? []) as Array<{
+      id: string;
+      name: string;
+      username: string | null;
+      auth_user_id: string | null;
+      ratings: { count: number }[];
+    }>;
     setStudents(
-      (data ?? []).map((s: { id: string; name: string; ratings: { count: number }[] }) => ({
+      rows.map((s) => ({
         id: s.id,
         name: s.name,
+        username: s.username,
         ratingCount: s.ratings?.[0]?.count ?? 0,
       })),
     );
     setLoading(false);
+    // 为缺少登录账号的旧学生自动补建
+    const missing = rows.filter((s) => !s.auth_user_id);
+    for (const s of missing) {
+      try {
+        await ensureStudentAccount({ data: { studentId: s.id } });
+      } catch (e) {
+        console.error("ensureStudentAccount failed", s.id, e);
+      }
+    }
+    if (missing.length > 0) {
+      // reload to display updated usernames
+      const { data: data2 } = await supabase
+        .from("students")
+        .select("id, name, username, ratings(count)")
+        .eq("created_by", session.user.id)
+        .order("created_at", { ascending: false });
+      setStudents(
+        ((data2 ?? []) as Array<{
+          id: string;
+          name: string;
+          username: string | null;
+          ratings: { count: number }[];
+        }>).map((s) => ({
+          id: s.id,
+          name: s.name,
+          username: s.username,
+          ratingCount: s.ratings?.[0]?.count ?? 0,
+        })),
+      );
+    }
   };
+
 
   useEffect(() => {
     load();
