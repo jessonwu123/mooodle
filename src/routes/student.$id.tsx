@@ -56,7 +56,9 @@ const dimensions = [
 
 function StudentProfile() {
   const { id } = Route.useParams();
-  const [student, setStudent] = useState<{ name: string } | null>(null);
+  const navigate = useNavigate();
+  const { session } = useAuth();
+  const [student, setStudent] = useState<{ name: string; username: string | null; auth_user_id: string | null } | null>(null);
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound404, setNotFound] = useState(false);
@@ -66,6 +68,10 @@ function StudentProfile() {
     learning_quality: null,
   });
   const [activeTab, setActiveTab] = useState("lessons");
+  const [acctOpen, setAcctOpen] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [acctBusy, setAcctBusy] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -73,7 +79,7 @@ function StudentProfile() {
       const { data: s } = await supabase
         .from("students")
         .select(
-          "name, knowledge_updated_at, thinking_updated_at, learning_quality_updated_at",
+          "name, username, auth_user_id, knowledge_updated_at, thinking_updated_at, learning_quality_updated_at",
         )
         .eq("id", id)
         .maybeSingle();
@@ -82,7 +88,9 @@ function StudentProfile() {
         setLoading(false);
         return;
       }
-      setStudent({ name: s.name });
+      setStudent({ name: s.name, username: s.username, auth_user_id: s.auth_user_id });
+      setNewUsername(s.username ?? "");
+
       setTimestamps({
         knowledge: s.knowledge_updated_at,
         thinking: s.thinking_updated_at,
