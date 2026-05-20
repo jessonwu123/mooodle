@@ -157,12 +157,117 @@ function StudentProfile() {
             返回
           </Link>
           <div className="flex items-center gap-2">
+            {isOwner && (
+              <>
+                <Dialog open={acctOpen} onOpenChange={setAcctOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-1.5">
+                      <Settings className="h-4 w-4" />
+                      账号设置
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>账号设置</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-5">
+                      <div className="space-y-2">
+                        <Label htmlFor="new-username">修改用户名</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="new-username"
+                            value={newUsername}
+                            onChange={(e) => setNewUsername(e.target.value)}
+                            maxLength={50}
+                            placeholder="新用户名"
+                          />
+                          <Button
+                            type="button"
+                            disabled={
+                              acctBusy ||
+                              !newUsername.trim() ||
+                              newUsername.trim() === (student?.username ?? "")
+                            }
+                            onClick={async () => {
+                              setAcctBusy(true);
+                              try {
+                                const res = await updateStudentUsername({
+                                  data: { newUsername: newUsername.trim() },
+                                });
+                                setStudent((p) => (p ? { ...p, username: res.username } : p));
+                                toast.success("用户名已更新");
+                              } catch (e) {
+                                toast.error(e instanceof Error ? e.message : "更新失败");
+                              } finally {
+                                setAcctBusy(false);
+                              }
+                            }}
+                          >
+                            保存
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          当前用户名：{student?.username ?? "-"}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="new-password">修改密码</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="new-password"
+                            type="password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            minLength={6}
+                            placeholder="新密码（至少 6 位）"
+                          />
+                          <Button
+                            type="button"
+                            disabled={acctBusy || newPassword.length < 6}
+                            onClick={async () => {
+                              setAcctBusy(true);
+                              try {
+                                await updateStudentPassword({
+                                  data: { newPassword },
+                                });
+                                setNewPassword("");
+                                toast.success("密码已更新");
+                              } catch (e) {
+                                toast.error(e instanceof Error ? e.message : "更新失败");
+                              } finally {
+                                setAcctBusy(false);
+                              }
+                            }}
+                          >
+                            保存
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter />
+                  </DialogContent>
+                </Dialog>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    navigate({ to: "/" });
+                  }}
+                >
+                  <LogOut className="h-4 w-4" />
+                  退出
+                </Button>
+              </>
+            )}
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--gradient-hero)] text-primary-foreground shadow-[var(--shadow-soft)]">
               <GraduationCap className="h-5 w-5" />
             </div>
           </div>
         </div>
       </header>
+
 
       <main className="mx-auto max-w-4xl px-6 py-10">
         <div className="mb-8">
