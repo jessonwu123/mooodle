@@ -342,6 +342,7 @@ export type Database = {
           rating_count: number
         }[]
       }
+      student_login_email: { Args: { _username: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "teacher"
