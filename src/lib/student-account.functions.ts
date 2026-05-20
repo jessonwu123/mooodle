@@ -1,32 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-
-const DEFAULT_PASSWORD = "000000";
-
-function internalEmailFor(studentId: string): string {
-  return `s-${studentId.replace(/-/g, "").slice(0, 24)}@student.local`;
-}
-
-async function ensureUniqueUsername(base: string, excludeStudentId?: string): Promise<string> {
-  const trimmed = base.trim();
-  if (!trimmed) throw new Error("用户名不能为空");
-  let candidate = trimmed;
-  let i = 1;
-  // try up to 50 suffix attempts
-  while (i < 50) {
-    const q = supabaseAdmin
-      .from("students")
-      .select("id")
-      .ilike("username", candidate);
-    const { data } = await q;
-    const conflict = (data ?? []).filter((r) => r.id !== excludeStudentId);
-    if (conflict.length === 0) return candidate;
-    i += 1;
-    candidate = `${trimmed}${i}`;
-  }
-  throw new Error("无法生成唯一的用户名");
-}
+import {
+  DEFAULT_STUDENT_PASSWORD,
+  ensureUniqueUsername,
+  internalEmailFor,
+} from "@/lib/student-account.server";
 
 /** 教师创建/确保某个学生的登录账号 */
 export const ensureStudentAccount = createServerFn({ method: "POST" })
@@ -41,7 +20,6 @@ export const ensureStudentAccount = createServerFn({ method: "POST" })
       .maybeSingle();
     if (error || !student) throw new Error("学生不存在");
     if (student.created_by !== userId) {
-      // also allow admin
       const { data: roles } = await supabaseAdmin
         .from("user_roles")
         .select("role")
@@ -52,7 +30,10 @@ export const ensureStudentAccount = createServerFn({ method: "POST" })
     if (student.auth_user_id && student.username) {
       return { username: student.username, created: false };
     }
-    const username = await ensureUniqueUsername(student.username || student.name, student.id);
+    const username = await ensureUniqueUsername(
+      student.username || student.name,
+      student.id,
+    );
     const email = internalEmailFor(student.id);
 
     let authUserId = student.auth_user_id as string | null;
@@ -60,7 +41,7 @@ export const ensureStudentAccount = createServerFn({ method: "POST" })
       const { data: created, error: cErr } =
         await supabaseAdmin.auth.admin.createUser({
           email,
-          password: DEFAULT_PASSWORD,
+          password: DEFAULT_STUDENT_PASSWORD,
           email_confirm: true,
           user_metadata: { role: "student", student_id: student.id },
         });
