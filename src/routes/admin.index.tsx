@@ -144,6 +144,25 @@ function AdminHome() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user.id]);
 
+  // 管理员：为系统中所有缺少登录账号的学生补建
+  useEffect(() => {
+    if (!isAdmin) return;
+    (async () => {
+      const { data } = await supabase
+        .from("students")
+        .select("id")
+        .is("auth_user_id", null);
+      const list = (data ?? []) as Array<{ id: string }>;
+      for (const s of list) {
+        try {
+          await ensureStudentAccount({ data: { studentId: s.id } });
+        } catch (e) {
+          console.error("admin backfill failed", s.id, e);
+        }
+      }
+    })();
+  }, [isAdmin]);
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = newName.trim();
