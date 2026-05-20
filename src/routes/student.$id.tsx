@@ -119,6 +119,10 @@ function StudentProfile() {
     isUnread(id, "thinking", timestamps.thinking) ||
     isUnread(id, "learning_quality", timestamps.learning_quality);
 
+  const isOwner = !!(student?.auth_user_id && session?.user.id === student.auth_user_id);
+
+
+
   const handleTabChange = (v: string) => {
     setActiveTab(v);
   };
