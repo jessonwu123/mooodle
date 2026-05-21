@@ -131,7 +131,7 @@ function Index() {
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="student" className="gap-1.5">
                 <UserRound className="h-4 w-4" />
-                学生登录
+                家长登录
               </TabsTrigger>
               <TabsTrigger value="teacher" className="gap-1.5">
                 <KeyRound className="h-4 w-4" />
