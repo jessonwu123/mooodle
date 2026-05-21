@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { GraduationCap, Sparkles, UserRound, KeyRound } from "lucide-react";
+import { Sparkles, UserRound, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -113,14 +113,7 @@ function Index() {
   return (
     <div className="flex min-h-screen flex-col bg-[var(--gradient-soft)]">
       <header className="border-b border-border/40 bg-background/60 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--gradient-hero)] text-primary-foreground shadow-[var(--shadow-soft)]">
-              <GraduationCap className="h-5 w-5" />
-            </div>
-            <span className="font-semibold text-foreground">课堂档案</span>
-          </div>
-        </div>
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4" />
       </header>
 
       <main className="flex flex-1 items-center justify-center px-6 py-12">
