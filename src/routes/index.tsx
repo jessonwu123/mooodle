@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { GraduationCap, Sparkles, UserRound, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
