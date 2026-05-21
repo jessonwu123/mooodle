@@ -114,12 +114,12 @@ function Index() {
     <div className="flex min-h-screen flex-col bg-[var(--gradient-soft)]">
       <header className="border-b border-border/40 bg-background/60 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <Link to="/" className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--gradient-hero)] text-primary-foreground shadow-[var(--shadow-soft)]">
               <GraduationCap className="h-5 w-5" />
             </div>
             <span className="font-semibold text-foreground">课堂档案</span>
-          </Link>
+          </div>
         </div>
       </header>
 
