@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ComprehensiveAssessment } from "@/components/comprehensive-assessment";
+import { PetTab } from "@/components/pet-tab";
 import { type AssessmentTimestamps, isUnread } from "@/lib/assessment-updates";
 import { updateStudentUsername, updateStudentPassword } from "@/lib/student-account.functions";
 import { toast } from "sonner";
@@ -289,7 +290,7 @@ function StudentProfile() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="mb-6 grid w-full max-w-md grid-cols-2">
+          <TabsList className="mb-6 grid w-full max-w-lg grid-cols-3">
             <TabsTrigger value="lessons">课堂记录</TabsTrigger>
             <TabsTrigger value="comprehensive" className="relative">
               <span className={hasUnread ? "animate-pulse font-semibold text-red-600" : undefined}>
@@ -302,6 +303,7 @@ function StudentProfile() {
                 </span>
               )}
             </TabsTrigger>
+            <TabsTrigger value="pet">养宠物</TabsTrigger>
           </TabsList>
 
           <TabsContent value="lessons" className="space-y-8">
@@ -432,6 +434,10 @@ function StudentProfile() {
               editable={false}
               timestamps={timestamps}
             />
+          </TabsContent>
+
+          <TabsContent value="pet">
+            <PetTab studentId={id} editable={isOwner} />
           </TabsContent>
         </Tabs>
       </main>

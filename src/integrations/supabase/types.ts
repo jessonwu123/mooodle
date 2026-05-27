@@ -123,6 +123,66 @@ export type Database = {
         }
         Relationships: []
       }
+      pet_foods: {
+        Row: {
+          created_at: string
+          id: string
+          quantity: number
+          student_id: string
+          tier: Database["public"]["Enums"]["food_tier"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          quantity?: number
+          student_id: string
+          tier: Database["public"]["Enums"]["food_tier"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          quantity?: number
+          student_id?: string
+          tier?: Database["public"]["Enums"]["food_tier"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      pets: {
+        Row: {
+          created_at: string
+          hatched: boolean
+          id: string
+          level: number
+          species: Database["public"]["Enums"]["pet_species"] | null
+          student_id: string
+          updated_at: string
+          xp: number
+        }
+        Insert: {
+          created_at?: string
+          hatched?: boolean
+          id?: string
+          level?: number
+          species?: Database["public"]["Enums"]["pet_species"] | null
+          student_id: string
+          updated_at?: string
+          xp?: number
+        }
+        Update: {
+          created_at?: string
+          hatched?: boolean
+          id?: string
+          level?: number
+          species?: Database["public"]["Enums"]["pet_species"] | null
+          student_id?: string
+          updated_at?: string
+          xp?: number
+        }
+        Relationships: []
+      }
       progress_items: {
         Row: {
           created_at: string
@@ -347,6 +407,18 @@ export type Database = {
     Enums: {
       app_role: "admin" | "teacher"
       assessment_category: "knowledge" | "thinking" | "learning_quality"
+      food_tier: "normal" | "quality" | "elixir"
+      pet_species:
+        | "baize"
+        | "dijiang"
+        | "jiuweihu"
+        | "jingwei"
+        | "zhuyin"
+        | "qilin"
+        | "qinglong"
+        | "baihu"
+        | "zhuque"
+        | "xuanwu"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -476,6 +548,19 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "teacher"],
       assessment_category: ["knowledge", "thinking", "learning_quality"],
+      food_tier: ["normal", "quality", "elixir"],
+      pet_species: [
+        "baize",
+        "dijiang",
+        "jiuweihu",
+        "jingwei",
+        "zhuyin",
+        "qilin",
+        "qinglong",
+        "baihu",
+        "zhuque",
+        "xuanwu",
+      ],
     },
   },
 } as const
