@@ -16,7 +16,6 @@ import {
   xpForNext,
   HATCH_XP,
   FOOD_INFO,
-  foodTierForScore,
   pickRandomSpecies,
   type FoodTier,
   type PetSpecies,
