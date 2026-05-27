@@ -30,6 +30,16 @@ import {
   type Question,
 } from "@/lib/pet-challenge";
 
+function allocateFoods(totalXp: number): Record<FoodTier, number> {
+  let remaining = totalXp;
+  const elixir = Math.floor(remaining / 5);
+  remaining -= elixir * 5;
+  const quality = Math.floor(remaining / 2);
+  remaining -= quality * 2;
+  const normal = remaining;
+  return { elixir, quality, normal };
+}
+
 const DAILY_LIMIT = 10;
 const todayStr = () => {
   const d = new Date();
