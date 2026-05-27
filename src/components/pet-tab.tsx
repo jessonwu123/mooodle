@@ -340,10 +340,11 @@ function ChallengeDialog({
 
   const finish = async (rawScore: number) => {
     const mult = 1 + 0.1 * modules.length;
-    const finalScore = Math.max(0, Math.floor(rawScore * mult));
-    if (finalScore > 0) {
+    const totalXp = Math.max(0, Math.floor(rawScore * mult));
+    if (totalXp > 0) {
       const tier = foodTierForScore(rawScore);
-      await onReward(tier, finalScore);
+      const count = Math.max(1, Math.floor(totalXp / FOOD_INFO[tier].xp));
+      await onReward(tier, count);
     }
     setScore(rawScore);
     setPhase("result");
@@ -452,16 +453,20 @@ function ChallengeDialog({
             <div className="text-4xl font-bold text-primary">{score} / 10</div>
             {(() => {
               const mult = 1 + 0.1 * modules.length;
-              const finalScore = Math.max(0, Math.floor(score * mult));
+              const totalXp = Math.max(0, Math.floor(score * mult));
               const tier = foodTierForScore(score);
               const info = FOOD_INFO[tier];
-              return finalScore > 0 ? (
+              const count = totalXp > 0 ? Math.max(1, Math.floor(totalXp / info.xp)) : 0;
+              return totalXp > 0 ? (
                 <div className="rounded-xl bg-primary/10 p-4">
                   <div className="text-sm text-muted-foreground">
-                    加成 ×{mult.toFixed(1)} → 获得：
+                    加成 ×{mult.toFixed(1)} → 总经验 {totalXp}，获得：
                   </div>
                   <div className="mt-2 text-2xl">
-                    {info.emoji} {info.name} ×{finalScore}
+                    {info.emoji} {info.name} ×{count}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    每份 +{info.xp} 经验
                   </div>
                 </div>
               ) : (
