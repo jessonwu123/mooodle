@@ -592,20 +592,25 @@ function ChallengeDialog({
             <div className="text-4xl font-bold text-primary">{score} / 10</div>
             {(() => {
               const mult = 1 + 0.1 * modules.length;
-              const totalXp = Math.max(0, Math.floor(score * mult));
-              const tier = foodTierForScore(score);
-              const info = FOOD_INFO[tier];
-              const count = totalXp > 0 ? Math.max(1, Math.floor(totalXp / info.xp)) : 0;
+              const totalXp = Math.max(0, Math.round(score * mult));
+              const alloc = allocateFoods(totalXp);
+              const items = (Object.entries(alloc) as [FoodTier, number][]).filter(
+                ([, c]) => c > 0,
+              );
               return totalXp > 0 ? (
                 <div className="rounded-xl bg-primary/10 p-4">
                   <div className="text-sm text-muted-foreground">
                     加成 ×{mult.toFixed(1)} → 总经验 {totalXp}，获得：
                   </div>
-                  <div className="mt-2 text-2xl">
-                    {info.emoji} {info.name} ×{count}
-                  </div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    每份 +{info.xp} 经验
+                  <div className="mt-2 space-y-1">
+                    {items.map(([tier, count]) => (
+                      <div key={tier} className="text-2xl">
+                        {FOOD_INFO[tier].emoji} {FOOD_INFO[tier].name} ×{count}
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          (+{FOOD_INFO[tier].xp * count} 经验)
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ) : (
