@@ -322,6 +322,8 @@ export function PetTab({ studentId, editable }: Props) {
           onOpenChange={setChallengeOpen}
           hatched={pet.hatched}
           onReward={(tier, count) => addFoods(tier, count)}
+          onRoundStart={consumeChallengeQuota}
+          remaining={remainingToday}
         />
       )}
       {rankingOpen && (
