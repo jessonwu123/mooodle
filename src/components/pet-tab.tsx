@@ -204,19 +204,30 @@ export function PetTab({ studentId, editable }: Props) {
   const isEgg = !pet.hatched;
   const need = isEgg ? HATCH_XP : xpForNext(pet.level);
   const pct = Math.min(100, Math.round((pet.xp / need) * 100));
+  const usedToday = pet.challenges_date === todayStr() ? pet.challenges_today : 0;
+  const remainingToday = Math.max(0, DAILY_LIMIT - usedToday);
 
   return (
     <div className="space-y-6">
       {/* 顶部操作 */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-semibold">我的宠物</h2>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {editable && (
+            <span className="text-xs text-muted-foreground">
+              今日剩余 {remainingToday}/{DAILY_LIMIT} 轮
+            </span>
+          )}
           <Button variant="outline" size="sm" onClick={() => setRankingOpen(true)}>
             <Trophy className="h-4 w-4" />
             排行榜
           </Button>
           {editable && (
-            <Button size="sm" onClick={() => setChallengeOpen(true)}>
+            <Button
+              size="sm"
+              onClick={() => setChallengeOpen(true)}
+              disabled={remainingToday <= 0}
+            >
               <Swords className="h-4 w-4" />
               数学挑战
             </Button>
