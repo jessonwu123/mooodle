@@ -16,7 +16,6 @@ import {
   xpForNext,
   HATCH_XP,
   FOOD_INFO,
-  foodTierForScore,
   pickRandomSpecies,
   type FoodTier,
   type PetSpecies,
@@ -29,6 +28,16 @@ import {
   type ChallengeModule,
   type Question,
 } from "@/lib/pet-challenge";
+
+function allocateFoods(totalXp: number): Record<FoodTier, number> {
+  let remaining = totalXp;
+  const elixir = Math.floor(remaining / 5);
+  remaining -= elixir * 5;
+  const quality = Math.floor(remaining / 2);
+  remaining -= quality * 2;
+  const normal = remaining;
+  return { elixir, quality, normal };
+}
 
 const DAILY_LIMIT = 10;
 const todayStr = () => {
@@ -407,11 +416,12 @@ function ChallengeDialog({
 
   const finish = async (rawScore: number) => {
     const mult = 1 + 0.1 * modules.length;
-    const totalXp = Math.max(0, Math.floor(rawScore * mult));
+    const totalXp = Math.max(0, Math.round(rawScore * mult));
     if (totalXp > 0) {
-      const tier = foodTierForScore(rawScore);
-      const count = Math.max(1, Math.floor(totalXp / FOOD_INFO[tier].xp));
-      await onReward(tier, count);
+      const alloc = allocateFoods(totalXp);
+      for (const [tier, count] of Object.entries(alloc) as [FoodTier, number][]) {
+        if (count > 0) await onReward(tier, count);
+      }
     }
     setScore(rawScore);
     setPhase("result");
@@ -581,20 +591,25 @@ function ChallengeDialog({
             <div className="text-4xl font-bold text-primary">{score} / 10</div>
             {(() => {
               const mult = 1 + 0.1 * modules.length;
-              const totalXp = Math.max(0, Math.floor(score * mult));
-              const tier = foodTierForScore(score);
-              const info = FOOD_INFO[tier];
-              const count = totalXp > 0 ? Math.max(1, Math.floor(totalXp / info.xp)) : 0;
+              const totalXp = Math.max(0, Math.round(score * mult));
+              const alloc = allocateFoods(totalXp);
+              const items = (Object.entries(alloc) as [FoodTier, number][]).filter(
+                ([, c]) => c > 0,
+              );
               return totalXp > 0 ? (
                 <div className="rounded-xl bg-primary/10 p-4">
                   <div className="text-sm text-muted-foreground">
                     加成 ×{mult.toFixed(1)} → 总经验 {totalXp}，获得：
                   </div>
-                  <div className="mt-2 text-2xl">
-                    {info.emoji} {info.name} ×{count}
-                  </div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    每份 +{info.xp} 经验
+                  <div className="mt-2 space-y-1">
+                    {items.map(([tier, count]) => (
+                      <div key={tier} className="text-2xl">
+                        {FOOD_INFO[tier].emoji} {FOOD_INFO[tier].name} ×{count}
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          (+{FOOD_INFO[tier].xp * count} 经验)
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ) : (
