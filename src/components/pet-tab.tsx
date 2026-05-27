@@ -25,9 +25,16 @@ import {
   CHALLENGE_MODULES,
   generateChallenge,
   checkAnswer,
+  checkFraction,
   type ChallengeModule,
   type Question,
 } from "@/lib/pet-challenge";
+
+const DAILY_LIMIT = 10;
+const todayStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 interface Pet {
   id: string;
@@ -35,6 +42,8 @@ interface Pet {
   level: number;
   xp: number;
   hatched: boolean;
+  challenges_today: number;
+  challenges_date: string | null;
 }
 
 interface FoodRow {
@@ -62,20 +71,29 @@ export function PetTab({ studentId, editable }: Props) {
   const load = async () => {
     const { data: petRow } = await supabase
       .from("pets")
-      .select("id, species, level, xp, hatched")
+      .select("id, species, level, xp, hatched, challenges_today, challenges_date")
       .eq("student_id", studentId)
       .maybeSingle();
+    let current: Pet | null = null;
     if (petRow) {
-      setPet(petRow as Pet);
+      current = petRow as Pet;
     } else if (editable) {
-      // 第一次进入：发蛋
       const { data: inserted, error } = await supabase
         .from("pets")
         .insert({ student_id: studentId })
-        .select("id, species, level, xp, hatched")
+        .select("id, species, level, xp, hatched, challenges_today, challenges_date")
         .single();
-      if (!error && inserted) setPet(inserted as Pet);
+      if (!error && inserted) current = inserted as Pet;
     }
+    // 每日重置
+    if (current && editable && current.challenges_date !== todayStr()) {
+      await supabase
+        .from("pets")
+        .update({ challenges_today: 0, challenges_date: todayStr() })
+        .eq("id", current.id);
+      current = { ...current, challenges_today: 0, challenges_date: todayStr() };
+    }
+    setPet(current);
     const { data: foodRows } = await supabase
       .from("pet_foods")
       .select("tier, quantity")
@@ -108,6 +126,16 @@ export function PetTab({ studentId, editable }: Props) {
       return;
     }
     setFoods((p) => ({ ...p, [tier]: next }));
+  };
+
+  const consumeChallengeQuota = async () => {
+    if (!pet) return;
+    const next = Math.min(DAILY_LIMIT, pet.challenges_today + 1);
+    await supabase
+      .from("pets")
+      .update({ challenges_today: next, challenges_date: todayStr() })
+      .eq("id", pet.id);
+    setPet((p) => (p ? { ...p, challenges_today: next, challenges_date: todayStr() } : p));
   };
 
   const consumeFood = async (tier: FoodTier) => {
@@ -176,19 +204,30 @@ export function PetTab({ studentId, editable }: Props) {
   const isEgg = !pet.hatched;
   const need = isEgg ? HATCH_XP : xpForNext(pet.level);
   const pct = Math.min(100, Math.round((pet.xp / need) * 100));
+  const usedToday = pet.challenges_date === todayStr() ? pet.challenges_today : 0;
+  const remainingToday = Math.max(0, DAILY_LIMIT - usedToday);
 
   return (
     <div className="space-y-6">
       {/* 顶部操作 */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-semibold">我的宠物</h2>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {editable && (
+            <span className="text-xs text-muted-foreground">
+              今日剩余 {remainingToday}/{DAILY_LIMIT} 轮
+            </span>
+          )}
           <Button variant="outline" size="sm" onClick={() => setRankingOpen(true)}>
             <Trophy className="h-4 w-4" />
             排行榜
           </Button>
           {editable && (
-            <Button size="sm" onClick={() => setChallengeOpen(true)}>
+            <Button
+              size="sm"
+              onClick={() => setChallengeOpen(true)}
+              disabled={remainingToday <= 0}
+            >
               <Swords className="h-4 w-4" />
               数学挑战
             </Button>
@@ -283,6 +322,8 @@ export function PetTab({ studentId, editable }: Props) {
           onOpenChange={setChallengeOpen}
           hatched={pet.hatched}
           onReward={(tier, count) => addFoods(tier, count)}
+          onRoundStart={consumeChallengeQuota}
+          remaining={remainingToday}
         />
       )}
       {rankingOpen && (
@@ -298,25 +339,46 @@ function ChallengeDialog({
   onOpenChange,
   hatched,
   onReward,
+  onRoundStart,
+  remaining,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   hatched: boolean;
   onReward: (tier: FoodTier, count: number) => void | Promise<void>;
+  onRoundStart: () => void | Promise<void>;
+  remaining: number;
 }) {
   const [phase, setPhase] = useState<"setup" | "quiz" | "result">("setup");
   const [modules, setModules] = useState<ChallengeModule[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [idx, setIdx] = useState(0);
   const [input, setInput] = useState("");
+  const [fracNum, setFracNum] = useState("");
+  const [fracDen, setFracDen] = useState("");
   const [score, setScore] = useState(0);
   const [feedback, setFeedback] = useState<null | "right" | "wrong">(null);
 
-  const start = () => {
+  const start = async () => {
+    if (hatched && modules.length === 0) {
+      toast.error("孵化后请至少选择一个题型词条");
+      return;
+    }
+    if (remaining <= 0) {
+      toast.error("今日挑战次数已用完");
+      return;
+    }
     const qs = generateChallenge(hatched, modules);
+    if (qs.length === 0) {
+      toast.error("题库为空，请勾选题型");
+      return;
+    }
+    await onRoundStart();
     setQuestions(qs);
     setIdx(0);
     setInput("");
+    setFracNum("");
+    setFracDen("");
     setScore(0);
     setFeedback(null);
     setPhase("quiz");
@@ -324,18 +386,23 @@ function ChallengeDialog({
 
   const submit = () => {
     const q = questions[idx];
-    const correct = checkAnswer(q, input);
+    const correct =
+      q.kind === "fraction"
+        ? checkFraction(q, fracNum, fracDen)
+        : checkAnswer(q, input);
     setFeedback(correct ? "right" : "wrong");
     setScore((s) => s + (correct ? 1 : -1));
     setTimeout(() => {
       setFeedback(null);
       setInput("");
+      setFracNum("");
+      setFracDen("");
       if (idx + 1 >= questions.length) {
         finish(score + (correct ? 1 : -1));
       } else {
         setIdx(idx + 1);
       }
-    }, 700);
+    }, 900);
   };
 
   const finish = async (rawScore: number) => {
@@ -356,7 +423,16 @@ function ChallengeDialog({
     setQuestions([]);
     setIdx(0);
     setScore(0);
+    setInput("");
+    setFracNum("");
+    setFracDen("");
   };
+
+  const currentQ = questions[idx];
+  const canSubmit =
+    currentQ?.kind === "fraction"
+      ? fracNum.trim() !== "" && fracDen.trim() !== ""
+      : input.trim() !== "";
 
   return (
     <Dialog
@@ -375,9 +451,12 @@ function ChallengeDialog({
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
               {hatched
-                ? "勾选额外题型增加难度，每勾选一项最终得分 +10%。"
+                ? "孵化后请至少选择一个题型词条，每勾选一项最终得分 +10%。"
                 : "孵化前仅整数四则运算。孵化后可解锁更多题型。"}
             </p>
+            <div className="text-xs text-muted-foreground">
+              今日剩余 <span className="font-semibold text-primary">{remaining}</span> / {DAILY_LIMIT} 轮
+            </div>
             {hatched && (
               <div className="grid grid-cols-2 gap-2">
                 {CHALLENGE_MODULES.map((m) => (
@@ -404,47 +483,96 @@ function ChallengeDialog({
               </div>
             )}
             <DialogFooter>
-              <Button onClick={start} className="w-full">开始挑战</Button>
+              <Button
+                onClick={start}
+                className="w-full"
+                disabled={remaining <= 0 || (hatched && modules.length === 0)}
+              >
+                {remaining <= 0 ? "今日次数已用完" : "开始挑战"}
+              </Button>
             </DialogFooter>
           </div>
         )}
 
-        {phase === "quiz" && questions[idx] && (
+        {phase === "quiz" && currentQ && (
           <div className="space-y-4">
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>第 {idx + 1} / {questions.length} 题</span>
               <span>当前得分：{score}</span>
             </div>
             <div className="rounded-xl bg-muted/40 p-6 text-center text-2xl font-bold">
-              {questions[idx].prompt}
+              {currentQ.prompt}
             </div>
-            <Input
-              autoFocus
-              type="text"
-              inputMode="decimal"
-              placeholder="输入答案后按回车"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !feedback) submit();
-              }}
-              disabled={feedback !== null}
-            />
+            {currentQ.kind === "fraction" ? (
+              <div className="flex flex-col items-center gap-2">
+                <div className="text-xs text-muted-foreground">请填写分数答案（分子 / 分母）</div>
+                <div className="flex flex-col items-center">
+                  <Input
+                    autoFocus
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="分子"
+                    value={fracNum}
+                    onChange={(e) => setFracNum(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !feedback && canSubmit) submit();
+                    }}
+                    disabled={feedback !== null}
+                    className="w-28 text-center"
+                  />
+                  <div className="my-1 h-px w-32 bg-foreground" />
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="分母"
+                    value={fracDen}
+                    onChange={(e) => setFracDen(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !feedback && canSubmit) submit();
+                    }}
+                    disabled={feedback !== null}
+                    className="w-28 text-center"
+                  />
+                </div>
+              </div>
+            ) : (
+              <Input
+                autoFocus
+                type="text"
+                inputMode="decimal"
+                placeholder="输入答案后按回车"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !feedback) submit();
+                }}
+                disabled={feedback !== null}
+              />
+            )}
             {feedback === "right" && (
               <div className="text-center text-green-600 font-semibold">✓ 答对了！+1</div>
             )}
             {feedback === "wrong" && (
               <div className="text-center text-red-600 font-semibold">
-                ✗ 答错了！-1（正确答案：{questions[idx].answer}）
+                ✗ 答错了！-1（正确答案：
+                {currentQ.kind === "fraction"
+                  ? `${currentQ.fracNum}/${currentQ.fracDen}`
+                  : currentQ.answer}
+                ）
               </div>
             )}
             <DialogFooter>
-              <Button onClick={submit} disabled={feedback !== null} className="w-full">
+              <Button
+                onClick={submit}
+                disabled={feedback !== null || !canSubmit}
+                className="w-full"
+              >
                 提交
               </Button>
             </DialogFooter>
           </div>
         )}
+
 
         {phase === "result" && (
           <div className="space-y-4 text-center">

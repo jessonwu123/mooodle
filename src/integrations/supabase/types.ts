@@ -152,6 +152,8 @@ export type Database = {
       }
       pets: {
         Row: {
+          challenges_date: string | null
+          challenges_today: number
           created_at: string
           hatched: boolean
           id: string
@@ -162,6 +164,8 @@ export type Database = {
           xp: number
         }
         Insert: {
+          challenges_date?: string | null
+          challenges_today?: number
           created_at?: string
           hatched?: boolean
           id?: string
@@ -172,6 +176,8 @@ export type Database = {
           xp?: number
         }
         Update: {
+          challenges_date?: string | null
+          challenges_today?: number
           created_at?: string
           hatched?: boolean
           id?: string
