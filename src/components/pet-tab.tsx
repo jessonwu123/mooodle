@@ -407,11 +407,12 @@ function ChallengeDialog({
 
   const finish = async (rawScore: number) => {
     const mult = 1 + 0.1 * modules.length;
-    const totalXp = Math.max(0, Math.floor(rawScore * mult));
+    const totalXp = Math.max(0, Math.round(rawScore * mult));
     if (totalXp > 0) {
-      const tier = foodTierForScore(rawScore);
-      const count = Math.max(1, Math.floor(totalXp / FOOD_INFO[tier].xp));
-      await onReward(tier, count);
+      const alloc = allocateFoods(totalXp);
+      for (const [tier, count] of Object.entries(alloc) as [FoodTier, number][]) {
+        if (count > 0) await onReward(tier, count);
+      }
     }
     setScore(rawScore);
     setPhase("result");
