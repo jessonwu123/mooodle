@@ -25,9 +25,16 @@ import {
   CHALLENGE_MODULES,
   generateChallenge,
   checkAnswer,
+  checkFraction,
   type ChallengeModule,
   type Question,
 } from "@/lib/pet-challenge";
+
+const DAILY_LIMIT = 10;
+const todayStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 interface Pet {
   id: string;
@@ -35,6 +42,8 @@ interface Pet {
   level: number;
   xp: number;
   hatched: boolean;
+  challenges_today: number;
+  challenges_date: string | null;
 }
 
 interface FoodRow {
