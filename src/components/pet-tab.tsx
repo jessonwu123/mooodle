@@ -340,10 +340,11 @@ function ChallengeDialog({
 
   const finish = async (rawScore: number) => {
     const mult = 1 + 0.1 * modules.length;
-    const finalScore = Math.max(0, Math.floor(rawScore * mult));
-    if (finalScore > 0) {
+    const totalXp = Math.max(0, Math.floor(rawScore * mult));
+    if (totalXp > 0) {
       const tier = foodTierForScore(rawScore);
-      await onReward(tier, finalScore);
+      const count = Math.max(1, Math.floor(totalXp / FOOD_INFO[tier].xp));
+      await onReward(tier, count);
     }
     setScore(rawScore);
     setPhase("result");
