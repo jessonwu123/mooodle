@@ -128,6 +128,16 @@ export function PetTab({ studentId, editable }: Props) {
     setFoods((p) => ({ ...p, [tier]: next }));
   };
 
+  const consumeChallengeQuota = async () => {
+    if (!pet) return;
+    const next = Math.min(DAILY_LIMIT, pet.challenges_today + 1);
+    await supabase
+      .from("pets")
+      .update({ challenges_today: next, challenges_date: todayStr() })
+      .eq("id", pet.id);
+    setPet((p) => (p ? { ...p, challenges_today: next, challenges_date: todayStr() } : p));
+  };
+
   const consumeFood = async (tier: FoodTier) => {
     if (!pet || !editable) return;
     if (foods[tier] <= 0) return;
