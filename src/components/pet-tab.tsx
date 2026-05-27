@@ -511,24 +511,28 @@ function RankingDialog({
     if (!open) return;
     setLoading(true);
     (async () => {
-      const { data } = await supabase
+      const { data: petData } = await supabase
         .from("pets")
-        .select("student_id, level, xp, hatched, species, students(name)")
+        .select("student_id, level, xp, hatched, species")
         .order("level", { ascending: false })
         .order("xp", { ascending: false })
         .limit(100);
-      const list: RankRow[] = (data ?? []).map((d: { student_id: string; level: number; xp: number; hatched: boolean; species: PetSpecies | null; students: { name: string } | { name: string }[] | null }) => {
-        const s = d.students;
-        const name = Array.isArray(s) ? (s[0]?.name ?? "未知") : (s?.name ?? "未知");
-        return {
-          student_id: d.student_id,
-          level: d.level,
-          xp: d.xp,
-          hatched: d.hatched,
-          species: d.species,
-          name,
-        };
-      });
+      const pets = petData ?? [];
+      const ids = pets.map((p) => p.student_id);
+      const { data: studentData } = ids.length
+        ? await supabase.from("students").select("id, name").in("id", ids)
+        : { data: [] };
+      const nameMap = new Map<string, string>(
+        (studentData ?? []).map((s) => [s.id, s.name]),
+      );
+      const list: RankRow[] = pets.map((d) => ({
+        student_id: d.student_id,
+        level: d.level,
+        xp: d.xp,
+        hatched: d.hatched,
+        species: d.species as PetSpecies | null,
+        name: nameMap.get(d.student_id) ?? "未知",
+      }));
       setRows(list);
       setLoading(false);
     })();
