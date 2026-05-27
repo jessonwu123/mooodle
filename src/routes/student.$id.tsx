@@ -435,6 +435,10 @@ function StudentProfile() {
               timestamps={timestamps}
             />
           </TabsContent>
+
+          <TabsContent value="pet">
+            <PetTab studentId={id} editable={isOwner} />
+          </TabsContent>
         </Tabs>
       </main>
     </div>
