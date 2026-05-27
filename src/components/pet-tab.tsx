@@ -71,20 +71,29 @@ export function PetTab({ studentId, editable }: Props) {
   const load = async () => {
     const { data: petRow } = await supabase
       .from("pets")
-      .select("id, species, level, xp, hatched")
+      .select("id, species, level, xp, hatched, challenges_today, challenges_date")
       .eq("student_id", studentId)
       .maybeSingle();
+    let current: Pet | null = null;
     if (petRow) {
-      setPet(petRow as Pet);
+      current = petRow as Pet;
     } else if (editable) {
-      // 第一次进入：发蛋
       const { data: inserted, error } = await supabase
         .from("pets")
         .insert({ student_id: studentId })
-        .select("id, species, level, xp, hatched")
+        .select("id, species, level, xp, hatched, challenges_today, challenges_date")
         .single();
-      if (!error && inserted) setPet(inserted as Pet);
+      if (!error && inserted) current = inserted as Pet;
     }
+    // 每日重置
+    if (current && editable && current.challenges_date !== todayStr()) {
+      await supabase
+        .from("pets")
+        .update({ challenges_today: 0, challenges_date: todayStr() })
+        .eq("id", current.id);
+      current = { ...current, challenges_today: 0, challenges_date: todayStr() };
+    }
+    setPet(current);
     const { data: foodRows } = await supabase
       .from("pet_foods")
       .select("tier, quantity")
