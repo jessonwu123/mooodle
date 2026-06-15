@@ -72,6 +72,9 @@ interface ExtractedQuestion {
   imageBlob?: Blob | null;
 }
 
+let paperRowsCache: PaperRow[] | null = null;
+let paperRowsRequest: Promise<PaperRow[]> | null = null;
+
 const QUESTION_BATCHES = [
   [1, 5],
   [6, 10],
@@ -113,8 +116,8 @@ async function uploadRenderedPageImages(
 }
 
 function QuestionBankPage() {
-  const [papers, setPapers] = useState<PaperRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [papers, setPapers] = useState<PaperRow[]>(paperRowsCache ?? []);
+  const [loading, setLoading] = useState(paperRowsCache === null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [paperFile, setPaperFile] = useState<File | null>(null);
   const [answerFile, setAnswerFile] = useState<File | null>(null);
@@ -130,23 +133,36 @@ function QuestionBankPage() {
   const [answerPath, setAnswerPath] = useState<string | null>(null);
   const [savingPreview, setSavingPreview] = useState(false);
 
-  const load = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("math_papers")
-      .select("id, year, name, question_count, created_at")
-      .order("year", { ascending: false })
-      .order("created_at", { ascending: false });
-    if (error) {
+  const load = async (showLoading = paperRowsCache === null) => {
+    if (showLoading) setLoading(true);
+    try {
+      if (!paperRowsRequest) {
+        paperRowsRequest = supabase
+          .from("math_papers")
+          .select("id, year, name, question_count, created_at")
+          .order("year", { ascending: false })
+          .order("created_at", { ascending: false })
+          .then(({ data, error }) => {
+            if (error) throw error;
+            return (data ?? []) as PaperRow[];
+          })
+          .finally(() => {
+            paperRowsRequest = null;
+          });
+      }
+      const rows = await paperRowsRequest;
+      paperRowsCache = rows;
+      setPapers(rows);
+    } catch (error) {
+      console.error("load math papers failed", error);
       toast.error("加载试卷列表失败");
-    } else {
-      setPapers((data ?? []) as PaperRow[]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
-    load();
+    void load(paperRowsCache === null);
   }, []);
 
   const onPaperFile = (f: File | null) => {
