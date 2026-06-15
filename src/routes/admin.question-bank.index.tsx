@@ -402,8 +402,12 @@ function QuestionBankPage() {
       if (qs.length < 25) toast.warning(`只抽取到 ${qs.length} 道题，请在预览中检查`);
 
       setStage("解析 PDF 文本锚点...");
-      // 最高优先级：用 AI 抽取的题干文字内容在 PDF 文本层中精确定位，
-      // 保证图片内容与提取文字一致；题号 "N." 作为辅助参考。
+      // 锚点优先级：
+      //   1) "Problem N" / "Problem N."  —— 主要锚点，作为题干图片的左上角
+      //   2) 题干正文文本匹配（AI 抽取的 stem 在 PDF 文本层中的位置）
+      //   3) "N." 题号
+      //   4) AI bbox
+      // 截图底部：同页 "(A)" 选项行上方一行
       let pageTexts: PdfPageText[] = [];
       try {
         pageTexts = await getPdfTextItems(paperPdfFile);
@@ -411,7 +415,7 @@ function QuestionBankPage() {
         console.warn("PDF 文本锚点解析失败，回退到 AI bbox", err);
       }
 
-      // 为每页构建按阅读顺序拼接的归一化文本流，并记录每个字符对应的 y 坐标
+      // 每页阅读顺序拼接的归一化文本流（用于按文字内容查找 stem）
       const normalizeText = (s: string) =>
         s
           .replace(/\$[^$]*\$/g, " ")
@@ -448,14 +452,47 @@ function QuestionBankPage() {
           if (ps.pageIndex < fromPage) continue;
           const start = ps.pageIndex === fromPage ? fromPos : 0;
           const idx = ps.norm.indexOf(needle, start);
-          if (idx >= 0) {
-            return { page: ps.pageIndex, pos: idx, y: ps.ys[idx] };
-          }
+          if (idx >= 0) return { page: ps.pageIndex, pos: idx, y: ps.ys[idx] };
         }
         return null;
       };
 
-      // 题号锚点（辅助）
+      // 1) Problem 锚点检测
+      //    匹配单一文本项 "Problem 1" / "Problem 1." 以及跨项 "Problem"+"1" / "Problem"+"1."
+      type ProblemAnchor = { num: number; page: number; y: number; x: number };
+      const problemAnchorsAll: ProblemAnchor[] = [];
+      for (const pt of pageTexts) {
+        const items = [...pt.items].sort((a, b) => {
+          const dy = Math.round(a.y * 200) - Math.round(b.y * 200);
+          return dy !== 0 ? dy : a.x - b.x;
+        });
+        for (let i = 0; i < items.length; i++) {
+          const cur = items[i];
+          const text = cur.str.trim();
+          // 整体匹配
+          const m1 = text.match(/^Problem\s+(\d{1,2})\.?$/i);
+          if (m1) {
+            const n = Number(m1[1]);
+            if (n >= 1 && n <= 25)
+              problemAnchorsAll.push({ num: n, page: pt.pageIndex, y: cur.y, x: cur.x });
+            continue;
+          }
+          // 拆分匹配：当前项以 "Problem" 开头，下一项是数字
+          if (/^Problem$/i.test(text) || /Problem\s*$/i.test(text)) {
+            const nxt = items[i + 1];
+            if (nxt && Math.abs(nxt.y - cur.y) < 0.012) {
+              const m2 = nxt.str.trim().match(/^(\d{1,2})\.?$/);
+              if (m2) {
+                const n = Number(m2[1]);
+                if (n >= 1 && n <= 25)
+                  problemAnchorsAll.push({ num: n, page: pt.pageIndex, y: cur.y, x: cur.x });
+              }
+            }
+          }
+        }
+      }
+
+      // 2) 题号 "N." 锚点（辅助）
       type NumAnchor = { num: number; page: number; y: number; x: number };
       const numAnchorsAll: NumAnchor[] = [];
       for (const pt of pageTexts) {
@@ -469,77 +506,115 @@ function QuestionBankPage() {
         }
       }
 
-      // 按题号顺序定位 stem 起点
-      type StemLoc = { page: number; y: number };
+      // 为每题定位 stem 起点
+      type StemLoc = { page: number; y: number; x: number };
       const stemLocByNum = new Map<number, StemLoc>();
       const sortedQs = [...qs].sort((a, b) => a.number - b.number);
       let cursorPage = 0;
-      let cursorPos = 0;
+      let cursorY = -1;
+
+      const afterCursor = (page: number, y: number) =>
+        page > cursorPage || (page === cursorPage && y > cursorY - 0.005);
+
       for (const q of sortedQs) {
+        // (1) Problem N 锚点
+        const problemHits = problemAnchorsAll
+          .filter((a) => a.num === q.number && afterCursor(a.page, a.y))
+          .sort((a, b) => a.page - b.page || a.y - b.y);
+        if (problemHits.length) {
+          const best = problemHits[0];
+          stemLocByNum.set(q.number, { page: best.page, y: best.y, x: best.x });
+          cursorPage = best.page;
+          cursorY = best.y;
+          continue;
+        }
+        // (2) 题干文本匹配
         const fullNorm = normalizeText(q.stem ?? "");
         let hit: Hit | null = null;
+        const startPos =
+          cursorY < 0
+            ? 0
+            : Math.max(
+                0,
+                (pageStreams[cursorPage]?.ys.findIndex((y) => y > cursorY + 0.002) ?? -1) + 0,
+              );
         for (const len of [40, 30, 20, 14, 10, 8]) {
           if (fullNorm.length < len) continue;
-          hit = findText(fullNorm.slice(0, len), cursorPage, cursorPos);
+          hit = findText(
+            fullNorm.slice(0, len),
+            cursorPage,
+            hit ? 0 : startPos,
+          );
           if (hit) break;
         }
         if (hit) {
-          stemLocByNum.set(q.number, { page: hit.page, y: hit.y });
+          stemLocByNum.set(q.number, { page: hit.page, y: hit.y, x: 0.08 });
           cursorPage = hit.page;
-          cursorPos = hit.pos + 1;
+          cursorY = hit.y;
           continue;
         }
-        // 退化：题号锚点（必须在 cursor 之后）
-        const candidates = numAnchorsAll.filter(
-          (a) =>
-            a.num === q.number &&
-            (a.page > cursorPage ||
-              (a.page === cursorPage &&
-                (cursorPos === 0 ||
-                  a.y >
-                    (pageStreams[a.page]?.ys[cursorPos - 1] ?? 0) - 0.005))),
+        // (3) "N." 数字锚点
+        const numCandidates = numAnchorsAll.filter(
+          (a) => a.num === q.number && afterCursor(a.page, a.y),
         );
-        if (candidates.length) {
+        if (numCandidates.length) {
           const aiPage = q.stem_page_index ?? q.page_index ?? 0;
           const aiY = q.stem_bbox?.y ?? 0.5;
-          const best = candidates.reduce((b, c) =>
+          const best = numCandidates.reduce((b, c) =>
             Math.abs(c.page - aiPage) * 10 + Math.abs(c.y - aiY) <
             Math.abs(b.page - aiPage) * 10 + Math.abs(b.y - aiY)
               ? c
               : b,
           );
-          stemLocByNum.set(q.number, { page: best.page, y: best.y });
+          stemLocByNum.set(q.number, { page: best.page, y: best.y, x: best.x });
           cursorPage = best.page;
-          cursorPos = 0;
+          cursorY = best.y;
         }
       }
 
-      // 用 stem 位置覆盖 bbox。横向沿用 AI bbox，由 tighten 阶段统一列宽。
+      // 应用锚点 → 覆盖 bbox
+      // 顶部：Problem N 行（左上角）。底部：同页第一个 (A) 选项的 y - 一行高度。
       for (const q of qs) {
         const loc = stemLocByNum.get(q.number);
         if (!loc) continue;
         const next = stemLocByNum.get(q.number + 1) ?? null;
-        const stemTop = Math.max(0, loc.y - 0.01);
+        const stemTop = Math.max(0, loc.y - 0.006);
 
-        // 在 stem 起点页面查找 "(A)" —— 同页选项的顶界
+        // 在 stem 页面查找 stem 起点之后的第一个 "(A)"
         const optAItem = pageTexts[loc.page]?.items
           .filter((it) => /^\(A\)/.test(it.str.trim()) && it.y > loc.y + 0.005)
           .sort((a, b) => a.y - b.y)[0];
 
         const stemBboxBase = q.stem_bbox ?? { x: 0.05, y: 0, w: 0.9, h: 0 };
         const optsBboxBase = q.options_bbox ?? { x: 0.05, y: 0, w: 0.9, h: 0 };
+        // 估计一行高度（在 stem 页面附近抽样若干 item 的高度均值）
+        const sampleH =
+          (pageTexts[loc.page]?.items
+            .filter((it) => Math.abs(it.y - loc.y) < 0.15 && it.h > 0)
+            .map((it) => it.h)
+            .sort((a, b) => a - b)[
+            Math.max(
+              0,
+              Math.floor(
+                (pageTexts[loc.page]?.items.filter((it) => Math.abs(it.y - loc.y) < 0.15 && it.h > 0)
+                  .length ?? 1) / 2,
+              ),
+            )
+          ] ?? 0.014);
+        const oneLine = Math.max(0.012, sampleH * 1.1);
 
         if (optAItem && (!next || next.page > loc.page || optAItem.y < next.y)) {
+          // 同页有 (A)，stem 底 = (A).y - 一行
           q.stem_page_index = loc.page;
           q.options_page_index = loc.page;
+          const stemBottom = optAItem.y - oneLine;
           q.stem_bbox = {
             x: stemBboxBase.x,
             w: stemBboxBase.w,
             y: stemTop,
-            h: Math.max(0.01, optAItem.y - 0.006 - stemTop),
+            h: Math.max(0.01, stemBottom - stemTop),
           };
-          const optsBottom =
-            next && next.page === loc.page ? next.y - 0.006 : 0.98;
+          const optsBottom = next && next.page === loc.page ? next.y - 0.006 : 0.98;
           q.options_bbox = {
             x: optsBboxBase.x,
             w: optsBboxBase.w,
@@ -547,6 +622,7 @@ function QuestionBankPage() {
             h: Math.max(0.01, optsBottom - (optAItem.y - 0.006)),
           };
         } else if (next && next.page > loc.page) {
+          // 跨页：题干在 loc.page，选项在 next.page 的 (A) 行
           q.stem_page_index = loc.page;
           q.stem_bbox = {
             x: stemBboxBase.x,
@@ -555,9 +631,7 @@ function QuestionBankPage() {
             h: Math.max(0.01, 0.98 - stemTop),
           };
           const nextPageOptA = pageTexts[next.page]?.items
-            .filter(
-              (it) => /^\(A\)/.test(it.str.trim()) && it.y < next.y - 0.005,
-            )
+            .filter((it) => /^\(A\)/.test(it.str.trim()) && it.y < next.y - 0.005)
             .sort((a, b) => a.y - b.y)[0];
           if (nextPageOptA) {
             q.options_page_index = next.page;
@@ -581,6 +655,47 @@ function QuestionBankPage() {
             h: Math.max(0.01, bottom - stemTop),
           };
         }
+      }
+
+      // ===== 校对环节：检查截图区域内的 PDF 文字是否与 AI 提取的 stem 一致 =====
+      setStage("校对题干截图与文字...");
+      const mismatched: number[] = [];
+      for (const q of qs) {
+        if (!q.stem_bbox) continue;
+        const aiNorm = normalizeText(q.stem ?? "");
+        if (aiNorm.length < 8) continue;
+        const pageItems = pageTexts[q.stem_page_index]?.items ?? [];
+        const bx = q.stem_bbox.x;
+        const by = q.stem_bbox.y;
+        const bxe = bx + q.stem_bbox.w;
+        const bye = by + q.stem_bbox.h;
+        const inRegion = pageItems
+          .filter(
+            (it) =>
+              it.y + it.h > by - 0.005 &&
+              it.y < bye + 0.005 &&
+              it.x + it.w > bx - 0.02 &&
+              it.x < bxe + 0.02,
+          )
+          .sort((a, b) => {
+            const dy = Math.round(a.y * 200) - Math.round(b.y * 200);
+            return dy !== 0 ? dy : a.x - b.x;
+          });
+        const cropNorm = normalizeText(inRegion.map((it) => it.str).join(" "));
+        // 用 AI 文本的前缀作为关键片段：在裁剪文本中找子串
+        const keyLen = Math.min(20, Math.max(10, Math.floor(aiNorm.length * 0.4)));
+        const key = aiNorm.slice(0, keyLen);
+        const ok = cropNorm.includes(key);
+        if (!ok) {
+          mismatched.push(q.number);
+          console.warn(
+            `[校对] 第 ${q.number} 题截图与文字内容不一致`,
+            { aiHead: aiNorm.slice(0, 40), cropHead: cropNorm.slice(0, 80) },
+          );
+        }
+      }
+      if (mismatched.length) {
+        toast.warning(`校对：第 ${mismatched.join(", ")} 题截图与文字疑似不一致，请预览中核对`);
       }
 
       setStage("裁剪题目与选项截图...");
