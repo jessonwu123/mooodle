@@ -74,6 +74,30 @@ interface ExtractedQuestion {
 
 let paperRowsCache: PaperRow[] | null = null;
 let paperRowsRequest: Promise<PaperRow[]> | null = null;
+const PAPER_ROWS_CACHE_KEY = "math-paper-rows-cache";
+
+function getCachedPaperRows() {
+  if (paperRowsCache) return paperRowsCache;
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(PAPER_ROWS_CACHE_KEY);
+    if (!raw) return null;
+    paperRowsCache = JSON.parse(raw) as PaperRow[];
+    return paperRowsCache;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedPaperRows(rows: PaperRow[]) {
+  paperRowsCache = rows;
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(PAPER_ROWS_CACHE_KEY, JSON.stringify(rows));
+  } catch {
+    // Ignore storage quota/privacy-mode failures; in-memory cache still works.
+  }
+}
 
 const QUESTION_BATCHES = [
   [1, 5],
@@ -116,8 +140,9 @@ async function uploadRenderedPageImages(
 }
 
 function QuestionBankPage() {
-  const [papers, setPapers] = useState<PaperRow[]>(paperRowsCache ?? []);
-  const [loading, setLoading] = useState(paperRowsCache === null);
+  const cachedRows = getCachedPaperRows();
+  const [papers, setPapers] = useState<PaperRow[]>(cachedRows ?? []);
+  const [loading, setLoading] = useState(cachedRows === null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [paperFile, setPaperFile] = useState<File | null>(null);
   const [answerFile, setAnswerFile] = useState<File | null>(null);
@@ -152,7 +177,7 @@ function QuestionBankPage() {
       const request = paperRowsRequest;
       if (!request) return;
       const rows = await request;
-      paperRowsCache = rows;
+      setCachedPaperRows(rows);
       setPapers(rows);
     } catch (error) {
       console.error("load math papers failed", error);
