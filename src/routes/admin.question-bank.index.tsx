@@ -431,12 +431,34 @@ function QuestionBankPage() {
           }
         }
       }
-      // 每个题号选 (page, y) 最靠前的锚点（PDF 中第一次出现）
+      // 每个题号可能出现多次（如第一页"考试要求 1-7"），
+      // 用 AI 给出的 page_index + stem_bbox.y 作为参考，挑选最贴近的锚点；
+      // 同时校验单调性：题号 N 的锚点必须严格在题号 N-1 的锚点之后（page,y 字典序）。
       const numAnchorByNum = new Map<number, NumAnchor>();
-      for (const a of numAnchorsAll) {
-        const prev = numAnchorByNum.get(a.num);
-        if (!prev || a.page < prev.page || (a.page === prev.page && a.y < prev.y)) {
-          numAnchorByNum.set(a.num, a);
+      const sortedQs = [...qs].sort((a, b) => a.number - b.number);
+      let prevAnchor: NumAnchor | null = null;
+      for (const q of sortedQs) {
+        const candidates = numAnchorsAll.filter((a) => a.num === q.number);
+        if (!candidates.length) continue;
+        const aiPage = q.stem_page_index ?? q.page_index ?? 0;
+        const aiY = q.stem_bbox?.y ?? 0.5;
+        const valid = candidates.filter((c) => {
+          if (!prevAnchor) return true;
+          return c.page > prevAnchor.page || (c.page === prevAnchor.page && c.y > prevAnchor.y + 0.005);
+        });
+        const pool = valid.length ? valid : candidates;
+        let best: NumAnchor | null = null;
+        let bestScore = Infinity;
+        for (const c of pool) {
+          const score = Math.abs(c.page - aiPage) * 10 + Math.abs(c.y - aiY);
+          if (score < bestScore) {
+            bestScore = score;
+            best = c;
+          }
+        }
+        if (best) {
+          numAnchorByNum.set(q.number, best);
+          prevAnchor = best;
         }
       }
       // 对每道题用锚点覆盖 stem/options 的 page 和纵向范围。
