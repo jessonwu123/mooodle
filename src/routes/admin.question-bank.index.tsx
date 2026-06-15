@@ -560,10 +560,7 @@ function QuestionBankPage() {
             </DialogContent>
           </Dialog>
           <Button variant="outline" className="gap-1.5" onClick={() => openUpload("paper")}>
-            <Upload className="h-4 w-4" /> 批量上传试卷
-          </Button>
-          <Button variant="outline" className="gap-1.5" onClick={() => openUpload("answer")}>
-            <Upload className="h-4 w-4" /> 批量上传答案
+            <Upload className="h-4 w-4" /> 批量上传
           </Button>
         </div>
       </div>
