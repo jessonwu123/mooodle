@@ -15,8 +15,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as StudentIdRouteImport } from './routes/student.$id'
 import { Route as AdminScheduleRouteImport } from './routes/admin.schedule'
-import { Route as AdminQuestionBankRouteImport } from './routes/admin.question-bank'
 import { Route as AdminTeachersIndexRouteImport } from './routes/admin.teachers.index'
+import { Route as AdminQuestionBankIndexRouteImport } from './routes/admin.question-bank.index'
 import { Route as AdminTeachersTeacherIdRouteImport } from './routes/admin.teachers.$teacherId'
 import { Route as AdminStudentIdRouteImport } from './routes/admin.student.$id'
 import { Route as AdminQuestionBankPaperIdRouteImport } from './routes/admin.question-bank.$paperId'
@@ -51,14 +51,14 @@ const AdminScheduleRoute = AdminScheduleRouteImport.update({
   path: '/schedule',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminQuestionBankRoute = AdminQuestionBankRouteImport.update({
-  id: '/question-bank',
-  path: '/question-bank',
-  getParentRoute: () => AdminRoute,
-} as any)
 const AdminTeachersIndexRoute = AdminTeachersIndexRouteImport.update({
   id: '/teachers/',
   path: '/teachers/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminQuestionBankIndexRoute = AdminQuestionBankIndexRouteImport.update({
+  id: '/question-bank/',
+  path: '/question-bank/',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminTeachersTeacherIdRoute = AdminTeachersTeacherIdRouteImport.update({
@@ -73,34 +73,34 @@ const AdminStudentIdRoute = AdminStudentIdRouteImport.update({
 } as any)
 const AdminQuestionBankPaperIdRoute =
   AdminQuestionBankPaperIdRouteImport.update({
-    id: '/$paperId',
-    path: '/$paperId',
-    getParentRoute: () => AdminQuestionBankRoute,
+    id: '/question-bank/$paperId',
+    path: '/question-bank/$paperId',
+    getParentRoute: () => AdminRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
-  '/admin/question-bank': typeof AdminQuestionBankRouteWithChildren
   '/admin/schedule': typeof AdminScheduleRoute
   '/student/$id': typeof StudentIdRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/question-bank/$paperId': typeof AdminQuestionBankPaperIdRoute
   '/admin/student/$id': typeof AdminStudentIdRoute
   '/admin/teachers/$teacherId': typeof AdminTeachersTeacherIdRoute
+  '/admin/question-bank/': typeof AdminQuestionBankIndexRoute
   '/admin/teachers/': typeof AdminTeachersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/admin/question-bank': typeof AdminQuestionBankRouteWithChildren
   '/admin/schedule': typeof AdminScheduleRoute
   '/student/$id': typeof StudentIdRoute
   '/admin': typeof AdminIndexRoute
   '/admin/question-bank/$paperId': typeof AdminQuestionBankPaperIdRoute
   '/admin/student/$id': typeof AdminStudentIdRoute
   '/admin/teachers/$teacherId': typeof AdminTeachersTeacherIdRoute
+  '/admin/question-bank': typeof AdminQuestionBankIndexRoute
   '/admin/teachers': typeof AdminTeachersIndexRoute
 }
 export interface FileRoutesById {
@@ -108,13 +108,13 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
-  '/admin/question-bank': typeof AdminQuestionBankRouteWithChildren
   '/admin/schedule': typeof AdminScheduleRoute
   '/student/$id': typeof StudentIdRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/question-bank/$paperId': typeof AdminQuestionBankPaperIdRoute
   '/admin/student/$id': typeof AdminStudentIdRoute
   '/admin/teachers/$teacherId': typeof AdminTeachersTeacherIdRoute
+  '/admin/question-bank/': typeof AdminQuestionBankIndexRoute
   '/admin/teachers/': typeof AdminTeachersIndexRoute
 }
 export interface FileRouteTypes {
@@ -123,38 +123,38 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/login'
-    | '/admin/question-bank'
     | '/admin/schedule'
     | '/student/$id'
     | '/admin/'
     | '/admin/question-bank/$paperId'
     | '/admin/student/$id'
     | '/admin/teachers/$teacherId'
+    | '/admin/question-bank/'
     | '/admin/teachers/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
-    | '/admin/question-bank'
     | '/admin/schedule'
     | '/student/$id'
     | '/admin'
     | '/admin/question-bank/$paperId'
     | '/admin/student/$id'
     | '/admin/teachers/$teacherId'
+    | '/admin/question-bank'
     | '/admin/teachers'
   id:
     | '__root__'
     | '/'
     | '/admin'
     | '/login'
-    | '/admin/question-bank'
     | '/admin/schedule'
     | '/student/$id'
     | '/admin/'
     | '/admin/question-bank/$paperId'
     | '/admin/student/$id'
     | '/admin/teachers/$teacherId'
+    | '/admin/question-bank/'
     | '/admin/teachers/'
   fileRoutesById: FileRoutesById
 }
@@ -209,18 +209,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminScheduleRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/question-bank': {
-      id: '/admin/question-bank'
-      path: '/question-bank'
-      fullPath: '/admin/question-bank'
-      preLoaderRoute: typeof AdminQuestionBankRouteImport
-      parentRoute: typeof AdminRoute
-    }
     '/admin/teachers/': {
       id: '/admin/teachers/'
       path: '/teachers'
       fullPath: '/admin/teachers/'
       preLoaderRoute: typeof AdminTeachersIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/question-bank/': {
+      id: '/admin/question-bank/'
+      path: '/question-bank'
+      fullPath: '/admin/question-bank/'
+      preLoaderRoute: typeof AdminQuestionBankIndexRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/teachers/$teacherId': {
@@ -239,40 +239,31 @@ declare module '@tanstack/react-router' {
     }
     '/admin/question-bank/$paperId': {
       id: '/admin/question-bank/$paperId'
-      path: '/$paperId'
+      path: '/question-bank/$paperId'
       fullPath: '/admin/question-bank/$paperId'
       preLoaderRoute: typeof AdminQuestionBankPaperIdRouteImport
-      parentRoute: typeof AdminQuestionBankRoute
+      parentRoute: typeof AdminRoute
     }
   }
 }
 
-interface AdminQuestionBankRouteChildren {
-  AdminQuestionBankPaperIdRoute: typeof AdminQuestionBankPaperIdRoute
-}
-
-const AdminQuestionBankRouteChildren: AdminQuestionBankRouteChildren = {
-  AdminQuestionBankPaperIdRoute: AdminQuestionBankPaperIdRoute,
-}
-
-const AdminQuestionBankRouteWithChildren =
-  AdminQuestionBankRoute._addFileChildren(AdminQuestionBankRouteChildren)
-
 interface AdminRouteChildren {
-  AdminQuestionBankRoute: typeof AdminQuestionBankRouteWithChildren
   AdminScheduleRoute: typeof AdminScheduleRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminQuestionBankPaperIdRoute: typeof AdminQuestionBankPaperIdRoute
   AdminStudentIdRoute: typeof AdminStudentIdRoute
   AdminTeachersTeacherIdRoute: typeof AdminTeachersTeacherIdRoute
+  AdminQuestionBankIndexRoute: typeof AdminQuestionBankIndexRoute
   AdminTeachersIndexRoute: typeof AdminTeachersIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
-  AdminQuestionBankRoute: AdminQuestionBankRouteWithChildren,
   AdminScheduleRoute: AdminScheduleRoute,
   AdminIndexRoute: AdminIndexRoute,
+  AdminQuestionBankPaperIdRoute: AdminQuestionBankPaperIdRoute,
   AdminStudentIdRoute: AdminStudentIdRoute,
   AdminTeachersTeacherIdRoute: AdminTeachersTeacherIdRoute,
+  AdminQuestionBankIndexRoute: AdminQuestionBankIndexRoute,
   AdminTeachersIndexRoute: AdminTeachersIndexRoute,
 }
 

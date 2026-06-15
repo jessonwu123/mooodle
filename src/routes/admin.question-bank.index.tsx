@@ -44,7 +44,7 @@ import {
   type RenderedPage,
 } from "@/lib/pdf-render";
 
-export const Route = createFileRoute("/admin/question-bank")({
+export const Route = createFileRoute("/admin/question-bank/")({
   component: QuestionBankPage,
 });
 
