@@ -36,11 +36,8 @@ function loadRoles(uid: string) {
   const existing = roleRequests.get(uid);
   if (existing) return existing;
 
-  const request = supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", uid)
-    .then(({ data, error }) => {
+  const request = (async () => {
+    const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", uid);
       if (error) throw error;
       const roles = (data ?? []).map((r) => r.role as string);
       const nextRoles = {
@@ -51,8 +48,8 @@ function loadRoles(uid: string) {
       if (snapshot.session?.user.id === uid) {
         updateSnapshot({ ...nextRoles, loading: false });
       }
-    })
-    .catch((error) => {
+  })()
+    .catch((error: unknown) => {
       console.error("load roles failed", error);
       if (snapshot.session?.user.id === uid) {
         updateSnapshot({ isAdmin: false, isTeacher: false, loading: false });
