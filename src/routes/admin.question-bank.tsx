@@ -67,13 +67,6 @@ interface ExtractedQuestion {
   imageBlob?: Blob | null;
 }
 
-const QUESTION_BATCHES: Array<[number, number]> = [
-  [1, 5],
-  [6, 10],
-  [11, 15],
-  [16, 20],
-  [21, 25],
-];
 
 function extractYearFromFilename(name: string): number | null {
   const m = name.match(/(19|20)\d{2}/);
