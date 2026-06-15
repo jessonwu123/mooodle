@@ -391,14 +391,56 @@ function QuestionBankPage() {
         if (!q.stem_bbox && !q.options_bbox) continue;
         byPage.set(q.page_index, [...(byPage.get(q.page_index) ?? []), q]);
       }
+      // 扩展 bbox：AI 给出的框常常偏紧、漏掉题目附带的图形/几何图。
+      // 在同一页内把每道题的 stem/options 框扩展到相邻题目之间的空白处，
+      // 让图形也能被完整包含进来。
+      const expandBboxesOnPage = (pageQs: ExtractedQuestion[]) => {
+        type Slot = { q: ExtractedQuestion; kind: "stem" | "options"; bbox: NonNullable<Bbox> };
+        const slots: Slot[] = [];
+        for (const q of pageQs) {
+          if (q.stem_bbox) slots.push({ q, kind: "stem", bbox: { ...q.stem_bbox } });
+          if (q.options_bbox) slots.push({ q, kind: "options", bbox: { ...q.options_bbox } });
+        }
+        slots.sort((a, b) => a.bbox.y - b.bbox.y);
+        // 计算 x 列宽联合，作为水平参考；保留一点空白
+        let minX = 1;
+        let maxX = 0;
+        for (const s of slots) {
+          minX = Math.min(minX, s.bbox.x);
+          maxX = Math.max(maxX, s.bbox.x + s.bbox.w);
+        }
+        const padX = 0.015;
+        const colX = Math.max(0, minX - padX);
+        const colRight = Math.min(1, maxX + padX);
+        for (let i = 0; i < slots.length; i++) {
+          const cur = slots[i];
+          const prev = slots[i - 1];
+          const next = slots[i + 1];
+          const topLimit = prev ? prev.bbox.y + prev.bbox.h + 0.003 : 0;
+          const bottomLimit = next ? next.bbox.y - 0.003 : 1;
+          const newY = Math.max(topLimit, cur.bbox.y - 0.02);
+          const newBottom = Math.min(bottomLimit, cur.bbox.y + cur.bbox.h + 0.02);
+          cur.bbox.x = colX;
+          cur.bbox.w = Math.max(0, colRight - colX);
+          cur.bbox.y = newY;
+          cur.bbox.h = Math.max(0, newBottom - newY);
+        }
+        for (const s of slots) {
+          if (s.kind === "stem") s.q.stem_bbox = s.bbox;
+          else s.q.options_bbox = s.bbox;
+        }
+      };
       for (const [pageIndex, pageQuestions] of byPage) {
+        expandBboxesOnPage(pageQuestions);
         setStage(`裁剪第 ${pageIndex + 1} 页（${pageQuestions.length} 题）...`);
         const canvas = await renderPdfPageCanvas(paperPdfFile, pageIndex, 1.15);
         try {
           for (const q of pageQuestions) {
+            const stemPad = q.stem_render_mode === "image" ? 0.02 : 0.008;
+            const optsPad = q.options_render_mode === "image" ? 0.02 : 0.008;
             if (q.stem_bbox) {
               try {
-                const blob = await cropCanvasToBlob(canvas, q.stem_bbox);
+                const blob = await cropCanvasToBlob(canvas, q.stem_bbox, stemPad);
                 q.stemImageBlob = blob;
                 q.stemImageDataUrl = URL.createObjectURL(blob);
               } catch (err) {
@@ -407,7 +449,7 @@ function QuestionBankPage() {
             }
             if (q.options_bbox) {
               try {
-                const blob = await cropCanvasToBlob(canvas, q.options_bbox);
+                const blob = await cropCanvasToBlob(canvas, q.options_bbox, optsPad);
                 q.optionsImageBlob = blob;
                 q.optionsImageDataUrl = URL.createObjectURL(blob);
               } catch (err) {
