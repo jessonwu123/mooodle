@@ -27,6 +27,7 @@ interface QuestionRow {
   option_e: string | null;
   correct_answer: string | null;
   image_path: string | null;
+  options_image_path: string | null;
   tags: string[];
 }
 
