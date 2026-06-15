@@ -104,6 +104,8 @@ interface ExtractedQuestion {
   page_index: number;
   stem_bbox: Bbox;
   options_bbox: Bbox;
+  stem_render_mode: "text" | "image";
+  options_render_mode: "text" | "image";
   stemImageBlob?: Blob | null;
   stemImageDataUrl?: string | null;
   optionsImageBlob?: Blob | null;
