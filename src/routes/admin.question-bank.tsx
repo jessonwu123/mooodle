@@ -363,6 +363,11 @@ function QuestionBankPage() {
                   {stage}
                 </div>
               )}
+              {processError && !busy && (
+                <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                  {processError}
+                </div>
+              )}
               <DialogFooter>
                 <Button type="submit" disabled={busy}>
                   {busy ? "处理中..." : "上传并抽题"}
