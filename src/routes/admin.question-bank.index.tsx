@@ -622,9 +622,9 @@ function QuestionEditor({
               答案 {q.correct_answer}
             </span>
           )}
-          {q.has_figure && (
+          {q.stemImageDataUrl && (
             <span className="ml-2 inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700">
-              <ImageIcon className="h-3 w-3" /> 含图
+              <ImageIcon className="h-3 w-3" /> 题干图
             </span>
           )}
         </div>
