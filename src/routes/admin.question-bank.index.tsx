@@ -277,9 +277,9 @@ function QuestionBankPage() {
             option_d: q.option_d ?? null,
             option_e: q.option_e ?? null,
             correct_answer: q.correct_answer ? q.correct_answer.toUpperCase().slice(0, 1) : null,
-            has_figure: Boolean(q.has_figure),
             page_index: Number.isInteger(Number(q.page_index)) ? Number(q.page_index) : 0,
-            bbox: q.bbox ?? null,
+            stem_bbox: q.stem_bbox ?? null,
+            options_bbox: q.options_bbox ?? null,
           });
         }
       }
@@ -287,25 +287,35 @@ function QuestionBankPage() {
       if (!qs?.length) throw new Error("AI 未抽取到题目");
       if (qs.length < 25) toast.warning(`只抽取到 ${qs.length} 道题，请在预览中检查`);
 
-      setStage("裁剪题目配图...");
-      const figurePages = new Map<number, ExtractedQuestion[]>();
+      setStage("裁剪题目与选项截图...");
+      const byPage = new Map<number, ExtractedQuestion[]>();
       for (const q of qs) {
-        if (q.has_figure && q.bbox && paperPages[q.page_index]) {
-          figurePages.set(q.page_index, [...(figurePages.get(q.page_index) ?? []), q]);
-        }
+        if (!paperPages[q.page_index]) continue;
+        if (!q.stem_bbox && !q.options_bbox) continue;
+        byPage.set(q.page_index, [...(byPage.get(q.page_index) ?? []), q]);
       }
-      for (const [pageIndex, pageQuestions] of figurePages) {
-        setStage(`裁剪第 ${pageIndex + 1} 页题目配图...`);
+      for (const [pageIndex, pageQuestions] of byPage) {
+        setStage(`裁剪第 ${pageIndex + 1} 页（${pageQuestions.length} 题）...`);
         const canvas = await renderPdfPageCanvas(paperFile, pageIndex, 1.15);
         try {
           for (const q of pageQuestions) {
-            if (!q.bbox) continue;
-            try {
-              const blob = await cropCanvasToBlob(canvas, q.bbox);
-              q.imageBlob = blob;
-              q.imageDataUrl = URL.createObjectURL(blob);
-            } catch (err) {
-              console.error("crop failed", q.number, err);
+            if (q.stem_bbox) {
+              try {
+                const blob = await cropCanvasToBlob(canvas, q.stem_bbox);
+                q.stemImageBlob = blob;
+                q.stemImageDataUrl = URL.createObjectURL(blob);
+              } catch (err) {
+                console.error("crop stem failed", q.number, err);
+              }
+            }
+            if (q.options_bbox) {
+              try {
+                const blob = await cropCanvasToBlob(canvas, q.options_bbox);
+                q.optionsImageBlob = blob;
+                q.optionsImageDataUrl = URL.createObjectURL(blob);
+              } catch (err) {
+                console.error("crop options failed", q.number, err);
+              }
             }
           }
         } finally {
@@ -313,6 +323,7 @@ function QuestionBankPage() {
           canvas.height = 0;
         }
       }
+
 
       setPaperPath(pPath);
       setAnswerPath(aPath);
