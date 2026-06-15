@@ -503,7 +503,7 @@ function QuestionBankPage() {
       for (const pt of pageTexts) {
         for (const it of pt.items) {
           const m = it.str.trim().match(/^(\d{1,2})\.$/);
-          if (m && it.x < 0.5) {
+          if (m && it.x < 0.5 && !isFooterPageNumber(it)) {
             const n = Number(m[1]);
             if (n >= 1 && n <= 25)
               numAnchorsAll.push({ num: n, page: pt.pageIndex, y: it.y, x: it.x });
@@ -606,23 +606,36 @@ function QuestionBankPage() {
         const sampleH = heights[Math.floor(heights.length / 2)] ?? 0.014;
         const oneLine = Math.max(0.012, sampleH * 1.1);
 
-        // 在 stem 页面收集 loc 之后所有 (A)~(E) 行
+        const markerRe = /^\([A-E]\)/;
+        const optionMarkerRank = (it: { str: string }) => {
+          const m = it.str.trim().match(/^\(([A-E])\)/);
+          return m ? m[1].charCodeAt(0) - 65 : -1;
+        };
+        const getOptionBottom = (items: { str: string; y: number; h: number }[]) => {
+          const byLetter = new Map<number, { str: string; y: number; h: number }>();
+          for (const item of items) {
+            const rank = optionMarkerRank(item);
+            if (rank < 0) continue;
+            const existing = byLetter.get(rank);
+            if (!existing || item.y > existing.y) byLetter.set(rank, item);
+          }
+          const lastOption = byLetter.get(4) ?? byLetter.get(Math.max(...byLetter.keys()));
+          return lastOption ? lastOption.y + lastOption.h : null;
+        };
+
+        // 在 stem 页面收集 loc 之后所有 (A)~(E) 行；排除页码/页脚，截图下边界只跟选项位置有关
         const optMarkers = (pageTexts[loc.page]?.items ?? []).filter(
-          (it) => /^\([A-E]\)/.test(it.str.trim()) && it.y > loc.y + 0.005,
+          (it) => markerRe.test(it.str.trim()) && it.y > loc.y + 0.005 && !isFooterPageNumber(it),
         );
         // 同页下一题之前
         const optMarkersBeforeNext = optMarkers.filter(
           (it) => !next || next.page > loc.page || it.y < next.y,
         );
 
-        if (optMarkersBeforeNext.length > 0) {
-          // 选项在同页：bottom = 最后一行选项 y + 高度 + 一行余量
-          const lastY = optMarkersBeforeNext.reduce(
-            (m, it) => Math.max(m, it.y + it.h),
-            0,
-          );
-          // 仅在最后一行选项下方留一点空白，避免吃进页脚页码
-          const bottom = Math.min(0.97, lastY + oneLine * 0.35);
+        const optionBottom = getOptionBottom(optMarkersBeforeNext);
+        if (optionBottom !== null) {
+          // 选项在同页：bottom = 最后一个选项文本底部；页码永远不能作为 bottom 的依据
+          const bottom = optionBottom;
           regionsByQ.set(q.number, [
             {
               page: loc.page,
@@ -646,7 +659,7 @@ function QuestionBankPage() {
         } else if (next && next.page > loc.page) {
           // 跨页：题干在 loc.page，选项在 next.page
           const nextPageOpts = (pageTexts[next.page]?.items ?? []).filter(
-            (it) => /^\([A-E]\)/.test(it.str.trim()) && it.y < next.y - 0.005,
+            (it) => markerRe.test(it.str.trim()) && it.y < next.y - 0.005 && !isFooterPageNumber(it),
           );
           const regions: Region[] = [
             {
@@ -659,10 +672,10 @@ function QuestionBankPage() {
               },
             },
           ];
-          if (nextPageOpts.length > 0) {
+          const nextOptionBottom = getOptionBottom(nextPageOpts);
+          if (nextOptionBottom !== null) {
             const topY = Math.max(0, nextPageOpts[0].y - 0.006);
-            const lastY = nextPageOpts.reduce((m, it) => Math.max(m, it.y + it.h), 0);
-            const bottomY = Math.min(0.97, lastY + oneLine * 0.35);
+            const bottomY = nextOptionBottom;
             regions.push({
               page: next.page,
               bbox: {
