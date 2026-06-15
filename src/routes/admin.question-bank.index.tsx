@@ -402,141 +402,183 @@ function QuestionBankPage() {
       if (qs.length < 25) toast.warning(`只抽取到 ${qs.length} 道题，请在预览中检查`);
 
       setStage("解析 PDF 文本锚点...");
-      // 提取 PDF 文本层中所有 "N." 题号锚点和 "(A)" 选项锚点，
-      // 用题号文本位置来覆盖 AI 给出的题干 y 坐标，修复 16 题之后跨页/错位问题。
+      // 最高优先级：用 AI 抽取的题干文字内容在 PDF 文本层中精确定位，
+      // 保证图片内容与提取文字一致；题号 "N." 作为辅助参考。
       let pageTexts: PdfPageText[] = [];
       try {
         pageTexts = await getPdfTextItems(paperPdfFile);
       } catch (err) {
         console.warn("PDF 文本锚点解析失败，回退到 AI bbox", err);
       }
-      type NumAnchor = { num: number; page: number; y: number; x: number };
-      type OptAAnchor = { page: number; y: number; x: number };
-      const numAnchorsAll: NumAnchor[] = [];
-      const optAAnchorsAll: OptAAnchor[] = [];
-      for (const pt of pageTexts) {
-        for (const it of pt.items) {
-          const s = it.str.trim();
-          // 题号：行首独立的 "1." ~ "25."（在页面左半部分，排除答案区/页脚等数字）
-          const mNum = s.match(/^(\d{1,2})\.$/);
-          if (mNum && it.x < 0.5) {
-            const n = Number(mNum[1]);
-            if (n >= 1 && n <= 25) {
-              numAnchorsAll.push({ num: n, page: pt.pageIndex, y: it.y, x: it.x });
+
+      // 为每页构建按阅读顺序拼接的归一化文本流，并记录每个字符对应的 y 坐标
+      const normalizeText = (s: string) =>
+        s
+          .replace(/\$[^$]*\$/g, " ")
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "");
+      type PageStream = { pageIndex: number; norm: string; ys: number[] };
+      const pageStreams: PageStream[] = pageTexts.map((p) => {
+        const sorted = [...p.items].sort((a, b) => {
+          const dy = Math.round(a.y * 200) - Math.round(b.y * 200);
+          return dy !== 0 ? dy : a.x - b.x;
+        });
+        let norm = "";
+        const ys: number[] = [];
+        for (const it of sorted) {
+          for (const ch of it.str) {
+            const c = ch.toLowerCase();
+            if (/[a-z0-9]/.test(c)) {
+              norm += c;
+              ys.push(it.y);
             }
           }
-          // 选项 (A)：可能是 "(A)" 单独一段，或与后续选项文本同段
-          if (/^\(A\)/.test(s)) {
-            optAAnchorsAll.push({ page: pt.pageIndex, y: it.y, x: it.x });
+        }
+        return { pageIndex: p.pageIndex, norm, ys };
+      });
+
+      type Hit = { page: number; pos: number; y: number };
+      const findText = (
+        needle: string,
+        fromPage: number,
+        fromPos: number,
+      ): Hit | null => {
+        if (!needle || needle.length < 6) return null;
+        for (const ps of pageStreams) {
+          if (ps.pageIndex < fromPage) continue;
+          const start = ps.pageIndex === fromPage ? fromPos : 0;
+          const idx = ps.norm.indexOf(needle, start);
+          if (idx >= 0) {
+            return { page: ps.pageIndex, pos: idx, y: ps.ys[idx] };
           }
         }
-      }
-      // 每个题号可能出现多次（如第一页"考试要求 1-7"），
-      // 用 AI 给出的 page_index + stem_bbox.y 作为参考，挑选最贴近的锚点；
-      // 同时校验单调性：题号 N 的锚点必须严格在题号 N-1 的锚点之后（page,y 字典序）。
-      const numAnchorByNum = new Map<number, NumAnchor>();
-      const sortedQs = [...qs].sort((a, b) => a.number - b.number);
-      let prevAnchor: NumAnchor | null = null;
-      for (const q of sortedQs) {
-        const candidates = numAnchorsAll.filter((a) => a.num === q.number);
-        if (!candidates.length) continue;
-        const aiPage = q.stem_page_index ?? q.page_index ?? 0;
-        const aiY = q.stem_bbox?.y ?? 0.5;
-        const valid = candidates.filter((c) => {
-          if (!prevAnchor) return true;
-          return c.page > prevAnchor.page || (c.page === prevAnchor.page && c.y > prevAnchor.y + 0.005);
-        });
-        const pool = valid.length ? valid : candidates;
-        let best: NumAnchor | null = null;
-        let bestScore = Infinity;
-        for (const c of pool) {
-          const score = Math.abs(c.page - aiPage) * 10 + Math.abs(c.y - aiY);
-          if (score < bestScore) {
-            bestScore = score;
-            best = c;
-          }
-        }
-        if (best) {
-          numAnchorByNum.set(q.number, best);
-          prevAnchor = best;
-        }
-      }
-      // 对每道题用锚点覆盖 stem/options 的 page 和纵向范围。
-      // 横向（x/w）保留 AI bbox（用于该页统一列宽）。
-      const findOptAOnPageBetween = (page: number, yMin: number, yMax: number) => {
-        let best: OptAAnchor | null = null;
-        for (const o of optAAnchorsAll) {
-          if (o.page !== page) continue;
-          if (o.y < yMin || o.y > yMax) continue;
-          if (!best || o.y < best.y) best = o;
-        }
-        return best;
+        return null;
       };
+
+      // 题号锚点（辅助）
+      type NumAnchor = { num: number; page: number; y: number; x: number };
+      const numAnchorsAll: NumAnchor[] = [];
+      for (const pt of pageTexts) {
+        for (const it of pt.items) {
+          const m = it.str.trim().match(/^(\d{1,2})\.$/);
+          if (m && it.x < 0.5) {
+            const n = Number(m[1]);
+            if (n >= 1 && n <= 25)
+              numAnchorsAll.push({ num: n, page: pt.pageIndex, y: it.y, x: it.x });
+          }
+        }
+      }
+
+      // 按题号顺序定位 stem 起点
+      type StemLoc = { page: number; y: number };
+      const stemLocByNum = new Map<number, StemLoc>();
+      const sortedQs = [...qs].sort((a, b) => a.number - b.number);
+      let cursorPage = 0;
+      let cursorPos = 0;
+      for (const q of sortedQs) {
+        const fullNorm = normalizeText(q.stem ?? "");
+        let hit: Hit | null = null;
+        for (const len of [40, 30, 20, 14, 10, 8]) {
+          if (fullNorm.length < len) continue;
+          hit = findText(fullNorm.slice(0, len), cursorPage, cursorPos);
+          if (hit) break;
+        }
+        if (hit) {
+          stemLocByNum.set(q.number, { page: hit.page, y: hit.y });
+          cursorPage = hit.page;
+          cursorPos = hit.pos + 1;
+          continue;
+        }
+        // 退化：题号锚点（必须在 cursor 之后）
+        const candidates = numAnchorsAll.filter(
+          (a) =>
+            a.num === q.number &&
+            (a.page > cursorPage ||
+              (a.page === cursorPage &&
+                (cursorPos === 0 ||
+                  a.y >
+                    (pageStreams[a.page]?.ys[cursorPos - 1] ?? 0) - 0.005))),
+        );
+        if (candidates.length) {
+          const aiPage = q.stem_page_index ?? q.page_index ?? 0;
+          const aiY = q.stem_bbox?.y ?? 0.5;
+          const best = candidates.reduce((b, c) =>
+            Math.abs(c.page - aiPage) * 10 + Math.abs(c.y - aiY) <
+            Math.abs(b.page - aiPage) * 10 + Math.abs(b.y - aiY)
+              ? c
+              : b,
+          );
+          stemLocByNum.set(q.number, { page: best.page, y: best.y });
+          cursorPage = best.page;
+          cursorPos = 0;
+        }
+      }
+
+      // 用 stem 位置覆盖 bbox。横向沿用 AI bbox，由 tighten 阶段统一列宽。
       for (const q of qs) {
-        const a = numAnchorByNum.get(q.number);
-        if (!a) continue; // 未找到锚点（扫描版 PDF？）则保留 AI 结果
-        const next = numAnchorByNum.get(q.number + 1) ?? null;
-        // 该题底界：下一题锚点的位置（同页则为同页 y，跨页则该题延伸到本页末尾）
-        const sameNextPage = next && next.page === a.page;
-        const bottomOnAnchorPage = sameNextPage ? next!.y - 0.004 : 0.98;
-        // 在锚点页面寻找 (A)
-        const optA = findOptAOnPageBetween(a.page, a.y + 0.005, bottomOnAnchorPage);
-        const topPad = 0.006; // 锚点上方留一点点空间放题号本身
-        const stemTop = Math.max(0, a.y - topPad);
-        if (optA) {
-          // stem 和 options 都在 a.page
-          q.stem_page_index = a.page;
-          q.options_page_index = a.page;
-          const stemBbox = q.stem_bbox ?? { x: 0.05, y: 0, w: 0.9, h: 0 };
-          const optsBbox = q.options_bbox ?? { x: 0.05, y: 0, w: 0.9, h: 0 };
+        const loc = stemLocByNum.get(q.number);
+        if (!loc) continue;
+        const next = stemLocByNum.get(q.number + 1) ?? null;
+        const stemTop = Math.max(0, loc.y - 0.01);
+
+        // 在 stem 起点页面查找 "(A)" —— 同页选项的顶界
+        const optAItem = pageTexts[loc.page]?.items
+          .filter((it) => /^\(A\)/.test(it.str.trim()) && it.y > loc.y + 0.005)
+          .sort((a, b) => a.y - b.y)[0];
+
+        const stemBboxBase = q.stem_bbox ?? { x: 0.05, y: 0, w: 0.9, h: 0 };
+        const optsBboxBase = q.options_bbox ?? { x: 0.05, y: 0, w: 0.9, h: 0 };
+
+        if (optAItem && (!next || next.page > loc.page || optAItem.y < next.y)) {
+          q.stem_page_index = loc.page;
+          q.options_page_index = loc.page;
           q.stem_bbox = {
-            x: stemBbox.x,
-            w: stemBbox.w,
+            x: stemBboxBase.x,
+            w: stemBboxBase.w,
             y: stemTop,
-            h: Math.max(0.01, optA.y - 0.004 - stemTop),
+            h: Math.max(0.01, optAItem.y - 0.006 - stemTop),
           };
+          const optsBottom =
+            next && next.page === loc.page ? next.y - 0.006 : 0.98;
           q.options_bbox = {
-            x: optsBbox.x,
-            w: optsBbox.w,
-            y: optA.y - 0.004,
-            h: Math.max(0.01, bottomOnAnchorPage - (optA.y - 0.004)),
+            x: optsBboxBase.x,
+            w: optsBboxBase.w,
+            y: optAItem.y - 0.006,
+            h: Math.max(0.01, optsBottom - (optAItem.y - 0.006)),
           };
-        } else if (next && next.page > a.page) {
-          // 跨页：stem 在 a.page 从锚点延伸到页尾；options 在 next.page 从页首到 next 锚点之上
-          const stemBbox = q.stem_bbox ?? { x: 0.05, y: 0, w: 0.9, h: 0 };
-          const optsBbox = q.options_bbox ?? { x: 0.05, y: 0, w: 0.9, h: 0 };
-          q.stem_page_index = a.page;
+        } else if (next && next.page > loc.page) {
+          q.stem_page_index = loc.page;
           q.stem_bbox = {
-            x: stemBbox.x,
-            w: stemBbox.w,
+            x: stemBboxBase.x,
+            w: stemBboxBase.w,
             y: stemTop,
             h: Math.max(0.01, 0.98 - stemTop),
           };
-          // 选项可能在 next.page 顶部
-          const optAOnNext = findOptAOnPageBetween(next.page, 0, next.y - 0.004);
-          if (optAOnNext) {
+          const nextPageOptA = pageTexts[next.page]?.items
+            .filter(
+              (it) => /^\(A\)/.test(it.str.trim()) && it.y < next.y - 0.005,
+            )
+            .sort((a, b) => a.y - b.y)[0];
+          if (nextPageOptA) {
             q.options_page_index = next.page;
             q.options_bbox = {
-              x: optsBbox.x,
-              w: optsBbox.w,
-              y: optAOnNext.y - 0.004,
-              h: Math.max(0.01, next.y - 0.004 - (optAOnNext.y - 0.004)),
+              x: optsBboxBase.x,
+              w: optsBboxBase.w,
+              y: nextPageOptA.y - 0.006,
+              h: Math.max(0.01, next.y - 0.006 - (nextPageOptA.y - 0.006)),
             };
-            // 把 stem 底界裁到 (A) 之前所在页的页尾（已经是 0.98）
           } else {
-            // 跨页但下一页没识别到 (A)：把整段（含选项）放在 stem
-            q.options_page_index = a.page;
+            q.options_page_index = loc.page;
             q.options_bbox = null;
           }
         } else {
-          // 没找到 (A)，也没下一题（第 25 题或扫描问题）：用整段当 stem
-          const stemBbox = q.stem_bbox ?? { x: 0.05, y: 0, w: 0.9, h: 0 };
-          q.stem_page_index = a.page;
+          const bottom = next && next.page === loc.page ? next.y - 0.006 : 0.98;
+          q.stem_page_index = loc.page;
           q.stem_bbox = {
-            x: stemBbox.x,
-            w: stemBbox.w,
+            x: stemBboxBase.x,
+            w: stemBboxBase.w,
             y: stemTop,
-            h: Math.max(0.01, bottomOnAnchorPage - stemTop),
+            h: Math.max(0.01, bottom - stemTop),
           };
         }
       }
