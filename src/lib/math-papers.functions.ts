@@ -65,11 +65,16 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
 - page_index: 该题所在的试卷页索引（0 到 ${paperCount - 1}）。如果题目跨页，请按选项 (A)-(E) 所在的页来填。
 - stem_bbox_2d: 题干区域的边界框（包含题号、题干文字以及题目附带的图形/几何图/示意图，如果有图，把图和文字一起圈进来；不要包含 A-E 选项）。格式为 [ymin, xmin, ymax, xmax]，0-1000 范围整数，左上角原点，相对 page_index 那张页面图片。
 - options_bbox_2d: 包含 A-E 全部 5 个选项的整块区域的边界框，格式同上。
+- stem_render_mode: "text" 或 "image"。判定规则：
+    * 题干**仅由文字、数字、可用 LaTeX 表示的公式**组成 → "text"
+    * 题干含有**无法用文字或 LaTeX 表达的图形**（如几何图、函数图像、示意图、表格、象形符号嵌在句中、图片穿插在文字之间）→ "image"
+- options_render_mode: "text" 或 "image"，判定规则同上（选项含图形/图片就用 "image"，纯文本/纯公式就用 "text"）。
 
 务必保证 stem_bbox_2d 与 options_bbox_2d 互不重叠，且都尽量紧凑只圈住对应内容。
+即使 render_mode 为 "image"，stem 与各 option 字段仍要尽量给出文字（用于搜索和打 tag），无法识别的图形可用简短描述代替，如 "[象形符号]"。
 
 严格只返回如下 JSON：
-{ "questions": [ { "number": 1, "stem": "...", "option_a": "...", "option_b": "...", "option_c": "...", "option_d": "...", "option_e": "...", "correct_answer": "B", "page_index": 0, "stem_bbox_2d": [..], "options_bbox_2d": [..] }, ... ] }`;
+{ "questions": [ { "number": 1, "stem": "...", "option_a": "...", "option_b": "...", "option_c": "...", "option_d": "...", "option_e": "...", "correct_answer": "B", "page_index": 0, "stem_bbox_2d": [..], "options_bbox_2d": [..], "stem_render_mode": "text", "options_render_mode": "text" }, ... ] }`;
 
     const messages = [
       {
