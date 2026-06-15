@@ -472,6 +472,8 @@ function QuestionBankPage() {
         correct_answer: q.correct_answer,
         image_path: q.image_path ?? null,
         options_image_path: q.options_image_path ?? null,
+        stem_render_mode: q.stem_render_mode,
+        options_render_mode: q.options_render_mode,
       }));
 
       await replaceMathPaperQuestions({
