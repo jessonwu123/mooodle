@@ -4,6 +4,8 @@ import { ArrowLeft, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { MathText } from "@/components/math-text";
+
 
 export const Route = createFileRoute("/admin/question-bank/$paperId")({
   component: PaperDetailPage,
@@ -144,7 +146,7 @@ function PaperDetailPage() {
                 </div>
               ) : (
                 <>
-                  <div className="mt-1 whitespace-pre-wrap text-muted-foreground">{q.stem}</div>
+                  <MathText block text={q.stem} className="mt-1 whitespace-pre-wrap text-muted-foreground" />
                   {stemImg && (
                     <div className="mt-2">
                       <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -176,10 +178,12 @@ function PaperDetailPage() {
                       if (!v) return null;
                       return (
                         <div key={k}>
-                          <span className="font-semibold">{k.toUpperCase()}.</span> {v}
+                          <span className="font-semibold">{k.toUpperCase()}.</span>{" "}
+                          <MathText text={v} />
                         </div>
                       );
                     })}
+
                   </div>
                   {optionsImg && (
                     <div className="mt-2">
