@@ -113,11 +113,14 @@ function PaperDetailPage() {
             </div>
             <div className="mt-1 whitespace-pre-wrap text-muted-foreground">{q.stem}</div>
             {q.image_path && imageUrls[q.image_path] && (
-              <img
-                src={imageUrls[q.image_path]}
-                alt={`第 ${q.question_number} 题配图`}
-                className="mt-2 max-h-56 rounded border"
-              />
+              <div className="mt-2">
+                <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">题干截图</div>
+                <img
+                  src={imageUrls[q.image_path]}
+                  alt={`第 ${q.question_number} 题题干`}
+                  className="max-h-64 rounded border"
+                />
+              </div>
             )}
             <div className="mt-2 grid grid-cols-1 gap-1 text-xs text-muted-foreground sm:grid-cols-2">
               {(["a", "b", "c", "d", "e"] as const).map((k) => {
@@ -130,6 +133,16 @@ function PaperDetailPage() {
                 );
               })}
             </div>
+            {q.options_image_path && imageUrls[q.options_image_path] && (
+              <div className="mt-2">
+                <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">选项截图</div>
+                <img
+                  src={imageUrls[q.options_image_path]}
+                  alt={`第 ${q.question_number} 题选项`}
+                  className="max-h-56 rounded border"
+                />
+              </div>
+            )}
           </div>
         ))}
       </div>
