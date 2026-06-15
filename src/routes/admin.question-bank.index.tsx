@@ -419,92 +419,83 @@ function QuestionBankPage() {
           slotsByPage.set(q.options_page_index, arr);
         }
       }
-      // 扩展 bbox：AI 给出的框常常偏紧、漏掉题目附带的图形/几何图。
-      // 在同一页内把每道题的 stem/options 框扩展到相邻题目之间的空白处，
-      // 让图形也能被完整包含进来。
-      const expandBboxesOnPage = (pageQs: ExtractedQuestion[]) => {
-        // 先修正 AI 可能给出的 stem/options 重叠：把 stem 底部裁到 options 顶部之上。
-        for (const q of pageQs) {
-          if (q.stem_bbox && q.options_bbox) {
-            const stemTop = q.stem_bbox.y;
-            const stemBottom = q.stem_bbox.y + q.stem_bbox.h;
+      // 在每一页内：横向扩到该页 slot 的列宽，纵向只填补相邻 slot 间的空白，
+      // 并强制 stem 底部严格停在同页 options 顶部之上。
+      const tightenSlotsOnPage = (pageSlots: Slot[]) => {
+        // 1) 同题且同页：把 stem 底部裁到 options 顶部之上，**始终执行**，
+        //    防止 AI 把 (A)(B)... 选项行错误地圈进 stem_bbox。
+        for (const s of pageSlots) {
+          if (s.kind !== "stem") continue;
+          const q = s.q;
+          if (
+            q.options_bbox &&
+            q.stem_page_index === q.options_page_index
+          ) {
+            const stemTop = s.bbox.y;
             const optsTop = q.options_bbox.y;
-            if (stemBottom > optsTop - 0.003 && stemTop < optsTop) {
-              q.stem_bbox = {
-                ...q.stem_bbox,
-                h: Math.max(0.01, optsTop - 0.005 - stemTop),
-              };
+            // 题干顶部必须高于选项顶部；否则保留 AI 给的（罕见，可能跨布局）
+            if (stemTop < optsTop) {
+              const maxBottom = optsTop - 0.006;
+              const newH = Math.max(0.01, maxBottom - stemTop);
+              if (newH < s.bbox.h) s.bbox.h = newH;
             }
           }
         }
-        type Slot = { q: ExtractedQuestion; kind: "stem" | "options"; bbox: NonNullable<Bbox> };
-        const slots: Slot[] = [];
-        for (const q of pageQs) {
-          if (q.stem_bbox) slots.push({ q, kind: "stem", bbox: { ...q.stem_bbox } });
-          if (q.options_bbox) slots.push({ q, kind: "options", bbox: { ...q.options_bbox } });
-        }
-        slots.sort((a, b) => a.bbox.y - b.bbox.y);
-        // 计算 x 列宽联合，作为水平参考；左右多留一些空白以更美观
+
+        // 2) 横向：扩到该页所有 slot 的列宽并加 padX 边距
         let minX = 1;
         let maxX = 0;
-        for (const s of slots) {
+        for (const s of pageSlots) {
           minX = Math.min(minX, s.bbox.x);
           maxX = Math.max(maxX, s.bbox.x + s.bbox.w);
         }
         const padX = 0.03;
         const colX = Math.max(0, minX - padX);
         const colRight = Math.min(1, maxX + padX);
-        for (let i = 0; i < slots.length; i++) {
-          const cur = slots[i];
-          const prev = slots[i - 1];
-          const next = slots[i + 1];
-          const topLimit = prev ? prev.bbox.y + prev.bbox.h + 0.004 : 0;
-          let bottomLimit = next ? next.bbox.y - 0.004 : 1;
-          if (cur.kind === "stem" && cur.q.options_bbox) {
-            // 题干必须严格在选项之上
+
+        // 3) 纵向：按 y 排序，只做极轻微的扩展（约一行间距），避免把上下 slot 卷进来
+        const sorted = [...pageSlots].sort((a, b) => a.bbox.y - b.bbox.y);
+        const padY = 0.002;
+        for (let i = 0; i < sorted.length; i++) {
+          const cur = sorted[i];
+          const prev = sorted[i - 1];
+          const next = sorted[i + 1];
+          const topLimit = prev ? prev.bbox.y + prev.bbox.h + padY : 0;
+          let bottomLimit = next ? next.bbox.y - padY : 1;
+          if (
+            cur.kind === "stem" &&
+            cur.q.options_bbox &&
+            cur.q.stem_page_index === cur.q.options_page_index
+          ) {
             bottomLimit = Math.min(bottomLimit, cur.q.options_bbox.y - 0.006);
           }
-          // 上下方向只做很轻微的扩展，避免把上/下一道题或选项卷进来
-          const newY = Math.max(topLimit, cur.bbox.y - 0.004);
-          const newBottom = Math.min(bottomLimit, cur.bbox.y + cur.bbox.h + 0.004);
+          const newY = Math.max(topLimit, cur.bbox.y - padY);
+          const newBottom = Math.min(bottomLimit, cur.bbox.y + cur.bbox.h + padY);
           cur.bbox.x = colX;
           cur.bbox.w = Math.max(0, colRight - colX);
           cur.bbox.y = newY;
           cur.bbox.h = Math.max(0, newBottom - newY);
         }
-
-        for (const s of slots) {
-          if (s.kind === "stem") s.q.stem_bbox = s.bbox;
-          else s.q.options_bbox = s.bbox;
-        }
       };
 
-      for (const [pageIndex, pageQuestions] of byPage) {
-        expandBboxesOnPage(pageQuestions);
-        setStage(`裁剪第 ${pageIndex + 1} 页（${pageQuestions.length} 题）...`);
+      for (const [pageIndex, pageSlots] of slotsByPage) {
+        tightenSlotsOnPage(pageSlots);
+        setStage(`裁剪第 ${pageIndex + 1} 页（${pageSlots.length} 块）...`);
         const canvas = await renderPdfPageCanvas(paperPdfFile, pageIndex, 1.15);
         try {
-          for (const q of pageQuestions) {
-            const stemPad = 0.003;
-            const optsPad = 0.003;
-
-            if (q.stem_bbox) {
-              try {
-                const blob = await cropCanvasToBlob(canvas, q.stem_bbox, stemPad);
-                q.stemImageBlob = blob;
-                q.stemImageDataUrl = URL.createObjectURL(blob);
-              } catch (err) {
-                console.error("crop stem failed", q.number, err);
+          for (const s of pageSlots) {
+            const pad = 0.003;
+            try {
+              const blob = await cropCanvasToBlob(canvas, s.bbox, pad);
+              if (s.kind === "stem") {
+                s.q.stemImageBlob = blob;
+                s.q.stemImageDataUrl = URL.createObjectURL(blob);
+              } else {
+                s.q.optionsImageBlob = blob;
+                s.q.optionsImageDataUrl = URL.createObjectURL(blob);
               }
-            }
-            if (q.options_bbox) {
-              try {
-                const blob = await cropCanvasToBlob(canvas, q.options_bbox, optsPad);
-                q.optionsImageBlob = blob;
-                q.optionsImageDataUrl = URL.createObjectURL(blob);
-              } catch (err) {
-                console.error("crop options failed", q.number, err);
-              }
+            } catch (err) {
+              console.error("crop failed", s.q.number, s.kind, err);
             }
           }
         } finally {
