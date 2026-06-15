@@ -413,16 +413,20 @@ function QuestionBankPage() {
               </Link>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-destructive"
+                  >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>删除「{p.year} {p.name}」？</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      该试卷及其全部题目都会被删除。
-                    </AlertDialogDescription>
+                    <AlertDialogTitle>
+                      删除「{p.year} {p.name}」？
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>该试卷及其全部题目都会被删除。</AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>取消</AlertDialogCancel>
@@ -461,7 +465,11 @@ function QuestionBankPage() {
             ))}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPreviewOpen(false)} disabled={savingPreview}>
+            <Button
+              variant="outline"
+              onClick={() => setPreviewOpen(false)}
+              disabled={savingPreview}
+            >
               取消
             </Button>
             <Button onClick={handleSavePreview} disabled={savingPreview}>
@@ -515,7 +523,9 @@ function QuestionEditor({
               <span className="w-5 text-xs font-bold">{k.toUpperCase()}</span>
               <Input
                 value={(q[`option_${k}` as const] as string | null) ?? ""}
-                onChange={(e) => onChange({ [`option_${k}`]: e.target.value } as Partial<ExtractedQuestion>)}
+                onChange={(e) =>
+                  onChange({ [`option_${k}`]: e.target.value } as Partial<ExtractedQuestion>)
+                }
                 className="h-7 text-xs"
               />
             </div>
@@ -524,7 +534,9 @@ function QuestionEditor({
             <span className="text-xs">正确答案</span>
             <Input
               value={q.correct_answer ?? ""}
-              onChange={(e) => onChange({ correct_answer: e.target.value.toUpperCase().slice(0, 1) })}
+              onChange={(e) =>
+                onChange({ correct_answer: e.target.value.toUpperCase().slice(0, 1) })
+              }
               className="h-7 w-16 text-xs"
             />
             <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
