@@ -10,6 +10,9 @@ import {
   Pencil,
   Check,
   X,
+  Download,
+  Sparkles,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,7 +39,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { extractPaperQuestions, saveMathPaper, deleteMathPaper } from "@/lib/math-papers.functions";
+import {
+  extractPaperQuestions,
+  createMathPaper,
+  replaceMathPaperQuestions,
+  getMathPaperPdfUrls,
+  deleteMathPaper,
+} from "@/lib/math-papers.functions";
 import {
   renderPdfPages,
   renderPdfPageCanvas,
@@ -135,7 +144,6 @@ async function uploadRenderedPageImages(
     if (error) throw new Error(`上传${label}页面图片失败：${error.message}`);
     paths.push(path);
   }
-
   const { data, error } = await bucket.createSignedUrls(paths, 60 * 60);
   if (error) throw new Error(`生成${label}页面访问链接失败：${error.message}`);
   const signedUrls = (data ?? []).map((item) => item.signedUrl).filter(Boolean);
@@ -143,24 +151,49 @@ async function uploadRenderedPageImages(
   return { paths, signedUrls };
 }
 
+async function downloadAsFile(url: string, name: string, type = "application/pdf"): Promise<File> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`下载文件失败 ${res.status}`);
+  const blob = await res.blob();
+  return new File([blob], name, { type });
+}
+
+function triggerBrowserDownload(url: string, filename: string) {
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.target = "_blank";
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
 function QuestionBankPage() {
   const cachedRows = getCachedPaperRows();
   const [papers, setPapers] = useState<PaperRow[]>(cachedRows ?? []);
   const [loading, setLoading] = useState(cachedRows === null);
+
+  // upload-only dialog state
   const [uploadOpen, setUploadOpen] = useState(false);
   const [paperFile, setPaperFile] = useState<File | null>(null);
   const [answerFile, setAnswerFile] = useState<File | null>(null);
   const [year, setYear] = useState<string>("");
   const [name, setName] = useState<string>("");
-  const [busy, setBusy] = useState(false);
-  const [stage, setStage] = useState<string>("");
-  const [processError, setProcessError] = useState<string>("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string>("");
 
+  // extract dialog / preview state
+  const [extractTarget, setExtractTarget] = useState<PaperRow | null>(null);
+  const [extracting, setExtracting] = useState(false);
+  const [stage, setStage] = useState<string>("");
+  const [extractError, setExtractError] = useState<string>("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [extracted, setExtracted] = useState<ExtractedQuestion[]>([]);
-  const [paperPath, setPaperPath] = useState<string>("");
-  const [answerPath, setAnswerPath] = useState<string | null>(null);
   const [savingPreview, setSavingPreview] = useState(false);
+
+  // per-row busy state for download
+  const [downloadingId, setDownloadingId] = useState<string>("");
 
   const load = async (showLoading = paperRowsCache === null) => {
     if (showLoading) setLoading(true);
@@ -204,6 +237,7 @@ function QuestionBankPage() {
     }
   };
 
+  // 仅上传 PDF 原件并创建试卷记录
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!paperFile) return toast.error("请上传试卷 PDF");
@@ -211,10 +245,9 @@ function QuestionBankPage() {
     if (!yNum || yNum < 1900 || yNum > 2100) return toast.error("请填写有效年份");
     if (!name.trim()) return toast.error("请填写试卷名称");
 
-    setBusy(true);
-    setProcessError("");
+    setUploading(true);
+    setUploadError("");
     try {
-      setStage("上传试卷 PDF...");
       const ts = Date.now();
       const pPath = `${yNum}/${ts}-paper.pdf`;
       const { error: e1 } = await supabase.storage
@@ -224,7 +257,6 @@ function QuestionBankPage() {
 
       let aPath: string | null = null;
       if (answerFile) {
-        setStage("上传答案 PDF...");
         aPath = `${yNum}/${ts}-answer.pdf`;
         const { error: e2 } = await supabase.storage
           .from("math-papers")
@@ -232,15 +264,58 @@ function QuestionBankPage() {
         if (e2) throw new Error("上传答案失败：" + e2.message);
       }
 
+      await createMathPaper({
+        data: {
+          year: yNum,
+          name: name.trim(),
+          pdfPath: pPath,
+          answerPdfPath: aPath,
+        },
+      });
+
+      toast.success("试卷原件已存档。可在列表中点「抽取题目」生成题库。");
+      setUploadOpen(false);
+      setPaperFile(null);
+      setAnswerFile(null);
+      setYear("");
+      setName("");
+      load();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "上传失败";
+      setUploadError(message);
+      toast.error(message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // 抽题流程：从 storage 拉回 PDF → 渲染 → 调 AI → 裁剪 → 进入预览
+  const handleExtract = async (paper: PaperRow) => {
+    setExtractTarget(paper);
+    setExtracting(true);
+    setExtractError("");
+    setStage("准备文件...");
+    try {
+      const urls = await getMathPaperPdfUrls({ data: { paperId: paper.id } });
+      if (!urls.pdfUrl) throw new Error("试卷 PDF 不存在");
+      setStage("下载试卷 PDF...");
+      const paperPdfFile = await downloadAsFile(urls.pdfUrl, "paper.pdf");
+      const answerPdfFile = urls.answerPdfUrl
+        ? await (async () => {
+            setStage("下载答案 PDF...");
+            return downloadAsFile(urls.answerPdfUrl!, "answer.pdf");
+          })()
+        : null;
+
       setStage("渲染试卷页面...");
-      const paperPages = await renderPdfPages(paperFile, 1.15, 0.68);
+      const paperPages = await renderPdfPages(paperPdfFile, 1.15, 0.68);
       let answerPages: RenderedPage[] = [];
-      if (answerFile) {
+      if (answerPdfFile) {
         setStage("渲染答案页面...");
-        answerPages = await renderPdfPages(answerFile, 1.05, 0.68);
+        answerPages = await renderPdfPages(answerPdfFile, 1.05, 0.68);
       }
 
-      const imagePrefix = `${yNum}/${ts}-pages`;
+      const imagePrefix = `${paper.year}/${paper.id}-pages`;
       const { signedUrls: paperPageImages } = await uploadRenderedPageImages(
         paperPages,
         imagePrefix,
@@ -250,18 +325,14 @@ function QuestionBankPage() {
       const { signedUrls: answerPageImages } = answerPages.length
         ? await uploadRenderedPageImages(answerPages, imagePrefix, "答案", setStage)
         : { signedUrls: [] as string[] };
+
       const byNumber = new Map<number, ExtractedQuestion>();
       for (const [batchIndex, [questionStart, questionEnd]] of QUESTION_BATCHES.entries()) {
         setStage(
           `AI 抽取第 ${questionStart}-${questionEnd} 题（${batchIndex + 1}/${QUESTION_BATCHES.length}）...`,
         );
         const result = await extractPaperQuestions({
-          data: {
-            paperPageImages,
-            answerPageImages,
-            questionStart,
-            questionEnd,
-          },
+          data: { paperPageImages, answerPageImages, questionStart, questionEnd },
         });
         for (const raw of result.questions ?? []) {
           const q = raw as ExtractedQuestion;
@@ -296,7 +367,7 @@ function QuestionBankPage() {
       }
       for (const [pageIndex, pageQuestions] of byPage) {
         setStage(`裁剪第 ${pageIndex + 1} 页（${pageQuestions.length} 题）...`);
-        const canvas = await renderPdfPageCanvas(paperFile, pageIndex, 1.15);
+        const canvas = await renderPdfPageCanvas(paperPdfFile, pageIndex, 1.15);
         try {
           for (const q of pageQuestions) {
             if (q.stem_bbox) {
@@ -324,33 +395,28 @@ function QuestionBankPage() {
         }
       }
 
-
-      setPaperPath(pPath);
-      setAnswerPath(aPath);
       setExtracted(qs);
-      setUploadOpen(false);
       setPreviewOpen(true);
       toast.success(`已抽取 ${qs.length} 道题，请确认后入库`);
     } catch (err) {
       console.error(err);
       const message = err instanceof Error ? err.message : "处理失败";
-      setProcessError(message);
+      setExtractError(message);
       toast.error(message);
     } finally {
-      setBusy(false);
+      setExtracting(false);
       setStage("");
     }
   };
 
   const handleSavePreview = async () => {
+    if (!extractTarget) return;
     setSavingPreview(true);
     try {
-      const yNum = Number(year);
       const ts = Date.now();
-      // upload crops (stem + options)
       type WithPaths = ExtractedQuestion & { image_path?: string; options_image_path?: string };
       for (const q of extracted as WithPaths[]) {
-        const base = `${yNum}/${ts}/q${String(q.number).padStart(2, "0")}`;
+        const base = `${extractTarget.year}/${extractTarget.id}/${ts}/q${String(q.number).padStart(2, "0")}`;
         if (q.stemImageBlob) {
           const path = `${base}-stem.png`;
           const { error } = await supabase.storage
@@ -382,28 +448,36 @@ function QuestionBankPage() {
         options_image_path: q.options_image_path ?? null,
       }));
 
-
-      await saveMathPaper({
-        data: {
-          year: yNum,
-          name: name.trim(),
-          pdfPath: paperPath,
-          answerPdfPath: answerPath,
-          questions: payload,
-        },
+      await replaceMathPaperQuestions({
+        data: { paperId: extractTarget.id, questions: payload },
       });
       toast.success("已入库");
       setPreviewOpen(false);
       setExtracted([]);
-      setPaperFile(null);
-      setAnswerFile(null);
-      setYear("");
-      setName("");
+      setExtractTarget(null);
       load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "保存失败");
     } finally {
       setSavingPreview(false);
+    }
+  };
+
+  const handleDownload = async (paper: PaperRow, kind: "paper" | "answer") => {
+    setDownloadingId(paper.id + ":" + kind);
+    try {
+      const urls = await getMathPaperPdfUrls({ data: { paperId: paper.id } });
+      const url = kind === "paper" ? urls.pdfUrl : urls.answerPdfUrl;
+      if (!url) {
+        toast.error(kind === "paper" ? "未找到试卷文件" : "未上传答案文件");
+        return;
+      }
+      const suffix = kind === "paper" ? "试卷" : "答案";
+      triggerBrowserDownload(url, `${paper.year}-${paper.name}-${suffix}.pdf`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "下载失败");
+    } finally {
+      setDownloadingId("");
     }
   };
 
@@ -439,14 +513,17 @@ function QuestionBankPage() {
           <DialogTrigger asChild>
             <Button className="gap-1.5">
               <Upload className="h-4 w-4" />
-              上传新试卷
+              上传试卷 PDF
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>上传试卷 PDF</DialogTitle>
+              <DialogTitle>上传试卷原件</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleUpload} className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                仅存档 PDF 原文件，不会立即抽题。上传后可在列表中随时点「抽取题目」或「下载」。
+              </p>
               <div className="space-y-2">
                 <Label>试卷 PDF</Label>
                 <Input
@@ -485,20 +562,20 @@ function QuestionBankPage() {
                   />
                 </div>
               </div>
-              {busy && (
+              {uploading && (
                 <div className="flex items-center gap-2 rounded-md bg-muted p-3 text-sm">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {stage}
+                  上传中...
                 </div>
               )}
-              {processError && !busy && (
+              {uploadError && !uploading && (
                 <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                  {processError}
+                  {uploadError}
                 </div>
               )}
               <DialogFooter>
-                <Button type="submit" disabled={busy}>
-                  {busy ? "处理中..." : "上传并抽题"}
+                <Button type="submit" disabled={uploading}>
+                  {uploading ? "上传中..." : "保存原件"}
                 </Button>
               </DialogFooter>
             </form>
@@ -512,65 +589,127 @@ function QuestionBankPage() {
         </div>
       ) : papers.length === 0 ? (
         <div className="rounded-2xl border border-dashed bg-card/50 p-10 text-center text-sm text-muted-foreground">
-          还没有任何试卷。点击右上角「上传新试卷」开始。
+          还没有任何试卷。点击右上角「上传试卷 PDF」开始。
         </div>
       ) : (
         <div className="space-y-2">
-          {papers.map((p) => (
-            <div
-              key={p.id}
-              className="flex items-center justify-between rounded-xl border bg-card p-4"
-            >
-              <Link
-                to="/admin/question-bank/$paperId"
-                params={{ paperId: p.id }}
-                className="flex-1"
+          {papers.map((p) => {
+            const isExtractingThis = extracting && extractTarget?.id === p.id;
+            return (
+              <div
+                key={p.id}
+                className="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
               >
-                <div className="font-medium">
-                  {p.year} · {p.name}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {p.question_count} 道题 · 上传于 {new Date(p.created_at).toLocaleDateString()}
-                </div>
-              </Link>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
+                <Link
+                  to="/admin/question-bank/$paperId"
+                  params={{ paperId: p.id }}
+                  className="flex-1 min-w-0"
+                >
+                  <div className="font-medium">
+                    {p.year} · {p.name}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {p.question_count > 0 ? (
+                      <span>{p.question_count} 道题</span>
+                    ) : (
+                      <span className="text-amber-600">未抽题</span>
+                    )}
+                    <span> · 上传于 {new Date(p.created_at).toLocaleDateString()}</span>
+                  </div>
+                  {isExtractingThis && stage && (
+                    <div className="mt-1 inline-flex items-center gap-1.5 rounded bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      {stage}
+                    </div>
+                  )}
+                </Link>
+                <div className="flex flex-wrap items-center gap-1.5">
                   <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground hover:text-destructive"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => handleDownload(p, "paper")}
+                    disabled={downloadingId === p.id + ":paper"}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <FileText className="h-3.5 w-3.5" /> 试卷
                   </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>
-                      删除「{p.year} {p.name}」？
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>该试卷及其全部题目都会被删除。</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>取消</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => handleDelete(p.id)}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      确认删除
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => handleDownload(p, "answer")}
+                    disabled={downloadingId === p.id + ":answer"}
+                  >
+                    <Download className="h-3.5 w-3.5" /> 答案
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => handleExtract(p)}
+                    disabled={extracting}
+                  >
+                    {isExtractingThis ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5" />
+                    )}
+                    {p.question_count > 0 ? "重新抽题" : "抽取题目"}
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          删除「{p.year} {p.name}」？
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          该试卷及其全部题目都会被删除。
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>取消</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDelete(p.id)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          确认删除
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+      {extractError && !extracting && (
+        <div className="mt-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          抽题失败：{extractError}
+        </div>
+      )}
+
+      <Dialog
+        open={previewOpen}
+        onOpenChange={(v) => {
+          setPreviewOpen(v);
+          if (!v) setExtractTarget(null);
+        }}
+      >
         <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              预览 · {year} {name}（{extracted.length} 题）
+              预览 · {extractTarget?.year} {extractTarget?.name}（{extracted.length} 题）
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
@@ -682,7 +821,9 @@ function QuestionEditor({
       </div>
       {q.stemImageDataUrl && (
         <div className="mt-2">
-          <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">题干截图</div>
+          <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+            题干截图
+          </div>
           <img
             src={q.stemImageDataUrl}
             alt={`第 ${q.number} 题题干`}
@@ -692,7 +833,9 @@ function QuestionEditor({
       )}
       {q.optionsImageDataUrl && (
         <div className="mt-2">
-          <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">选项截图</div>
+          <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+            选项截图
+          </div>
           <img
             src={q.optionsImageDataUrl}
             alt={`第 ${q.number} 题选项`}
