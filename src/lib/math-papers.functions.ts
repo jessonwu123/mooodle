@@ -191,10 +191,7 @@ export const deleteMathPaper = createServerFn({ method: "POST" })
       _role: "admin",
     });
     if (!isAdmin) throw new Error("仅管理员可执行");
-    const { error } = await context.supabase
-      .from("math_papers")
-      .delete()
-      .eq("id", data.paperId);
+    const { error } = await context.supabase.from("math_papers").delete().eq("id", data.paperId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
