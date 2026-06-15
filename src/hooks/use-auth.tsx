@@ -70,10 +70,14 @@ function handleSession(sess: Session | null) {
   }
 
   const cached = roleCache.get(sess.user.id);
+  const sameUser = snapshot.session?.user.id === sess.user.id;
   updateSnapshot({
     session: sess,
-    ...(cached ?? { isAdmin: false, isTeacher: false }),
-    loading: !cached,
+    ...(cached ?? {
+      isAdmin: sameUser ? snapshot.isAdmin : false,
+      isTeacher: sameUser ? snapshot.isTeacher : false,
+    }),
+    loading: !cached && !sameUser,
   });
   void loadRoles(sess.user.id);
 }
@@ -82,7 +86,8 @@ function ensureAuthSubscription() {
   if (initialized) return;
   initialized = true;
 
-  supabase.auth.onAuthStateChange((_event, sess) => {
+  supabase.auth.onAuthStateChange((event, sess) => {
+    if (!sess && event !== "SIGNED_OUT") return;
     handleSession(sess);
   });
 
