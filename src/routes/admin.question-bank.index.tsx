@@ -430,19 +430,21 @@ function QuestionBankPage() {
           const cur = slots[i];
           const prev = slots[i - 1];
           const next = slots[i + 1];
-          const topLimit = prev ? prev.bbox.y + prev.bbox.h + 0.003 : 0;
-          // stem 不能向下扩展到把自己的 options 包进来
-          let bottomLimit = next ? next.bbox.y - 0.003 : 1;
+          const topLimit = prev ? prev.bbox.y + prev.bbox.h + 0.004 : 0;
+          let bottomLimit = next ? next.bbox.y - 0.004 : 1;
           if (cur.kind === "stem" && cur.q.options_bbox) {
-            bottomLimit = Math.min(bottomLimit, cur.q.options_bbox.y - 0.005);
+            // 题干必须严格在选项之上
+            bottomLimit = Math.min(bottomLimit, cur.q.options_bbox.y - 0.006);
           }
-          const newY = Math.max(topLimit, cur.bbox.y - 0.02);
-          const newBottom = Math.min(bottomLimit, cur.bbox.y + cur.bbox.h + 0.02);
+          // 上下方向只做很轻微的扩展，避免把上/下一道题或选项卷进来
+          const newY = Math.max(topLimit, cur.bbox.y - 0.004);
+          const newBottom = Math.min(bottomLimit, cur.bbox.y + cur.bbox.h + 0.004);
           cur.bbox.x = colX;
           cur.bbox.w = Math.max(0, colRight - colX);
           cur.bbox.y = newY;
           cur.bbox.h = Math.max(0, newBottom - newY);
         }
+
         for (const s of slots) {
           if (s.kind === "stem") s.q.stem_bbox = s.bbox;
           else s.q.options_bbox = s.bbox;
