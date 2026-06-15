@@ -104,6 +104,8 @@ interface ExtractedQuestion {
   option_e: string | null;
   correct_answer: string | null;
   page_index: number;
+  stem_page_index: number;
+  options_page_index: number;
   stem_bbox: Bbox;
   options_bbox: Bbox;
   stem_render_mode: "text" | "image";
