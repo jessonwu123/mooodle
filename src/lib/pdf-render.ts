@@ -24,7 +24,11 @@ async function loadPdfjs() {
   return pdfjsPromise;
 }
 
-export async function renderPdfPages(file: File, scale = 1.6): Promise<RenderedPage[]> {
+export async function renderPdfPages(
+  file: File,
+  scale = 1.35,
+  jpegQuality = 0.72,
+): Promise<RenderedPage[]> {
   const pdfjsLib = await loadPdfjs();
   const buf = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
@@ -38,7 +42,7 @@ export async function renderPdfPages(file: File, scale = 1.6): Promise<RenderedP
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("无法创建 canvas 上下文");
     await page.render({ canvasContext: ctx, viewport, canvas }).promise;
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+    const dataUrl = canvas.toDataURL("image/jpeg", jpegQuality);
     pages.push({
       pageIndex: i - 1,
       width: canvas.width,
@@ -66,9 +70,6 @@ export function cropCanvasToBlob(
   if (!ctx) throw new Error("无法创建 canvas 上下文");
   ctx.drawImage(canvas, x, y, w, h, 0, 0, out.width, out.height);
   return new Promise<Blob>((resolve, reject) =>
-    out.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error("裁剪失败"))),
-      "image/png",
-    ),
+    out.toBlob((b) => (b ? resolve(b) : reject(new Error("裁剪失败"))), "image/png"),
   );
 }

@@ -1,6 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Upload, Trash2, Loader2, BookOpen, ImageIcon, Pencil, Check, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Upload,
+  Trash2,
+  Loader2,
+  BookOpen,
+  ImageIcon,
+  Pencil,
+  Check,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -26,11 +36,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  extractPaperQuestions,
-  saveMathPaper,
-  deleteMathPaper,
-} from "@/lib/math-papers.functions";
+import { extractPaperQuestions, saveMathPaper, deleteMathPaper } from "@/lib/math-papers.functions";
 import { renderPdfPages, cropCanvasToBlob, type RenderedPage } from "@/lib/pdf-render";
 
 export const Route = createFileRoute("/admin/question-bank")({
@@ -61,6 +67,14 @@ interface ExtractedQuestion {
   imageBlob?: Blob | null;
 }
 
+const QUESTION_BATCHES: Array<[number, number]> = [
+  [1, 5],
+  [6, 10],
+  [11, 15],
+  [16, 20],
+  [21, 25],
+];
+
 function extractYearFromFilename(name: string): number | null {
   const m = name.match(/(19|20)\d{2}/);
   return m ? Number(m[0]) : null;
@@ -76,6 +90,7 @@ function QuestionBankPage() {
   const [name, setName] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState<string>("");
+  const [processError, setProcessError] = useState<string>("");
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [extracted, setExtracted] = useState<ExtractedQuestion[]>([]);
@@ -119,6 +134,7 @@ function QuestionBankPage() {
     if (!name.trim()) return toast.error("请填写试卷名称");
 
     setBusy(true);
+    setProcessError("");
     try {
       setStage("上传试卷 PDF...");
       const ts = Date.now();
@@ -139,22 +155,49 @@ function QuestionBankPage() {
       }
 
       setStage("渲染试卷页面...");
-      const paperPages = await renderPdfPages(paperFile, 1.8);
+      const paperPages = await renderPdfPages(paperFile, 1.35);
       let answerPages: RenderedPage[] = [];
       if (answerFile) {
         setStage("渲染答案页面...");
-        answerPages = await renderPdfPages(answerFile, 1.5);
+        answerPages = await renderPdfPages(answerFile, 1.2);
       }
 
-      setStage("AI 抽取题目（可能需要 30-60 秒）...");
-      const result = await extractPaperQuestions({
-        data: {
-          paperPageImages: paperPages.map((p) => p.dataUrl),
-          answerPageImages: answerPages.map((p) => p.dataUrl),
-        },
-      });
-      const qs = result.questions as ExtractedQuestion[];
+      const paperPageImages = paperPages.map((p) => p.dataUrl);
+      const answerPageImages = answerPages.map((p) => p.dataUrl);
+      const byNumber = new Map<number, ExtractedQuestion>();
+      for (const [questionStart, questionEnd] of QUESTION_BATCHES) {
+        setStage(`AI 抽取第 ${questionStart}-${questionEnd} 题...`);
+        const result = await extractPaperQuestions({
+          data: {
+            paperPageImages,
+            answerPageImages,
+            questionStart,
+            questionEnd,
+          },
+        });
+        for (const raw of result.questions ?? []) {
+          const q = raw as ExtractedQuestion;
+          const number = Number(q.number);
+          if (!Number.isInteger(number) || number < questionStart || number > questionEnd) continue;
+          byNumber.set(number, {
+            ...q,
+            number,
+            stem: q.stem ?? "",
+            option_a: q.option_a ?? null,
+            option_b: q.option_b ?? null,
+            option_c: q.option_c ?? null,
+            option_d: q.option_d ?? null,
+            option_e: q.option_e ?? null,
+            correct_answer: q.correct_answer ? q.correct_answer.toUpperCase().slice(0, 1) : null,
+            has_figure: Boolean(q.has_figure),
+            page_index: Number.isInteger(Number(q.page_index)) ? Number(q.page_index) : 0,
+            bbox: q.bbox ?? null,
+          });
+        }
+      }
+      const qs = Array.from(byNumber.values()).sort((a, b) => a.number - b.number);
       if (!qs?.length) throw new Error("AI 未抽取到题目");
+      if (qs.length < 25) toast.warning(`只抽取到 ${qs.length} 道题，请在预览中检查`);
 
       setStage("裁剪题目配图...");
       for (const q of qs) {
@@ -171,13 +214,15 @@ function QuestionBankPage() {
 
       setPaperPath(pPath);
       setAnswerPath(aPath);
-      setExtracted(qs.sort((a, b) => a.number - b.number));
+      setExtracted(qs);
       setUploadOpen(false);
       setPreviewOpen(true);
       toast.success(`已抽取 ${qs.length} 道题，请确认后入库`);
     } catch (err) {
       console.error(err);
-      toast.error(err instanceof Error ? err.message : "处理失败");
+      const message = err instanceof Error ? err.message : "处理失败";
+      setProcessError(message);
+      toast.error(message);
     } finally {
       setBusy(false);
       setStage("");
@@ -324,6 +369,11 @@ function QuestionBankPage() {
                   {stage}
                 </div>
               )}
+              {processError && !busy && (
+                <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                  {processError}
+                </div>
+              )}
               <DialogFooter>
                 <Button type="submit" disabled={busy}>
                   {busy ? "处理中..." : "上传并抽题"}
@@ -363,16 +413,20 @@ function QuestionBankPage() {
               </Link>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-destructive"
+                  >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>删除「{p.year} {p.name}」？</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      该试卷及其全部题目都会被删除。
-                    </AlertDialogDescription>
+                    <AlertDialogTitle>
+                      删除「{p.year} {p.name}」？
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>该试卷及其全部题目都会被删除。</AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>取消</AlertDialogCancel>
@@ -411,7 +465,11 @@ function QuestionBankPage() {
             ))}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPreviewOpen(false)} disabled={savingPreview}>
+            <Button
+              variant="outline"
+              onClick={() => setPreviewOpen(false)}
+              disabled={savingPreview}
+            >
               取消
             </Button>
             <Button onClick={handleSavePreview} disabled={savingPreview}>
@@ -465,7 +523,9 @@ function QuestionEditor({
               <span className="w-5 text-xs font-bold">{k.toUpperCase()}</span>
               <Input
                 value={(q[`option_${k}` as const] as string | null) ?? ""}
-                onChange={(e) => onChange({ [`option_${k}`]: e.target.value } as Partial<ExtractedQuestion>)}
+                onChange={(e) =>
+                  onChange({ [`option_${k}`]: e.target.value } as Partial<ExtractedQuestion>)
+                }
                 className="h-7 text-xs"
               />
             </div>
@@ -474,7 +534,9 @@ function QuestionEditor({
             <span className="text-xs">正确答案</span>
             <Input
               value={q.correct_answer ?? ""}
-              onChange={(e) => onChange({ correct_answer: e.target.value.toUpperCase().slice(0, 1) })}
+              onChange={(e) =>
+                onChange({ correct_answer: e.target.value.toUpperCase().slice(0, 1) })
+              }
               className="h-7 w-16 text-xs"
             />
             <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>

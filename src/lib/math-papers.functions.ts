@@ -2,10 +2,17 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-const ExtractInput = z.object({
-  paperPageImages: z.array(z.string()).min(1).max(30),
-  answerPageImages: z.array(z.string()).max(10).default([]),
-});
+const ExtractInput = z
+  .object({
+    paperPageImages: z.array(z.string()).min(1).max(30),
+    answerPageImages: z.array(z.string()).max(10).default([]),
+    questionStart: z.number().int().min(1).max(25).default(1),
+    questionEnd: z.number().int().min(1).max(25).default(25),
+  })
+  .refine((d) => d.questionStart <= d.questionEnd, {
+    message: "题号范围无效",
+    path: ["questionEnd"],
+  });
 
 export const extractPaperQuestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -21,13 +28,17 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
     if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
 
     const paperCount = data.paperPageImages.length;
+    const rangeText =
+      data.questionStart === 1 && data.questionEnd === 25
+        ? "全部 25 道题目"
+        : `第 ${data.questionStart}-${data.questionEnd} 题（只返回这个题号范围）`;
     const prompt = `这是一份 AMC 8 数学竞赛试卷，共 25 道选择题，每题有 A-E 五个选项。
 
 我会按顺序给你两类图片：
 - 前 ${paperCount} 张：试卷页面（页面索引从 0 到 ${paperCount - 1}）
 - 之后的图片：答案对照页（如果有）
 
-请从试卷中提取出全部 25 道题目，按题号 1-25 排序。对每道题输出：
+请从试卷中提取出${rangeText}，按题号升序排序。不要返回范围外题目。对每道题输出：
 - number: 题号 1-25
 - stem: 题干文本（保留原语言；数学公式用 $...$ 包裹，例如 $x^2 + 1$）
 - option_a/option_b/option_c/option_d/option_e: 五个选项文本（保留 $...$）
@@ -63,9 +74,11 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
         "Lovable-API-Key": apiKey,
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: "google/gemini-3-flash-preview",
         messages,
         response_format: { type: "json_object" },
+        temperature: 0,
+        max_tokens: 6000,
       }),
     });
     if (!resp.ok) {
@@ -77,7 +90,12 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
     const json = await resp.json();
     const content = json.choices?.[0]?.message?.content;
     if (!content) throw new Error("AI 返回为空");
-    const parsed = JSON.parse(content);
+    const contentText = String(content)
+      .trim()
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/```$/i, "")
+      .trim();
+    const parsed = JSON.parse(contentText);
     return parsed as {
       questions: Array<{
         number: number;
@@ -173,10 +191,7 @@ export const deleteMathPaper = createServerFn({ method: "POST" })
       _role: "admin",
     });
     if (!isAdmin) throw new Error("仅管理员可执行");
-    const { error } = await context.supabase
-      .from("math_papers")
-      .delete()
-      .eq("id", data.paperId);
+    const { error } = await context.supabase.from("math_papers").delete().eq("id", data.paperId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
