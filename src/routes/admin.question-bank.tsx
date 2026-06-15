@@ -175,15 +175,23 @@ function QuestionBankPage() {
       }
 
       setStage("渲染试卷页面...");
-      const paperPages = await renderPdfPages(paperFile, 1.35);
+      const paperPages = await renderPdfPages(paperFile, 1.15, 0.68);
       let answerPages: RenderedPage[] = [];
       if (answerFile) {
         setStage("渲染答案页面...");
-        answerPages = await renderPdfPages(answerFile, 1.2);
+        answerPages = await renderPdfPages(answerFile, 1.05, 0.68);
       }
 
-      const paperPageImages = paperPages.map((p) => p.dataUrl);
-      const answerPageImages = answerPages.map((p) => p.dataUrl);
+      const imagePrefix = `${yNum}/${ts}-pages`;
+      const { signedUrls: paperPageImages } = await uploadRenderedPageImages(
+        paperPages,
+        imagePrefix,
+        "试卷",
+        setStage,
+      );
+      const { signedUrls: answerPageImages } = answerPages.length
+        ? await uploadRenderedPageImages(answerPages, imagePrefix, "答案", setStage)
+        : { signedUrls: [] as string[] };
       const byNumber = new Map<number, ExtractedQuestion>();
       setStage(`AI 抽取全部 25 道题（约 30-60 秒）...`);
       const result = await extractPaperQuestions({
