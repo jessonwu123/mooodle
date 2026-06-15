@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as StudentIdRouteImport } from './routes/student.$id'
 import { Route as AdminScheduleRouteImport } from './routes/admin.schedule'
+import { Route as AdminClassifiedBankRouteImport } from './routes/admin.classified-bank'
 import { Route as AdminTeachersIndexRouteImport } from './routes/admin.teachers.index'
 import { Route as AdminQuestionBankIndexRouteImport } from './routes/admin.question-bank.index'
 import { Route as AdminTeachersTeacherIdRouteImport } from './routes/admin.teachers.$teacherId'
@@ -51,6 +52,11 @@ const AdminScheduleRoute = AdminScheduleRouteImport.update({
   path: '/schedule',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminClassifiedBankRoute = AdminClassifiedBankRouteImport.update({
+  id: '/classified-bank',
+  path: '/classified-bank',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminTeachersIndexRoute = AdminTeachersIndexRouteImport.update({
   id: '/teachers/',
   path: '/teachers/',
@@ -82,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
+  '/admin/classified-bank': typeof AdminClassifiedBankRoute
   '/admin/schedule': typeof AdminScheduleRoute
   '/student/$id': typeof StudentIdRoute
   '/admin/': typeof AdminIndexRoute
@@ -94,6 +101,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/admin/classified-bank': typeof AdminClassifiedBankRoute
   '/admin/schedule': typeof AdminScheduleRoute
   '/student/$id': typeof StudentIdRoute
   '/admin': typeof AdminIndexRoute
@@ -108,6 +116,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
+  '/admin/classified-bank': typeof AdminClassifiedBankRoute
   '/admin/schedule': typeof AdminScheduleRoute
   '/student/$id': typeof StudentIdRoute
   '/admin/': typeof AdminIndexRoute
@@ -123,6 +132,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/login'
+    | '/admin/classified-bank'
     | '/admin/schedule'
     | '/student/$id'
     | '/admin/'
@@ -135,6 +145,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/admin/classified-bank'
     | '/admin/schedule'
     | '/student/$id'
     | '/admin'
@@ -148,6 +159,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/login'
+    | '/admin/classified-bank'
     | '/admin/schedule'
     | '/student/$id'
     | '/admin/'
@@ -209,6 +221,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminScheduleRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/classified-bank': {
+      id: '/admin/classified-bank'
+      path: '/classified-bank'
+      fullPath: '/admin/classified-bank'
+      preLoaderRoute: typeof AdminClassifiedBankRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/teachers/': {
       id: '/admin/teachers/'
       path: '/teachers'
@@ -248,6 +267,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminClassifiedBankRoute: typeof AdminClassifiedBankRoute
   AdminScheduleRoute: typeof AdminScheduleRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminQuestionBankPaperIdRoute: typeof AdminQuestionBankPaperIdRoute
@@ -258,6 +278,7 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminClassifiedBankRoute: AdminClassifiedBankRoute,
   AdminScheduleRoute: AdminScheduleRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminQuestionBankPaperIdRoute: AdminQuestionBankPaperIdRoute,

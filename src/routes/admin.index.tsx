@@ -224,7 +224,15 @@ function AdminHome() {
             <Link to="/admin/question-bank">
               <Button variant="outline" size="sm" className="gap-1.5">
                 <BookOpen className="h-4 w-4" />
-                题库
+                原始题库
+              </Button>
+            </Link>
+          )}
+          {isAdmin && (
+            <Link to="/admin/classified-bank">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <BookOpen className="h-4 w-4" />
+                分类题库
               </Button>
             </Link>
           )}
