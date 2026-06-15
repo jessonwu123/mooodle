@@ -143,14 +143,15 @@ function QuestionBankPage() {
             .select("id, year, name, question_count, created_at")
             .order("year", { ascending: false })
             .order("created_at", { ascending: false });
-            if (error) throw error;
-            return (data ?? []) as PaperRow[];
-        })()
-          .finally(() => {
-            paperRowsRequest = null;
-          });
+          if (error) throw error;
+          return (data ?? []) as PaperRow[];
+        })().finally(() => {
+          paperRowsRequest = null;
+        });
       }
-      const rows = await paperRowsRequest;
+      const request = paperRowsRequest;
+      if (!request) return;
+      const rows = await request;
       paperRowsCache = rows;
       setPapers(rows);
     } catch (error) {
