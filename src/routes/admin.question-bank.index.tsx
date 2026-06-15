@@ -426,6 +426,12 @@ function QuestionBankPage() {
         const centerX = it.x + it.w / 2;
         return /^-?\s*\d{1,3}\s*-?$/.test(text) && it.y > 0.88 && centerX > 0.35 && centerX < 0.65;
       };
+      const getPageContentBottom = (pageIndex: number, fromY: number, beforeY = 1) => {
+        const items = (pageTexts[pageIndex]?.items ?? []).filter(
+          (it) => it.y + it.h > fromY && it.y < beforeY && !isFooterPageNumber(it),
+        );
+        return items.length ? items.reduce((m, it) => Math.max(m, it.y + it.h), fromY) : null;
+      };
       type PageStream = { pageIndex: number; norm: string; ys: number[] };
       const pageStreams: PageStream[] = pageTexts.map((p) => {
         const sorted = [...p.items].sort((a, b) => {
