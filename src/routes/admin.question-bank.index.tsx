@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Upload,
@@ -13,8 +13,13 @@ import {
   Download,
   Sparkles,
   FileText,
+  FolderPlus,
+  Folder,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { z } from "zod";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,11 +46,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   extractPaperQuestions,
-  createMathPaper,
   replaceMathPaperQuestions,
   getMathPaperPdfUrls,
   deleteMathPaper,
 } from "@/lib/math-papers.functions";
+import {
+  listMathPaperFolders,
+  createMathPaperFolder,
+  deleteMathPaperFolder,
+  createMathPaperFiles,
+  listMathPapersInFolder,
+} from "@/lib/math-paper-folders.functions";
 import {
   renderPdfPages,
   renderPdfPageCanvas,
@@ -53,16 +64,30 @@ import {
   type RenderedPage,
 } from "@/lib/pdf-render";
 
+const SearchSchema = z.object({
+  folder: fallback(z.string().uuid().nullable(), null).default(null),
+});
+
 export const Route = createFileRoute("/admin/question-bank/")({
+  validateSearch: zodValidator(SearchSchema),
   component: QuestionBankPage,
 });
 
+interface FolderRow {
+  id: string;
+  parent_id: string | null;
+  name: string;
+  created_at: string;
+}
+
 interface PaperRow {
   id: string;
-  year: number;
+  year: number | null;
   name: string;
   question_count: number;
   created_at: string;
+  kind: "paper" | "answer";
+  folder_id: string | null;
 }
 
 type Bbox = { x: number; y: number; w: number; h: number } | null;
@@ -83,33 +108,6 @@ interface ExtractedQuestion {
   stemImageDataUrl?: string | null;
   optionsImageBlob?: Blob | null;
   optionsImageDataUrl?: string | null;
-}
-
-let paperRowsCache: PaperRow[] | null = null;
-let paperRowsRequest: Promise<PaperRow[]> | null = null;
-const PAPER_ROWS_CACHE_KEY = "math-paper-rows-cache";
-
-function getCachedPaperRows() {
-  if (paperRowsCache) return paperRowsCache;
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.sessionStorage.getItem(PAPER_ROWS_CACHE_KEY);
-    if (!raw) return null;
-    paperRowsCache = JSON.parse(raw) as PaperRow[];
-    return paperRowsCache;
-  } catch {
-    return null;
-  }
-}
-
-function setCachedPaperRows(rows: PaperRow[]) {
-  paperRowsCache = rows;
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem(PAPER_ROWS_CACHE_KEY, JSON.stringify(rows));
-  } catch {
-    // Ignore storage quota/privacy-mode failures; in-memory cache still works.
-  }
 }
 
 const QUESTION_BATCHES = [
@@ -170,20 +168,28 @@ function triggerBrowserDownload(url: string, filename: string) {
 }
 
 function QuestionBankPage() {
-  const cachedRows = getCachedPaperRows();
-  const [papers, setPapers] = useState<PaperRow[]>(cachedRows ?? []);
-  const [loading, setLoading] = useState(cachedRows === null);
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: "/admin/question-bank" });
+  const currentFolderId = search.folder;
 
-  // upload-only dialog state
+  const [allFolders, setAllFolders] = useState<FolderRow[]>([]);
+  const [papers, setPapers] = useState<PaperRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // create folder
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [creatingFolder, setCreatingFolder] = useState(false);
+
+  // batch upload state
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [paperFile, setPaperFile] = useState<File | null>(null);
-  const [answerFile, setAnswerFile] = useState<File | null>(null);
-  const [year, setYear] = useState<string>("");
-  const [name, setName] = useState<string>("");
+  const [uploadKind, setUploadKind] = useState<"paper" | "answer">("paper");
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string>("");
   const [uploadError, setUploadError] = useState<string>("");
 
-  // extract dialog / preview state
+  // extract / preview
   const [extractTarget, setExtractTarget] = useState<PaperRow | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [stage, setStage] = useState<string>("");
@@ -192,93 +198,118 @@ function QuestionBankPage() {
   const [extracted, setExtracted] = useState<ExtractedQuestion[]>([]);
   const [savingPreview, setSavingPreview] = useState(false);
 
-  // per-row busy state for download
   const [downloadingId, setDownloadingId] = useState<string>("");
 
-  const load = async (showLoading = paperRowsCache === null) => {
-    if (showLoading) setLoading(true);
+  const subfolders = useMemo(
+    () => allFolders.filter((f) => f.parent_id === currentFolderId),
+    [allFolders, currentFolderId],
+  );
+
+  const folderById = useMemo(() => {
+    const m = new Map<string, FolderRow>();
+    for (const f of allFolders) m.set(f.id, f);
+    return m;
+  }, [allFolders]);
+
+  const breadcrumb = useMemo(() => {
+    const chain: FolderRow[] = [];
+    let id = currentFolderId;
+    while (id) {
+      const f = folderById.get(id);
+      if (!f) break;
+      chain.unshift(f);
+      id = f.parent_id;
+    }
+    return chain;
+  }, [currentFolderId, folderById]);
+
+  const load = async () => {
+    setLoading(true);
     try {
-      if (!paperRowsRequest) {
-        paperRowsRequest = (async () => {
-          const { data, error } = await supabase
-            .from("math_papers")
-            .select("id, year, name, question_count, created_at")
-            .order("year", { ascending: false })
-            .order("created_at", { ascending: false });
-          if (error) throw error;
-          return (data ?? []) as PaperRow[];
-        })().finally(() => {
-          paperRowsRequest = null;
-        });
-      }
-      const request = paperRowsRequest;
-      if (!request) return;
-      const rows = await request;
-      setCachedPaperRows(rows);
-      setPapers(rows);
-    } catch (error) {
-      console.error("load math papers failed", error);
-      toast.error("加载试卷列表失败");
+      const [{ folders }, { papers: ps }] = await Promise.all([
+        listMathPaperFolders(),
+        listMathPapersInFolder({ data: { folderId: currentFolderId } }),
+      ]);
+      setAllFolders(folders as FolderRow[]);
+      setPapers(ps as PaperRow[]);
+    } catch (err) {
+      console.error(err);
+      toast.error("加载题库失败");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    void load(paperRowsCache === null);
-  }, []);
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentFolderId]);
 
-  const onPaperFile = (f: File | null) => {
-    setPaperFile(f);
-    if (f) {
-      const y = extractYearFromFilename(f.name);
-      if (y) setYear(String(y));
-      if (!name) setName(f.name.replace(/\.pdf$/i, ""));
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return;
+    setCreatingFolder(true);
+    try {
+      await createMathPaperFolder({
+        data: { name: newFolderName.trim(), parentId: currentFolderId },
+      });
+      toast.success("文件夹已创建");
+      setFolderDialogOpen(false);
+      setNewFolderName("");
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "创建失败");
+    } finally {
+      setCreatingFolder(false);
     }
   };
 
-  // 仅上传 PDF 原件并创建试卷记录
-  const handleUpload = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!paperFile) return toast.error("请上传试卷 PDF");
-    const yNum = Number(year);
-    if (!yNum || yNum < 1900 || yNum > 2100) return toast.error("请填写有效年份");
-    if (!name.trim()) return toast.error("请填写试卷名称");
+  const handleDeleteFolder = async (id: string) => {
+    try {
+      await deleteMathPaperFolder({ data: { id } });
+      toast.success("文件夹已删除（其中文件已移至上层）");
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "删除失败");
+    }
+  };
 
+  const openUpload = (kind: "paper" | "answer") => {
+    setUploadKind(kind);
+    setUploadFiles([]);
+    setUploadError("");
+    setUploadOpen(true);
+  };
+
+  const handleBatchUpload = async () => {
+    if (uploadFiles.length === 0) return toast.error("请选择 PDF 文件");
     setUploading(true);
     setUploadError("");
     try {
       const ts = Date.now();
-      const pPath = `${yNum}/${ts}-paper.pdf`;
-      const { error: e1 } = await supabase.storage
-        .from("math-papers")
-        .upload(pPath, paperFile, { contentType: "application/pdf", upsert: false });
-      if (e1) throw new Error("上传试卷失败：" + e1.message);
-
-      let aPath: string | null = null;
-      if (answerFile) {
-        aPath = `${yNum}/${ts}-answer.pdf`;
-        const { error: e2 } = await supabase.storage
+      const files: { name: string; pdfPath: string; year: number | null }[] = [];
+      for (let i = 0; i < uploadFiles.length; i++) {
+        const file = uploadFiles[i];
+        setUploadProgress(`上传中 ${i + 1}/${uploadFiles.length}：${file.name}`);
+        const year = extractYearFromFilename(file.name);
+        const folderSeg = currentFolderId ?? "root";
+        const path = `${folderSeg}/${ts}-${i}-${uploadKind}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        const { error } = await supabase.storage
           .from("math-papers")
-          .upload(aPath, answerFile, { contentType: "application/pdf", upsert: false });
-        if (e2) throw new Error("上传答案失败：" + e2.message);
+          .upload(path, file, { contentType: "application/pdf", upsert: false });
+        if (error) throw new Error(`上传 ${file.name} 失败：${error.message}`);
+        files.push({
+          name: file.name.replace(/\.pdf$/i, ""),
+          pdfPath: path,
+          year,
+        });
       }
-
-      await createMathPaper({
-        data: {
-          year: yNum,
-          name: name.trim(),
-          pdfPath: pPath,
-          answerPdfPath: aPath,
-        },
+      setUploadProgress("写入题库...");
+      await createMathPaperFiles({
+        data: { folderId: currentFolderId, kind: uploadKind, files },
       });
-
-      toast.success("试卷原件已存档。可在列表中点「抽取题目」生成题库。");
+      toast.success(`已上传 ${files.length} 个文件`);
       setUploadOpen(false);
-      setPaperFile(null);
-      setAnswerFile(null);
-      setYear("");
-      setName("");
+      setUploadFiles([]);
       load();
     } catch (err) {
       const message = err instanceof Error ? err.message : "上传失败";
@@ -286,10 +317,10 @@ function QuestionBankPage() {
       toast.error(message);
     } finally {
       setUploading(false);
+      setUploadProgress("");
     }
   };
 
-  // 抽题流程：从 storage 拉回 PDF → 渲染 → 调 AI → 裁剪 → 进入预览
   const handleExtract = async (paper: PaperRow) => {
     setExtractTarget(paper);
     setExtracting(true);
@@ -300,31 +331,17 @@ function QuestionBankPage() {
       if (!urls.pdfUrl) throw new Error("试卷 PDF 不存在");
       setStage("下载试卷 PDF...");
       const paperPdfFile = await downloadAsFile(urls.pdfUrl, "paper.pdf");
-      const answerPdfFile = urls.answerPdfUrl
-        ? await (async () => {
-            setStage("下载答案 PDF...");
-            return downloadAsFile(urls.answerPdfUrl!, "answer.pdf");
-          })()
-        : null;
 
       setStage("渲染试卷页面...");
       const paperPages = await renderPdfPages(paperPdfFile, 1.15, 0.68);
-      let answerPages: RenderedPage[] = [];
-      if (answerPdfFile) {
-        setStage("渲染答案页面...");
-        answerPages = await renderPdfPages(answerPdfFile, 1.05, 0.68);
-      }
 
-      const imagePrefix = `${paper.year}/${paper.id}-pages`;
+      const imagePrefix = `${paper.year ?? "n"}/${paper.id}-pages`;
       const { signedUrls: paperPageImages } = await uploadRenderedPageImages(
         paperPages,
         imagePrefix,
         "试卷",
         setStage,
       );
-      const { signedUrls: answerPageImages } = answerPages.length
-        ? await uploadRenderedPageImages(answerPages, imagePrefix, "答案", setStage)
-        : { signedUrls: [] as string[] };
 
       const byNumber = new Map<number, ExtractedQuestion>();
       for (const [batchIndex, [questionStart, questionEnd]] of QUESTION_BATCHES.entries()) {
@@ -332,7 +349,12 @@ function QuestionBankPage() {
           `AI 抽取第 ${questionStart}-${questionEnd} 题（${batchIndex + 1}/${QUESTION_BATCHES.length}）...`,
         );
         const result = await extractPaperQuestions({
-          data: { paperPageImages, answerPageImages, questionStart, questionEnd },
+          data: {
+            paperPageImages,
+            answerPageImages: [],
+            questionStart,
+            questionEnd,
+          },
         });
         for (const raw of result.questions ?? []) {
           const q = raw as ExtractedQuestion;
@@ -416,7 +438,7 @@ function QuestionBankPage() {
       const ts = Date.now();
       type WithPaths = ExtractedQuestion & { image_path?: string; options_image_path?: string };
       for (const q of extracted as WithPaths[]) {
-        const base = `${extractTarget.year}/${extractTarget.id}/${ts}/q${String(q.number).padStart(2, "0")}`;
+        const base = `${extractTarget.year ?? "n"}/${extractTarget.id}/${ts}/q${String(q.number).padStart(2, "0")}`;
         if (q.stemImageBlob) {
           const path = `${base}-stem.png`;
           const { error } = await supabase.storage
@@ -463,17 +485,17 @@ function QuestionBankPage() {
     }
   };
 
-  const handleDownload = async (paper: PaperRow, kind: "paper" | "answer") => {
-    setDownloadingId(paper.id + ":" + kind);
+  const handleDownload = async (paper: PaperRow) => {
+    setDownloadingId(paper.id);
     try {
       const urls = await getMathPaperPdfUrls({ data: { paperId: paper.id } });
-      const url = kind === "paper" ? urls.pdfUrl : urls.answerPdfUrl;
+      const url = urls.pdfUrl;
       if (!url) {
-        toast.error(kind === "paper" ? "未找到试卷文件" : "未上传答案文件");
+        toast.error("未找到文件");
         return;
       }
-      const suffix = kind === "paper" ? "试卷" : "答案";
-      triggerBrowserDownload(url, `${paper.year}-${paper.name}-${suffix}.pdf`);
+      const suffix = paper.kind === "paper" ? "试卷" : "答案";
+      triggerBrowserDownload(url, `${paper.name}-${suffix}.pdf`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "下载失败");
     } finally {
@@ -491,9 +513,13 @@ function QuestionBankPage() {
     }
   };
 
+  const goToFolder = (id: string | null) => {
+    navigate({ search: { folder: id } });
+  };
+
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <Link to="/admin">
             <Button variant="ghost" size="sm" className="gap-1.5">
@@ -509,90 +535,112 @@ function QuestionBankPage() {
             <h1 className="mt-1 text-2xl font-bold text-foreground">数学试卷题库</h1>
           </div>
         </div>
-        <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-1.5">
-              <Upload className="h-4 w-4" />
-              上传试卷 PDF
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>上传试卷原件</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleUpload} className="space-y-4">
-              <p className="text-xs text-muted-foreground">
-                仅存档 PDF 原文件，不会立即抽题。上传后可在列表中随时点「抽取题目」或「下载」。
-              </p>
-              <div className="space-y-2">
-                <Label>试卷 PDF</Label>
-                <Input
-                  type="file"
-                  accept="application/pdf"
-                  onChange={(e) => onPaperFile(e.target.files?.[0] ?? null)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>答案 PDF（可选）</Label>
-                <Input
-                  type="file"
-                  accept="application/pdf"
-                  onChange={(e) => setAnswerFile(e.target.files?.[0] ?? null)}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>年份</Label>
-                  <Input
-                    type="number"
-                    value={year}
-                    onChange={(e) => setYear(e.target.value)}
-                    placeholder="2025"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>试卷名称</Label>
-                  <Input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="2025 AMC 8"
-                    required
-                  />
-                </div>
-              </div>
-              {uploading && (
-                <div className="flex items-center gap-2 rounded-md bg-muted p-3 text-sm">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  上传中...
-                </div>
-              )}
-              {uploadError && !uploading && (
-                <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                  {uploadError}
-                </div>
-              )}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-1.5">
+                <FolderPlus className="h-4 w-4" /> 新建文件夹
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle>新建文件夹</DialogTitle>
+              </DialogHeader>
+              <Input
+                placeholder="文件夹名称"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                autoFocus
+              />
               <DialogFooter>
-                <Button type="submit" disabled={uploading}>
-                  {uploading ? "上传中..." : "保存原件"}
+                <Button onClick={handleCreateFolder} disabled={creatingFolder}>
+                  {creatingFolder ? "创建中..." : "创建"}
                 </Button>
               </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+          <Button variant="outline" className="gap-1.5" onClick={() => openUpload("paper")}>
+            <Upload className="h-4 w-4" /> 批量上传试卷
+          </Button>
+          <Button variant="outline" className="gap-1.5" onClick={() => openUpload("answer")}>
+            <Upload className="h-4 w-4" /> 批量上传答案
+          </Button>
+        </div>
+      </div>
+
+      {/* breadcrumb */}
+      <div className="mb-4 flex items-center gap-1 text-sm text-muted-foreground flex-wrap">
+        <button
+          onClick={() => goToFolder(null)}
+          className="hover:text-foreground hover:underline"
+        >
+          题库根目录
+        </button>
+        {breadcrumb.map((f) => (
+          <span key={f.id} className="flex items-center gap-1">
+            <ChevronRight className="h-3 w-3" />
+            <button
+              onClick={() => goToFolder(f.id)}
+              className="hover:text-foreground hover:underline"
+            >
+              {f.name}
+            </button>
+          </span>
+        ))}
       </div>
 
       {loading ? (
         <div className="rounded-2xl border bg-card p-10 text-center text-sm text-muted-foreground">
           加载中...
         </div>
-      ) : papers.length === 0 ? (
+      ) : subfolders.length === 0 && papers.length === 0 ? (
         <div className="rounded-2xl border border-dashed bg-card/50 p-10 text-center text-sm text-muted-foreground">
-          还没有任何试卷。点击右上角「上传试卷 PDF」开始。
+          这里还是空的。新建一个文件夹，或直接上传 PDF。
         </div>
       ) : (
         <div className="space-y-2">
+          {subfolders.map((f) => (
+            <div
+              key={f.id}
+              className="flex items-center gap-3 rounded-xl border bg-card p-4"
+            >
+              <button
+                onClick={() => goToFolder(f.id)}
+                className="flex items-center gap-3 flex-1 min-w-0 text-left"
+              >
+                <Folder className="h-5 w-5 text-amber-500" />
+                <div className="font-medium truncate">{f.name}</div>
+              </button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>删除文件夹「{f.name}」？</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      文件夹中的文件会被移到上一层目录。
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>取消</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => handleDeleteFolder(f.id)}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      确认删除
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          ))}
           {papers.map((p) => {
             const isExtractingThis = extracting && extractTarget?.id === p.id;
             return (
@@ -605,16 +653,27 @@ function QuestionBankPage() {
                   params={{ paperId: p.id }}
                   className="flex-1 min-w-0"
                 >
-                  <div className="font-medium">
-                    {p.year} · {p.name}
+                  <div className="flex items-center gap-2 font-medium">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <span className="truncate">{p.name}</span>
+                    <span
+                      className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] ${
+                        p.kind === "paper"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-purple-100 text-purple-700"
+                      }`}
+                    >
+                      {p.kind === "paper" ? "试卷" : "答案"}
+                    </span>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {p.question_count > 0 ? (
-                      <span>{p.question_count} 道题</span>
-                    ) : (
-                      <span className="text-amber-600">未抽题</span>
-                    )}
-                    <span> · 上传于 {new Date(p.created_at).toLocaleDateString()}</span>
+                    {p.kind === "paper" &&
+                      (p.question_count > 0 ? (
+                        <span>{p.question_count} 道题 · </span>
+                      ) : (
+                        <span className="text-amber-600">未抽题 · </span>
+                      ))}
+                    <span>上传于 {new Date(p.created_at).toLocaleDateString()}</span>
                   </div>
                   {isExtractingThis && stage && (
                     <div className="mt-1 inline-flex items-center gap-1.5 rounded bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
@@ -628,34 +687,27 @@ function QuestionBankPage() {
                     variant="outline"
                     size="sm"
                     className="gap-1.5"
-                    onClick={() => handleDownload(p, "paper")}
-                    disabled={downloadingId === p.id + ":paper"}
+                    onClick={() => handleDownload(p)}
+                    disabled={downloadingId === p.id}
                   >
-                    <FileText className="h-3.5 w-3.5" /> 试卷
+                    <Download className="h-3.5 w-3.5" /> 下载
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={() => handleDownload(p, "answer")}
-                    disabled={downloadingId === p.id + ":answer"}
-                  >
-                    <Download className="h-3.5 w-3.5" /> 答案
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={() => handleExtract(p)}
-                    disabled={extracting}
-                  >
-                    {isExtractingThis ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-3.5 w-3.5" />
-                    )}
-                    {p.question_count > 0 ? "重新抽题" : "抽取题目"}
-                  </Button>
+                  {p.kind === "paper" && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => handleExtract(p)}
+                      disabled={extracting}
+                    >
+                      {isExtractingThis ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5" />
+                      )}
+                      {p.question_count > 0 ? "重新抽题" : "抽取题目"}
+                    </Button>
+                  )}
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
@@ -668,11 +720,9 @@ function QuestionBankPage() {
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          删除「{p.year} {p.name}」？
-                        </AlertDialogTitle>
+                        <AlertDialogTitle>删除「{p.name}」？</AlertDialogTitle>
                         <AlertDialogDescription>
-                          该试卷及其全部题目都会被删除。
+                          该文件及其全部抽题都会被删除。
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
@@ -699,6 +749,58 @@ function QuestionBankPage() {
         </div>
       )}
 
+      {/* Batch upload dialog */}
+      <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              批量上传{uploadKind === "paper" ? "试卷" : "答案"} PDF
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              一次可选多个 PDF，会全部归入当前文件夹「
+              {breadcrumb[breadcrumb.length - 1]?.name ?? "题库根目录"}」。
+            </p>
+            <div className="space-y-2">
+              <Label>选择 PDF 文件</Label>
+              <Input
+                type="file"
+                accept="application/pdf"
+                multiple
+                onChange={(e) => setUploadFiles(Array.from(e.target.files ?? []))}
+              />
+            </div>
+            {uploadFiles.length > 0 && (
+              <div className="max-h-40 overflow-y-auto rounded-md border bg-muted/40 p-2 text-xs">
+                {uploadFiles.map((f, i) => (
+                  <div key={i} className="truncate py-0.5">
+                    {f.name}
+                  </div>
+                ))}
+              </div>
+            )}
+            {uploading && (
+              <div className="flex items-center gap-2 rounded-md bg-muted p-3 text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {uploadProgress || "上传中..."}
+              </div>
+            )}
+            {uploadError && !uploading && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                {uploadError}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={handleBatchUpload} disabled={uploading || uploadFiles.length === 0}>
+              {uploading ? "上传中..." : `上传 ${uploadFiles.length} 个文件`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview dialog */}
       <Dialog
         open={previewOpen}
         onOpenChange={(v) => {
@@ -709,7 +811,7 @@ function QuestionBankPage() {
         <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              预览 · {extractTarget?.year} {extractTarget?.name}（{extracted.length} 题）
+              预览 · {extractTarget?.name}（{extracted.length} 题）
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
