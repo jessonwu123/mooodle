@@ -1,10 +1,6 @@
 // Client-side PDF rendering using pdfjs-dist.
 // Renders each page of a PDF File to a canvas, returns data URLs and canvases.
-
-import * as pdfjsLib from "pdfjs-dist";
-import workerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+// pdfjs-dist is loaded lazily inside the function so it never executes during SSR.
 
 export interface RenderedPage {
   pageIndex: number;
@@ -14,7 +10,22 @@ export interface RenderedPage {
   dataUrl: string; // jpeg
 }
 
+let pdfjsPromise: Promise<typeof import("pdfjs-dist")> | null = null;
+async function loadPdfjs() {
+  if (typeof window === "undefined") throw new Error("pdfjs-dist 只能在浏览器中使用");
+  if (!pdfjsPromise) {
+    pdfjsPromise = (async () => {
+      const lib = await import("pdfjs-dist");
+      const workerUrl = (await import("pdfjs-dist/build/pdf.worker.mjs?url")).default;
+      lib.GlobalWorkerOptions.workerSrc = workerUrl;
+      return lib;
+    })();
+  }
+  return pdfjsPromise;
+}
+
 export async function renderPdfPages(file: File, scale = 1.6): Promise<RenderedPage[]> {
+  const pdfjsLib = await loadPdfjs();
   const buf = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
   const pages: RenderedPage[] = [];
