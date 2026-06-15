@@ -1037,7 +1037,7 @@ function QuestionEditor({
           </div>
         </div>
       ) : (
-        <div className="mt-1 whitespace-pre-wrap text-muted-foreground">{q.stem}</div>
+        <MathText block text={q.stem} className="mt-1 whitespace-pre-wrap text-muted-foreground" />
       )}
       <div className="mt-2 grid grid-cols-1 gap-1 text-xs text-muted-foreground sm:grid-cols-2">
         {(["a", "b", "c", "d", "e"] as const).map((k) => {
@@ -1045,11 +1045,12 @@ function QuestionEditor({
           if (!v) return null;
           return (
             <div key={k}>
-              <span className="font-semibold">{k.toUpperCase()}.</span> {v}
+              <span className="font-semibold">{k.toUpperCase()}.</span> <MathText text={v} />
             </div>
           );
         })}
       </div>
+
       {q.stemImageDataUrl && (
         <div className="mt-2">
           <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
