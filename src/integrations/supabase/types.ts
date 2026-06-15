@@ -123,6 +123,107 @@ export type Database = {
         }
         Relationships: []
       }
+      math_papers: {
+        Row: {
+          answer_pdf_path: string | null
+          created_at: string
+          id: string
+          name: string
+          pdf_path: string
+          question_count: number
+          updated_at: string
+          uploaded_by: string | null
+          year: number
+        }
+        Insert: {
+          answer_pdf_path?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          pdf_path: string
+          question_count?: number
+          updated_at?: string
+          uploaded_by?: string | null
+          year: number
+        }
+        Update: {
+          answer_pdf_path?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          pdf_path?: string
+          question_count?: number
+          updated_at?: string
+          uploaded_by?: string | null
+          year?: number
+        }
+        Relationships: []
+      }
+      math_questions: {
+        Row: {
+          answer_type: string
+          correct_answer: string | null
+          created_at: string
+          id: string
+          image_path: string | null
+          option_a: string | null
+          option_b: string | null
+          option_c: string | null
+          option_d: string | null
+          option_e: string | null
+          paper_id: string
+          question_number: number
+          stem: string
+          tags: string[]
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          answer_type?: string
+          correct_answer?: string | null
+          created_at?: string
+          id?: string
+          image_path?: string | null
+          option_a?: string | null
+          option_b?: string | null
+          option_c?: string | null
+          option_d?: string | null
+          option_e?: string | null
+          paper_id: string
+          question_number: number
+          stem: string
+          tags?: string[]
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          answer_type?: string
+          correct_answer?: string | null
+          created_at?: string
+          id?: string
+          image_path?: string | null
+          option_a?: string | null
+          option_b?: string | null
+          option_c?: string | null
+          option_d?: string | null
+          option_e?: string | null
+          paper_id?: string
+          question_number?: number
+          stem?: string
+          tags?: string[]
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "math_questions_paper_id_fkey"
+            columns: ["paper_id"]
+            isOneToOne: false
+            referencedRelation: "math_papers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pet_foods: {
         Row: {
           created_at: string
