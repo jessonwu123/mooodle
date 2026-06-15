@@ -230,10 +230,12 @@ export const createMathPaper = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
-        year: z.number().int().min(1900).max(2100),
+        year: z.number().int().min(1900).max(2100).nullable().optional(),
         name: z.string().min(1).max(200),
         pdfPath: z.string().min(1),
-        answerPdfPath: z.string().nullable(),
+        answerPdfPath: z.string().nullable().optional(),
+        folderId: z.string().uuid().nullable().optional(),
+        kind: z.enum(["paper", "answer"]).optional(),
       })
       .parse(d),
   )
@@ -246,10 +248,12 @@ export const createMathPaper = createServerFn({ method: "POST" })
     const { data: paper, error } = await context.supabase
       .from("math_papers")
       .insert({
-        year: data.year,
+        year: data.year ?? null,
         name: data.name,
         pdf_path: data.pdfPath,
-        answer_pdf_path: data.answerPdfPath,
+        answer_pdf_path: data.answerPdfPath ?? null,
+        folder_id: data.folderId ?? null,
+        kind: data.kind ?? "paper",
         question_count: 0,
         uploaded_by: context.userId,
       })
