@@ -44,7 +44,11 @@ export async function renderPdfPages(
     if (!ctx) throw new Error("无法创建 canvas 上下文");
     await page.render({ canvasContext: ctx, viewport, canvas }).promise;
     const blob = await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("页面图片生成失败"))), "image/jpeg", jpegQuality),
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error("页面图片生成失败"))),
+        "image/jpeg",
+        jpegQuality,
+      ),
     );
     pages.push({
       pageIndex: i - 1,

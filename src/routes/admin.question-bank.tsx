@@ -67,7 +67,6 @@ interface ExtractedQuestion {
   imageBlob?: Blob | null;
 }
 
-
 function extractYearFromFilename(name: string): number | null {
   const m = name.match(/(19|20)\d{2}/);
   return m ? Number(m[0]) : null;
