@@ -56,6 +56,8 @@ interface PaperRow {
   created_at: string;
 }
 
+type Bbox = { x: number; y: number; w: number; h: number } | null;
+
 interface ExtractedQuestion {
   number: number;
   stem: string;
@@ -65,11 +67,13 @@ interface ExtractedQuestion {
   option_d: string | null;
   option_e: string | null;
   correct_answer: string | null;
-  has_figure: boolean;
   page_index: number;
-  bbox: { x: number; y: number; w: number; h: number } | null;
-  imageDataUrl?: string | null;
-  imageBlob?: Blob | null;
+  stem_bbox: Bbox;
+  options_bbox: Bbox;
+  stemImageBlob?: Blob | null;
+  stemImageDataUrl?: string | null;
+  optionsImageBlob?: Blob | null;
+  optionsImageDataUrl?: string | null;
 }
 
 let paperRowsCache: PaperRow[] | null = null;
@@ -273,9 +277,9 @@ function QuestionBankPage() {
             option_d: q.option_d ?? null,
             option_e: q.option_e ?? null,
             correct_answer: q.correct_answer ? q.correct_answer.toUpperCase().slice(0, 1) : null,
-            has_figure: Boolean(q.has_figure),
             page_index: Number.isInteger(Number(q.page_index)) ? Number(q.page_index) : 0,
-            bbox: q.bbox ?? null,
+            stem_bbox: q.stem_bbox ?? null,
+            options_bbox: q.options_bbox ?? null,
           });
         }
       }
@@ -283,25 +287,35 @@ function QuestionBankPage() {
       if (!qs?.length) throw new Error("AI 未抽取到题目");
       if (qs.length < 25) toast.warning(`只抽取到 ${qs.length} 道题，请在预览中检查`);
 
-      setStage("裁剪题目配图...");
-      const figurePages = new Map<number, ExtractedQuestion[]>();
+      setStage("裁剪题目与选项截图...");
+      const byPage = new Map<number, ExtractedQuestion[]>();
       for (const q of qs) {
-        if (q.has_figure && q.bbox && paperPages[q.page_index]) {
-          figurePages.set(q.page_index, [...(figurePages.get(q.page_index) ?? []), q]);
-        }
+        if (!paperPages[q.page_index]) continue;
+        if (!q.stem_bbox && !q.options_bbox) continue;
+        byPage.set(q.page_index, [...(byPage.get(q.page_index) ?? []), q]);
       }
-      for (const [pageIndex, pageQuestions] of figurePages) {
-        setStage(`裁剪第 ${pageIndex + 1} 页题目配图...`);
+      for (const [pageIndex, pageQuestions] of byPage) {
+        setStage(`裁剪第 ${pageIndex + 1} 页（${pageQuestions.length} 题）...`);
         const canvas = await renderPdfPageCanvas(paperFile, pageIndex, 1.15);
         try {
           for (const q of pageQuestions) {
-            if (!q.bbox) continue;
-            try {
-              const blob = await cropCanvasToBlob(canvas, q.bbox);
-              q.imageBlob = blob;
-              q.imageDataUrl = URL.createObjectURL(blob);
-            } catch (err) {
-              console.error("crop failed", q.number, err);
+            if (q.stem_bbox) {
+              try {
+                const blob = await cropCanvasToBlob(canvas, q.stem_bbox);
+                q.stemImageBlob = blob;
+                q.stemImageDataUrl = URL.createObjectURL(blob);
+              } catch (err) {
+                console.error("crop stem failed", q.number, err);
+              }
+            }
+            if (q.options_bbox) {
+              try {
+                const blob = await cropCanvasToBlob(canvas, q.options_bbox);
+                q.optionsImageBlob = blob;
+                q.optionsImageDataUrl = URL.createObjectURL(blob);
+              } catch (err) {
+                console.error("crop options failed", q.number, err);
+              }
             }
           }
         } finally {
@@ -309,6 +323,7 @@ function QuestionBankPage() {
           canvas.height = 0;
         }
       }
+
 
       setPaperPath(pPath);
       setAnswerPath(aPath);
@@ -332,22 +347,29 @@ function QuestionBankPage() {
     try {
       const yNum = Number(year);
       const ts = Date.now();
-      // upload crops
-      for (const q of extracted) {
-        if (q.imageBlob) {
-          const path = `${yNum}/${ts}/q${String(q.number).padStart(2, "0")}.png`;
+      // upload crops (stem + options)
+      type WithPaths = ExtractedQuestion & { image_path?: string; options_image_path?: string };
+      for (const q of extracted as WithPaths[]) {
+        const base = `${yNum}/${ts}/q${String(q.number).padStart(2, "0")}`;
+        if (q.stemImageBlob) {
+          const path = `${base}-stem.png`;
           const { error } = await supabase.storage
             .from("math-question-images")
-            .upload(path, q.imageBlob, { contentType: "image/png", upsert: true });
-          if (error) {
-            console.error("upload crop failed", q.number, error);
-          } else {
-            (q as ExtractedQuestion & { image_path?: string }).image_path = path;
-          }
+            .upload(path, q.stemImageBlob, { contentType: "image/png", upsert: true });
+          if (error) console.error("upload stem failed", q.number, error);
+          else q.image_path = path;
+        }
+        if (q.optionsImageBlob) {
+          const path = `${base}-options.png`;
+          const { error } = await supabase.storage
+            .from("math-question-images")
+            .upload(path, q.optionsImageBlob, { contentType: "image/png", upsert: true });
+          if (error) console.error("upload options failed", q.number, error);
+          else q.options_image_path = path;
         }
       }
 
-      const payload = extracted.map((q) => ({
+      const payload = (extracted as WithPaths[]).map((q) => ({
         number: q.number,
         stem: q.stem,
         option_a: q.option_a,
@@ -356,8 +378,10 @@ function QuestionBankPage() {
         option_d: q.option_d,
         option_e: q.option_e,
         correct_answer: q.correct_answer,
-        image_path: (q as ExtractedQuestion & { image_path?: string }).image_path ?? null,
+        image_path: q.image_path ?? null,
+        options_image_path: q.options_image_path ?? null,
       }));
+
 
       await saveMathPaper({
         data: {
@@ -598,9 +622,9 @@ function QuestionEditor({
               答案 {q.correct_answer}
             </span>
           )}
-          {q.has_figure && (
+          {q.stemImageDataUrl && (
             <span className="ml-2 inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700">
-              <ImageIcon className="h-3 w-3" /> 含图
+              <ImageIcon className="h-3 w-3" /> 题干图
             </span>
           )}
         </div>
@@ -656,12 +680,25 @@ function QuestionEditor({
           );
         })}
       </div>
-      {q.imageDataUrl && (
-        <img
-          src={q.imageDataUrl}
-          alt={`第 ${q.number} 题配图`}
-          className="mt-2 max-h-48 rounded border"
-        />
+      {q.stemImageDataUrl && (
+        <div className="mt-2">
+          <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">题干截图</div>
+          <img
+            src={q.stemImageDataUrl}
+            alt={`第 ${q.number} 题题干`}
+            className="max-h-64 rounded border"
+          />
+        </div>
+      )}
+      {q.optionsImageDataUrl && (
+        <div className="mt-2">
+          <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">选项截图</div>
+          <img
+            src={q.optionsImageDataUrl}
+            alt={`第 ${q.number} 题选项`}
+            className="max-h-48 rounded border"
+          />
+        </div>
       )}
     </div>
   );

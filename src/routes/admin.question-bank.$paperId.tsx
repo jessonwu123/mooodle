@@ -27,6 +27,7 @@ interface QuestionRow {
   option_e: string | null;
   correct_answer: string | null;
   image_path: string | null;
+  options_image_path: string | null;
   tags: string[];
 }
 
@@ -44,7 +45,9 @@ function PaperDetailPage() {
         supabase.from("math_papers").select("id, year, name, question_count").eq("id", paperId).single(),
         supabase
           .from("math_questions")
-          .select("id, question_number, stem, option_a, option_b, option_c, option_d, option_e, correct_answer, image_path, tags")
+          .select(
+            "id, question_number, stem, option_a, option_b, option_c, option_d, option_e, correct_answer, image_path, options_image_path, tags",
+          )
           .eq("paper_id", paperId)
           .order("question_number"),
       ]);
@@ -57,8 +60,10 @@ function PaperDetailPage() {
       const list = (qs ?? []) as QuestionRow[];
       setQuestions(list);
 
-      // sign image URLs
-      const paths = list.map((q) => q.image_path).filter(Boolean) as string[];
+      // sign image URLs (stem + options)
+      const paths = list
+        .flatMap((q) => [q.image_path, q.options_image_path])
+        .filter(Boolean) as string[];
       if (paths.length) {
         const { data: signed } = await supabase.storage
           .from("math-question-images")
@@ -108,11 +113,14 @@ function PaperDetailPage() {
             </div>
             <div className="mt-1 whitespace-pre-wrap text-muted-foreground">{q.stem}</div>
             {q.image_path && imageUrls[q.image_path] && (
-              <img
-                src={imageUrls[q.image_path]}
-                alt={`第 ${q.question_number} 题配图`}
-                className="mt-2 max-h-56 rounded border"
-              />
+              <div className="mt-2">
+                <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">题干截图</div>
+                <img
+                  src={imageUrls[q.image_path]}
+                  alt={`第 ${q.question_number} 题题干`}
+                  className="max-h-64 rounded border"
+                />
+              </div>
             )}
             <div className="mt-2 grid grid-cols-1 gap-1 text-xs text-muted-foreground sm:grid-cols-2">
               {(["a", "b", "c", "d", "e"] as const).map((k) => {
@@ -125,6 +133,16 @@ function PaperDetailPage() {
                 );
               })}
             </div>
+            {q.options_image_path && imageUrls[q.options_image_path] && (
+              <div className="mt-2">
+                <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">选项截图</div>
+                <img
+                  src={imageUrls[q.options_image_path]}
+                  alt={`第 ${q.question_number} 题选项`}
+                  className="max-h-56 rounded border"
+                />
+              </div>
+            )}
           </div>
         ))}
       </div>

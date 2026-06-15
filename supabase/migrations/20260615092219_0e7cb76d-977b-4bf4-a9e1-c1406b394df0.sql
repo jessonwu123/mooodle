@@ -1,0 +1,1 @@
+ALTER TABLE public.math_questions ADD COLUMN IF NOT EXISTS options_image_path text;
