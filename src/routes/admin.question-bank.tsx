@@ -37,7 +37,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { extractPaperQuestions, saveMathPaper, deleteMathPaper } from "@/lib/math-papers.functions";
-import { renderPdfPages, cropCanvasToBlob, type RenderedPage } from "@/lib/pdf-render";
+import {
+  renderPdfPages,
+  renderPdfPageCanvas,
+  cropCanvasToBlob,
+  type RenderedPage,
+} from "@/lib/pdf-render";
 
 export const Route = createFileRoute("/admin/question-bank")({
   component: QuestionBankPage,
@@ -66,6 +71,14 @@ interface ExtractedQuestion {
   imageDataUrl?: string | null;
   imageBlob?: Blob | null;
 }
+
+const QUESTION_BATCHES = [
+  [1, 5],
+  [6, 10],
+  [11, 15],
+  [16, 20],
+  [21, 25],
+] as const;
 
 function extractYearFromFilename(name: string): number | null {
   const m = name.match(/(19|20)\d{2}/);
@@ -192,48 +205,66 @@ function QuestionBankPage() {
         ? await uploadRenderedPageImages(answerPages, imagePrefix, "答案", setStage)
         : { signedUrls: [] as string[] };
       const byNumber = new Map<number, ExtractedQuestion>();
-      setStage(`AI 抽取全部 25 道题（约 30-60 秒）...`);
-      const result = await extractPaperQuestions({
-        data: {
-          paperPageImages,
-          answerPageImages,
-          questionStart: 1,
-          questionEnd: 25,
-        },
-      });
-      for (const raw of result.questions ?? []) {
-        const q = raw as ExtractedQuestion;
-        const number = Number(q.number);
-        if (!Number.isInteger(number) || number < 1 || number > 25) continue;
-        byNumber.set(number, {
-          ...q,
-          number,
-          stem: q.stem ?? "",
-          option_a: q.option_a ?? null,
-          option_b: q.option_b ?? null,
-          option_c: q.option_c ?? null,
-          option_d: q.option_d ?? null,
-          option_e: q.option_e ?? null,
-          correct_answer: q.correct_answer ? q.correct_answer.toUpperCase().slice(0, 1) : null,
-          has_figure: Boolean(q.has_figure),
-          page_index: Number.isInteger(Number(q.page_index)) ? Number(q.page_index) : 0,
-          bbox: q.bbox ?? null,
+      for (const [batchIndex, [questionStart, questionEnd]] of QUESTION_BATCHES.entries()) {
+        setStage(
+          `AI 抽取第 ${questionStart}-${questionEnd} 题（${batchIndex + 1}/${QUESTION_BATCHES.length}）...`,
+        );
+        const result = await extractPaperQuestions({
+          data: {
+            paperPageImages,
+            answerPageImages,
+            questionStart,
+            questionEnd,
+          },
         });
+        for (const raw of result.questions ?? []) {
+          const q = raw as ExtractedQuestion;
+          const number = Number(q.number);
+          if (!Number.isInteger(number) || number < questionStart || number > questionEnd) continue;
+          byNumber.set(number, {
+            ...q,
+            number,
+            stem: q.stem ?? "",
+            option_a: q.option_a ?? null,
+            option_b: q.option_b ?? null,
+            option_c: q.option_c ?? null,
+            option_d: q.option_d ?? null,
+            option_e: q.option_e ?? null,
+            correct_answer: q.correct_answer ? q.correct_answer.toUpperCase().slice(0, 1) : null,
+            has_figure: Boolean(q.has_figure),
+            page_index: Number.isInteger(Number(q.page_index)) ? Number(q.page_index) : 0,
+            bbox: q.bbox ?? null,
+          });
+        }
       }
       const qs = Array.from(byNumber.values()).sort((a, b) => a.number - b.number);
       if (!qs?.length) throw new Error("AI 未抽取到题目");
       if (qs.length < 25) toast.warning(`只抽取到 ${qs.length} 道题，请在预览中检查`);
 
       setStage("裁剪题目配图...");
+      const figurePages = new Map<number, ExtractedQuestion[]>();
       for (const q of qs) {
         if (q.has_figure && q.bbox && paperPages[q.page_index]) {
-          try {
-            const blob = await cropCanvasToBlob(paperPages[q.page_index].canvas, q.bbox);
-            q.imageBlob = blob;
-            q.imageDataUrl = URL.createObjectURL(blob);
-          } catch (err) {
-            console.error("crop failed", q.number, err);
+          figurePages.set(q.page_index, [...(figurePages.get(q.page_index) ?? []), q]);
+        }
+      }
+      for (const [pageIndex, pageQuestions] of figurePages) {
+        setStage(`裁剪第 ${pageIndex + 1} 页题目配图...`);
+        const canvas = await renderPdfPageCanvas(paperFile, pageIndex, 1.15);
+        try {
+          for (const q of pageQuestions) {
+            if (!q.bbox) continue;
+            try {
+              const blob = await cropCanvasToBlob(canvas, q.bbox);
+              q.imageBlob = blob;
+              q.imageDataUrl = URL.createObjectURL(blob);
+            } catch (err) {
+              console.error("crop failed", q.number, err);
+            }
           }
+        } finally {
+          canvas.width = 0;
+          canvas.height = 0;
         }
       }
 

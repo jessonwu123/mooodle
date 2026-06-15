@@ -6,7 +6,7 @@ export interface RenderedPage {
   pageIndex: number;
   width: number;
   height: number;
-  canvas: HTMLCanvasElement;
+  canvas: HTMLCanvasElement | null;
   blob: Blob; // jpeg
   dataUrl?: string; // kept optional for previews/debug only
 }
@@ -29,6 +29,7 @@ export async function renderPdfPages(
   file: File,
   scale = 1.15,
   jpegQuality = 0.68,
+  keepCanvas = false,
 ): Promise<RenderedPage[]> {
   const pdfjsLib = await loadPdfjs();
   const buf = await file.arrayBuffer();
@@ -54,11 +55,30 @@ export async function renderPdfPages(
       pageIndex: i - 1,
       width: canvas.width,
       height: canvas.height,
-      canvas,
+      canvas: keepCanvas ? canvas : null,
       blob,
     });
+    if (!keepCanvas) {
+      canvas.width = 0;
+      canvas.height = 0;
+    }
   }
   return pages;
+}
+
+export async function renderPdfPageCanvas(file: File, pageIndex: number, scale = 1.15) {
+  const pdfjsLib = await loadPdfjs();
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const page = await pdf.getPage(pageIndex + 1);
+  const viewport = page.getViewport({ scale });
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.ceil(viewport.width);
+  canvas.height = Math.ceil(viewport.height);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("无法创建 canvas 上下文");
+  await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+  return canvas;
 }
 
 export function cropCanvasToBlob(
