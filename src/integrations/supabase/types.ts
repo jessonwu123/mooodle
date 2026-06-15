@@ -171,6 +171,7 @@ export type Database = {
           option_c: string | null
           option_d: string | null
           option_e: string | null
+          options_image_path: string | null
           paper_id: string
           question_number: number
           stem: string
@@ -189,6 +190,7 @@ export type Database = {
           option_c?: string | null
           option_d?: string | null
           option_e?: string | null
+          options_image_path?: string | null
           paper_id: string
           question_number: number
           stem: string
@@ -207,6 +209,7 @@ export type Database = {
           option_c?: string | null
           option_d?: string | null
           option_e?: string | null
+          options_image_path?: string | null
           paper_id?: string
           question_number?: number
           stem?: string
