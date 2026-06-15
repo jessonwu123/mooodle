@@ -224,6 +224,139 @@ export const saveMathPaper = createServerFn({ method: "POST" })
     return { paperId: paper.id as string };
   });
 
+// 仅创建试卷记录（PDF 已上传到 storage），不抽题
+export const createMathPaper = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        year: z.number().int().min(1900).max(2100),
+        name: z.string().min(1).max(200),
+        pdfPath: z.string().min(1),
+        answerPdfPath: z.string().nullable(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: isAdmin } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (!isAdmin) throw new Error("仅管理员可执行");
+    const { data: paper, error } = await context.supabase
+      .from("math_papers")
+      .insert({
+        year: data.year,
+        name: data.name,
+        pdf_path: data.pdfPath,
+        answer_pdf_path: data.answerPdfPath,
+        question_count: 0,
+        uploaded_by: context.userId,
+      })
+      .select("id")
+      .single();
+    if (error || !paper) throw new Error(error?.message || "试卷写入失败");
+    return { paperId: paper.id as string };
+  });
+
+// 把抽取出的题目入库到一个已存在的试卷（覆盖：先清空旧题再写入）
+const ReplaceInput = z.object({
+  paperId: z.string().uuid(),
+  questions: z
+    .array(
+      z.object({
+        number: z.number().int().min(1).max(100),
+        stem: z.string(),
+        option_a: z.string().nullable(),
+        option_b: z.string().nullable(),
+        option_c: z.string().nullable(),
+        option_d: z.string().nullable(),
+        option_e: z.string().nullable(),
+        correct_answer: z.string().nullable(),
+        image_path: z.string().nullable(),
+        options_image_path: z.string().nullable(),
+      }),
+    )
+    .min(1)
+    .max(100),
+});
+export const replaceMathPaperQuestions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => ReplaceInput.parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: isAdmin } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (!isAdmin) throw new Error("仅管理员可执行");
+    const { supabase } = context;
+    const { data: paper, error: e0 } = await supabase
+      .from("math_papers")
+      .select("id, year")
+      .eq("id", data.paperId)
+      .single();
+    if (e0 || !paper) throw new Error("试卷不存在");
+
+    const { error: eDel } = await supabase
+      .from("math_questions")
+      .delete()
+      .eq("paper_id", data.paperId);
+    if (eDel) throw new Error("清理旧题目失败：" + eDel.message);
+
+    const rows = data.questions.map((q) => ({
+      paper_id: data.paperId,
+      year: paper.year,
+      question_number: q.number,
+      stem: q.stem,
+      option_a: q.option_a,
+      option_b: q.option_b,
+      option_c: q.option_c,
+      option_d: q.option_d,
+      option_e: q.option_e,
+      correct_answer: q.correct_answer,
+      image_path: q.image_path,
+      options_image_path: q.options_image_path,
+    }));
+    const { error: e2 } = await supabase.from("math_questions").insert(rows);
+    if (e2) throw new Error("题目写入失败：" + e2.message);
+
+    const { error: e3 } = await supabase
+      .from("math_papers")
+      .update({ question_count: rows.length })
+      .eq("id", data.paperId);
+    if (e3) throw new Error("更新试卷信息失败：" + e3.message);
+
+    return { ok: true, count: rows.length };
+  });
+
+// 获取试卷及答案 PDF 的临时下载链接
+export const getMathPaperPdfUrls = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ paperId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: paper, error } = await context.supabase
+      .from("math_papers")
+      .select("id, name, pdf_path, answer_pdf_path")
+      .eq("id", data.paperId)
+      .single();
+    if (error || !paper) throw new Error("试卷不存在");
+    const paths = [paper.pdf_path, paper.answer_pdf_path].filter(Boolean) as string[];
+    const { data: signed, error: e2 } = await context.supabase.storage
+      .from("math-papers")
+      .createSignedUrls(paths, 60 * 30);
+    if (e2) throw new Error("生成下载链接失败：" + e2.message);
+    const map = new Map<string, string>();
+    signed?.forEach((s) => {
+      if (s.path && s.signedUrl) map.set(s.path, s.signedUrl);
+    });
+    return {
+      name: paper.name as string,
+      pdfUrl: paper.pdf_path ? (map.get(paper.pdf_path) ?? null) : null,
+      answerPdfUrl: paper.answer_pdf_path ? (map.get(paper.answer_pdf_path) ?? null) : null,
+    };
+  });
+
+
 export const deleteMathPaper = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ paperId: z.string().uuid() }).parse(d))
