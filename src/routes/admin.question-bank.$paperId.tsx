@@ -103,50 +103,101 @@ function PaperDetailPage() {
         </div>
       </div>
       <div className="space-y-3">
-        {questions.map((q) => (
-          <div key={q.id} className="rounded-lg border bg-card p-4 text-sm">
-            <div className="font-medium">
-              第 {q.question_number} 题
-              {q.correct_answer && (
-                <span className="ml-2 rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700">
-                  答案 {q.correct_answer}
-                </span>
+        {questions.map((q) => {
+          const stemImg = q.image_path ? imageUrls[q.image_path] : null;
+          const optionsImg = q.options_image_path ? imageUrls[q.options_image_path] : null;
+          const stemAsImage = q.stem_render_mode === "image" && stemImg;
+          const optionsAsImage = q.options_render_mode === "image" && optionsImg;
+          return (
+            <div key={q.id} className="rounded-lg border bg-card p-4 text-sm">
+              <div className="font-medium">
+                第 {q.question_number} 题
+                {q.correct_answer && (
+                  <span className="ml-2 rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700">
+                    答案 {q.correct_answer}
+                  </span>
+                )}
+                {stemAsImage && (
+                  <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">
+                    题干图片模式
+                  </span>
+                )}
+                {optionsAsImage && (
+                  <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">
+                    选项图片模式
+                  </span>
+                )}
+              </div>
+
+              {stemAsImage ? (
+                <div className="mt-2">
+                  <img
+                    src={stemImg}
+                    alt={`第 ${q.question_number} 题题干`}
+                    className="max-h-80 rounded border"
+                  />
+                  {q.stem && (
+                    <div className="mt-1 text-[10px] text-muted-foreground">
+                      文本备份：{q.stem}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div className="mt-1 whitespace-pre-wrap text-muted-foreground">{q.stem}</div>
+                  {stemImg && (
+                    <div className="mt-2">
+                      <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                        题干截图（备份）
+                      </div>
+                      <img
+                        src={stemImg}
+                        alt={`第 ${q.question_number} 题题干`}
+                        className="max-h-64 rounded border"
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+
+              {optionsAsImage ? (
+                <div className="mt-3">
+                  <img
+                    src={optionsImg}
+                    alt={`第 ${q.question_number} 题选项`}
+                    className="max-h-64 rounded border"
+                  />
+                </div>
+              ) : (
+                <>
+                  <div className="mt-2 grid grid-cols-1 gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                    {(["a", "b", "c", "d", "e"] as const).map((k) => {
+                      const v = q[`option_${k}` as const] as string | null;
+                      if (!v) return null;
+                      return (
+                        <div key={k}>
+                          <span className="font-semibold">{k.toUpperCase()}.</span> {v}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {optionsImg && (
+                    <div className="mt-2">
+                      <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                        选项截图（备份）
+                      </div>
+                      <img
+                        src={optionsImg}
+                        alt={`第 ${q.question_number} 题选项`}
+                        className="max-h-56 rounded border"
+                      />
+                    </div>
+                  )}
+                </>
               )}
             </div>
-            <div className="mt-1 whitespace-pre-wrap text-muted-foreground">{q.stem}</div>
-            {q.image_path && imageUrls[q.image_path] && (
-              <div className="mt-2">
-                <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">题干截图</div>
-                <img
-                  src={imageUrls[q.image_path]}
-                  alt={`第 ${q.question_number} 题题干`}
-                  className="max-h-64 rounded border"
-                />
-              </div>
-            )}
-            <div className="mt-2 grid grid-cols-1 gap-1 text-xs text-muted-foreground sm:grid-cols-2">
-              {(["a", "b", "c", "d", "e"] as const).map((k) => {
-                const v = q[`option_${k}` as const] as string | null;
-                if (!v) return null;
-                return (
-                  <div key={k}>
-                    <span className="font-semibold">{k.toUpperCase()}.</span> {v}
-                  </div>
-                );
-              })}
-            </div>
-            {q.options_image_path && imageUrls[q.options_image_path] && (
-              <div className="mt-2">
-                <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">选项截图</div>
-                <img
-                  src={imageUrls[q.options_image_path]}
-                  alt={`第 ${q.question_number} 题选项`}
-                  className="max-h-56 rounded border"
-                />
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
