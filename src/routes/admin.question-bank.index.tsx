@@ -560,10 +560,7 @@ function QuestionBankPage() {
             </DialogContent>
           </Dialog>
           <Button variant="outline" className="gap-1.5" onClick={() => openUpload("paper")}>
-            <Upload className="h-4 w-4" /> 批量上传试卷
-          </Button>
-          <Button variant="outline" className="gap-1.5" onClick={() => openUpload("answer")}>
-            <Upload className="h-4 w-4" /> 批量上传答案
+            <Upload className="h-4 w-4" /> 批量上传
           </Button>
         </div>
       </div>
@@ -753,15 +750,34 @@ function QuestionBankPage() {
       <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              批量上传{uploadKind === "paper" ? "试卷" : "答案"} PDF
-            </DialogTitle>
+            <DialogTitle>批量上传 PDF</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">
               一次可选多个 PDF，会全部归入当前文件夹「
               {breadcrumb[breadcrumb.length - 1]?.name ?? "题库根目录"}」。
             </p>
+            <div className="space-y-2">
+              <Label>文件类型</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={uploadKind === "paper" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setUploadKind("paper")}
+                >
+                  试卷
+                </Button>
+                <Button
+                  type="button"
+                  variant={uploadKind === "answer" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setUploadKind("answer")}
+                >
+                  答案
+                </Button>
+              </div>
+            </div>
             <div className="space-y-2">
               <Label>选择 PDF 文件</Label>
               <Input
