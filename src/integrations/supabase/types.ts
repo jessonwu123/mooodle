@@ -226,7 +226,7 @@ export type Database = {
           stem: string
           tags: string[]
           updated_at: string
-          year: number
+          year: number | null
         }
         Insert: {
           answer_type?: string
@@ -245,7 +245,7 @@ export type Database = {
           stem: string
           tags?: string[]
           updated_at?: string
-          year: number
+          year?: number | null
         }
         Update: {
           answer_type?: string
@@ -264,7 +264,7 @@ export type Database = {
           stem?: string
           tags?: string[]
           updated_at?: string
-          year?: number
+          year?: number | null
         }
         Relationships: [
           {
