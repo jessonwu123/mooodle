@@ -184,6 +184,8 @@ const SaveInput = z.object({
         correct_answer: z.string().nullable(),
         image_path: z.string().nullable(),
         options_image_path: z.string().nullable(),
+        stem_render_mode: z.enum(["text", "image"]).optional(),
+        options_render_mode: z.enum(["text", "image"]).optional(),
       }),
     )
     .min(1)
