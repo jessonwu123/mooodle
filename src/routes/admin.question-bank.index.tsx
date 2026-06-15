@@ -457,8 +457,9 @@ function QuestionBankPage() {
         const canvas = await renderPdfPageCanvas(paperPdfFile, pageIndex, 1.15);
         try {
           for (const q of pageQuestions) {
-            const stemPad = q.stem_render_mode === "image" ? 0.02 : 0.008;
-            const optsPad = q.options_render_mode === "image" ? 0.02 : 0.008;
+            const stemPad = 0.003;
+            const optsPad = 0.003;
+
             if (q.stem_bbox) {
               try {
                 const blob = await cropCanvasToBlob(canvas, q.stem_bbox, stemPad);
