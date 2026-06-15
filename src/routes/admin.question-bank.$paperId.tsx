@@ -178,10 +178,12 @@ function PaperDetailPage() {
                       if (!v) return null;
                       return (
                         <div key={k}>
-                          <span className="font-semibold">{k.toUpperCase()}.</span> {v}
+                          <span className="font-semibold">{k.toUpperCase()}.</span>{" "}
+                          <MathText text={v} />
                         </div>
                       );
                     })}
+
                   </div>
                   {optionsImg && (
                     <div className="mt-2">
