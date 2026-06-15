@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, Users, ChevronRight, Trash2, ShieldCheck, FileText, Copy, CalendarDays } from "lucide-react";
+import { Plus, Users, ChevronRight, Trash2, ShieldCheck, FileText, Copy, CalendarDays, BookOpen } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -220,6 +220,14 @@ function AdminHome() {
               课程表
             </Button>
           </Link>
+          {isAdmin && (
+            <Link to="/admin/question-bank">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <BookOpen className="h-4 w-4" />
+                题库
+              </Button>
+            </Link>
+          )}
           {isAdmin && (
             <Link to="/admin/teachers">
               <Button variant="outline" size="sm" className="gap-1.5">

@@ -15,9 +15,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as StudentIdRouteImport } from './routes/student.$id'
 import { Route as AdminScheduleRouteImport } from './routes/admin.schedule'
+import { Route as AdminQuestionBankRouteImport } from './routes/admin.question-bank'
 import { Route as AdminTeachersIndexRouteImport } from './routes/admin.teachers.index'
 import { Route as AdminTeachersTeacherIdRouteImport } from './routes/admin.teachers.$teacherId'
 import { Route as AdminStudentIdRouteImport } from './routes/admin.student.$id'
+import { Route as AdminQuestionBankPaperIdRouteImport } from './routes/admin.question-bank.$paperId'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -49,6 +51,11 @@ const AdminScheduleRoute = AdminScheduleRouteImport.update({
   path: '/schedule',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminQuestionBankRoute = AdminQuestionBankRouteImport.update({
+  id: '/question-bank',
+  path: '/question-bank',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminTeachersIndexRoute = AdminTeachersIndexRouteImport.update({
   id: '/teachers/',
   path: '/teachers/',
@@ -64,14 +71,22 @@ const AdminStudentIdRoute = AdminStudentIdRouteImport.update({
   path: '/student/$id',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminQuestionBankPaperIdRoute =
+  AdminQuestionBankPaperIdRouteImport.update({
+    id: '/$paperId',
+    path: '/$paperId',
+    getParentRoute: () => AdminQuestionBankRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
+  '/admin/question-bank': typeof AdminQuestionBankRouteWithChildren
   '/admin/schedule': typeof AdminScheduleRoute
   '/student/$id': typeof StudentIdRoute
   '/admin/': typeof AdminIndexRoute
+  '/admin/question-bank/$paperId': typeof AdminQuestionBankPaperIdRoute
   '/admin/student/$id': typeof AdminStudentIdRoute
   '/admin/teachers/$teacherId': typeof AdminTeachersTeacherIdRoute
   '/admin/teachers/': typeof AdminTeachersIndexRoute
@@ -79,9 +94,11 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/admin/question-bank': typeof AdminQuestionBankRouteWithChildren
   '/admin/schedule': typeof AdminScheduleRoute
   '/student/$id': typeof StudentIdRoute
   '/admin': typeof AdminIndexRoute
+  '/admin/question-bank/$paperId': typeof AdminQuestionBankPaperIdRoute
   '/admin/student/$id': typeof AdminStudentIdRoute
   '/admin/teachers/$teacherId': typeof AdminTeachersTeacherIdRoute
   '/admin/teachers': typeof AdminTeachersIndexRoute
@@ -91,9 +108,11 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
+  '/admin/question-bank': typeof AdminQuestionBankRouteWithChildren
   '/admin/schedule': typeof AdminScheduleRoute
   '/student/$id': typeof StudentIdRoute
   '/admin/': typeof AdminIndexRoute
+  '/admin/question-bank/$paperId': typeof AdminQuestionBankPaperIdRoute
   '/admin/student/$id': typeof AdminStudentIdRoute
   '/admin/teachers/$teacherId': typeof AdminTeachersTeacherIdRoute
   '/admin/teachers/': typeof AdminTeachersIndexRoute
@@ -104,9 +123,11 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/login'
+    | '/admin/question-bank'
     | '/admin/schedule'
     | '/student/$id'
     | '/admin/'
+    | '/admin/question-bank/$paperId'
     | '/admin/student/$id'
     | '/admin/teachers/$teacherId'
     | '/admin/teachers/'
@@ -114,9 +135,11 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/admin/question-bank'
     | '/admin/schedule'
     | '/student/$id'
     | '/admin'
+    | '/admin/question-bank/$paperId'
     | '/admin/student/$id'
     | '/admin/teachers/$teacherId'
     | '/admin/teachers'
@@ -125,9 +148,11 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/login'
+    | '/admin/question-bank'
     | '/admin/schedule'
     | '/student/$id'
     | '/admin/'
+    | '/admin/question-bank/$paperId'
     | '/admin/student/$id'
     | '/admin/teachers/$teacherId'
     | '/admin/teachers/'
@@ -184,6 +209,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminScheduleRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/question-bank': {
+      id: '/admin/question-bank'
+      path: '/question-bank'
+      fullPath: '/admin/question-bank'
+      preLoaderRoute: typeof AdminQuestionBankRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/teachers/': {
       id: '/admin/teachers/'
       path: '/teachers'
@@ -205,10 +237,29 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminStudentIdRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/question-bank/$paperId': {
+      id: '/admin/question-bank/$paperId'
+      path: '/$paperId'
+      fullPath: '/admin/question-bank/$paperId'
+      preLoaderRoute: typeof AdminQuestionBankPaperIdRouteImport
+      parentRoute: typeof AdminQuestionBankRoute
+    }
   }
 }
 
+interface AdminQuestionBankRouteChildren {
+  AdminQuestionBankPaperIdRoute: typeof AdminQuestionBankPaperIdRoute
+}
+
+const AdminQuestionBankRouteChildren: AdminQuestionBankRouteChildren = {
+  AdminQuestionBankPaperIdRoute: AdminQuestionBankPaperIdRoute,
+}
+
+const AdminQuestionBankRouteWithChildren =
+  AdminQuestionBankRoute._addFileChildren(AdminQuestionBankRouteChildren)
+
 interface AdminRouteChildren {
+  AdminQuestionBankRoute: typeof AdminQuestionBankRouteWithChildren
   AdminScheduleRoute: typeof AdminScheduleRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminStudentIdRoute: typeof AdminStudentIdRoute
@@ -217,6 +268,7 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminQuestionBankRoute: AdminQuestionBankRouteWithChildren,
   AdminScheduleRoute: AdminScheduleRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminStudentIdRoute: AdminStudentIdRoute,
@@ -235,13 +287,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
