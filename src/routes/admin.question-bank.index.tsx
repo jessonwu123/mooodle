@@ -572,235 +572,259 @@ function QuestionBankPage() {
         }
       }
 
-      // 应用锚点 → 覆盖 bbox
-      // 顶部：Problem N 行（左上角）。底部：同页第一个 (A) 选项的 y - 一行高度。
+      // 应用锚点 → 合并题干+选项为单张截图
+      // 顶部：Problem N 行；左右：页边距 ~2cm（Letter 612pt → 56.7pt ≈ 0.0926）；
+      // 底部：(A)~(E) 选项行最底部 + 一行余量
+      const MARGIN_X = 0.085;
+      const MARGIN_W = 1 - MARGIN_X * 2;
+      // 每题对应的待截区域（可能跨页，需要后续纵向拼接）
+      type Region = { page: number; bbox: NonNullable<Bbox> };
+      const regionsByQ = new Map<number, Region[]>();
+
       for (const q of qs) {
         const loc = stemLocByNum.get(q.number);
-        if (!loc) continue;
+        if (!loc) {
+          // 回退到 AI bbox（极少触发）
+          if (q.stem_bbox) {
+            regionsByQ.set(q.number, [{ page: q.stem_page_index, bbox: { ...q.stem_bbox } }]);
+          }
+          continue;
+        }
         const next = stemLocByNum.get(q.number + 1) ?? null;
         const stemTop = Math.max(0, loc.y - 0.006);
 
-        // 在 stem 页面查找 stem 起点之后的第一个 "(A)"
-        const optAItem = pageTexts[loc.page]?.items
-          .filter((it) => /^\(A\)/.test(it.str.trim()) && it.y > loc.y + 0.005)
-          .sort((a, b) => a.y - b.y)[0];
-
-        const stemBboxBase = q.stem_bbox ?? { x: 0.05, y: 0, w: 0.9, h: 0 };
-        const optsBboxBase = q.options_bbox ?? { x: 0.05, y: 0, w: 0.9, h: 0 };
-        // 估计一行高度（在 stem 页面附近抽样若干 item 的高度均值）
-        const sampleH =
-          (pageTexts[loc.page]?.items
-            .filter((it) => Math.abs(it.y - loc.y) < 0.15 && it.h > 0)
-            .map((it) => it.h)
-            .sort((a, b) => a - b)[
-            Math.max(
-              0,
-              Math.floor(
-                (pageTexts[loc.page]?.items.filter((it) => Math.abs(it.y - loc.y) < 0.15 && it.h > 0)
-                  .length ?? 1) / 2,
-              ),
-            )
-          ] ?? 0.014);
+        // 估计一行高度
+        const nearItems = pageTexts[loc.page]?.items.filter(
+          (it) => Math.abs(it.y - loc.y) < 0.2 && it.h > 0,
+        ) ?? [];
+        const heights = nearItems.map((it) => it.h).sort((a, b) => a - b);
+        const sampleH = heights[Math.floor(heights.length / 2)] ?? 0.014;
         const oneLine = Math.max(0.012, sampleH * 1.1);
 
-        if (optAItem && (!next || next.page > loc.page || optAItem.y < next.y)) {
-          // 同页有 (A)，stem 底 = (A).y - 一行
+        // 在 stem 页面收集 loc 之后所有 (A)~(E) 行
+        const optMarkers = (pageTexts[loc.page]?.items ?? []).filter(
+          (it) => /^\([A-E]\)/.test(it.str.trim()) && it.y > loc.y + 0.005,
+        );
+        // 同页下一题之前
+        const optMarkersBeforeNext = optMarkers.filter(
+          (it) => !next || next.page > loc.page || it.y < next.y,
+        );
+
+        if (optMarkersBeforeNext.length > 0) {
+          // 选项在同页：bottom = 最后一行选项 y + 高度 + 一行余量
+          const lastY = optMarkersBeforeNext.reduce(
+            (m, it) => Math.max(m, it.y + it.h),
+            0,
+          );
+          const bottom = Math.min(0.995, lastY + oneLine * 1.2);
+          regionsByQ.set(q.number, [
+            {
+              page: loc.page,
+              bbox: {
+                x: MARGIN_X,
+                y: stemTop,
+                w: MARGIN_W,
+                h: Math.max(0.02, bottom - stemTop),
+              },
+            },
+          ]);
           q.stem_page_index = loc.page;
           q.options_page_index = loc.page;
-          const stemBottom = optAItem.y - oneLine;
           q.stem_bbox = {
-            x: stemBboxBase.x,
-            w: stemBboxBase.w,
+            x: MARGIN_X,
             y: stemTop,
-            h: Math.max(0.01, stemBottom - stemTop),
+            w: MARGIN_W,
+            h: Math.max(0.02, bottom - stemTop),
           };
-          const optsBottom = next && next.page === loc.page ? next.y - 0.006 : 0.98;
-          q.options_bbox = {
-            x: optsBboxBase.x,
-            w: optsBboxBase.w,
-            y: optAItem.y - 0.006,
-            h: Math.max(0.01, optsBottom - (optAItem.y - 0.006)),
-          };
+          q.options_bbox = null;
         } else if (next && next.page > loc.page) {
-          // 跨页：题干在 loc.page，选项在 next.page 的 (A) 行
-          q.stem_page_index = loc.page;
-          q.stem_bbox = {
-            x: stemBboxBase.x,
-            w: stemBboxBase.w,
-            y: stemTop,
-            h: Math.max(0.01, 0.98 - stemTop),
-          };
-          const nextPageOptA = pageTexts[next.page]?.items
-            .filter((it) => /^\(A\)/.test(it.str.trim()) && it.y < next.y - 0.005)
-            .sort((a, b) => a.y - b.y)[0];
-          if (nextPageOptA) {
-            q.options_page_index = next.page;
-            q.options_bbox = {
-              x: optsBboxBase.x,
-              w: optsBboxBase.w,
-              y: nextPageOptA.y - 0.006,
-              h: Math.max(0.01, next.y - 0.006 - (nextPageOptA.y - 0.006)),
-            };
-          } else {
-            q.options_page_index = loc.page;
-            q.options_bbox = null;
+          // 跨页：题干在 loc.page，选项在 next.page
+          const nextPageOpts = (pageTexts[next.page]?.items ?? []).filter(
+            (it) => /^\([A-E]\)/.test(it.str.trim()) && it.y < next.y - 0.005,
+          );
+          const regions: Region[] = [
+            {
+              page: loc.page,
+              bbox: {
+                x: MARGIN_X,
+                y: stemTop,
+                w: MARGIN_W,
+                h: Math.max(0.02, 0.995 - stemTop),
+              },
+            },
+          ];
+          if (nextPageOpts.length > 0) {
+            const topY = Math.max(0, nextPageOpts[0].y - 0.006);
+            const lastY = nextPageOpts.reduce((m, it) => Math.max(m, it.y + it.h), 0);
+            const bottomY = Math.min(0.995, lastY + oneLine * 1.2);
+            regions.push({
+              page: next.page,
+              bbox: {
+                x: MARGIN_X,
+                y: topY,
+                w: MARGIN_W,
+                h: Math.max(0.02, bottomY - topY),
+              },
+            });
           }
-        } else {
-          const bottom = next && next.page === loc.page ? next.y - 0.006 : 0.98;
+          regionsByQ.set(q.number, regions);
           q.stem_page_index = loc.page;
-          q.stem_bbox = {
-            x: stemBboxBase.x,
-            w: stemBboxBase.w,
+          q.options_page_index = regions.length > 1 ? next.page : loc.page;
+          q.stem_bbox = regions[0].bbox;
+          q.options_bbox = regions[1]?.bbox ?? null;
+        } else {
+          // 无选项标记：取到下题之前或页底
+          const bottom = next && next.page === loc.page ? next.y - 0.006 : 0.995;
+          const bbox = {
+            x: MARGIN_X,
             y: stemTop,
-            h: Math.max(0.01, bottom - stemTop),
+            w: MARGIN_W,
+            h: Math.max(0.02, bottom - stemTop),
           };
+          regionsByQ.set(q.number, [{ page: loc.page, bbox }]);
+          q.stem_page_index = loc.page;
+          q.options_page_index = loc.page;
+          q.stem_bbox = bbox;
+          q.options_bbox = null;
         }
       }
 
-      // ===== 校对环节：检查截图区域内的 PDF 文字是否与 AI 提取的 stem 一致 =====
-      setStage("校对题干截图与文字...");
+      setStage("裁剪题目截图...");
+      // 按页聚合，逐页渲染一次 canvas
+      const pagesNeeded = new Set<number>();
+      for (const regions of regionsByQ.values()) {
+        for (const r of regions) pagesNeeded.add(r.page);
+      }
+      const pageCanvases = new Map<number, HTMLCanvasElement>();
+      for (const p of pagesNeeded) {
+        setStage(`渲染第 ${p + 1} 页...`);
+        pageCanvases.set(p, await renderPdfPageCanvas(paperPdfFile, p, 1.15));
+      }
+
+      const stitchCrops = async (crops: HTMLCanvasElement[]): Promise<Blob> => {
+        if (crops.length === 1) {
+          return new Promise<Blob>((resolve, reject) =>
+            crops[0].toBlob(
+              (b) => (b ? resolve(b) : reject(new Error("生成失败"))),
+              "image/png",
+            ),
+          );
+        }
+        const w = Math.max(...crops.map((c) => c.width));
+        const totalH = crops.reduce((s, c) => s + c.height, 0);
+        const out = document.createElement("canvas");
+        out.width = w;
+        out.height = totalH;
+        const ctx = out.getContext("2d");
+        if (!ctx) throw new Error("canvas 上下文创建失败");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, w, totalH);
+        let y = 0;
+        for (const c of crops) {
+          ctx.drawImage(c, 0, y);
+          y += c.height;
+        }
+        return new Promise<Blob>((resolve, reject) =>
+          out.toBlob(
+            (b) => (b ? resolve(b) : reject(new Error("生成失败"))),
+            "image/png",
+          ),
+        );
+      };
+
+      const cropToCanvas = (
+        canvas: HTMLCanvasElement,
+        bbox: { x: number; y: number; w: number; h: number },
+        padding = 0.003,
+      ) => {
+        const x = Math.max(0, (bbox.x - padding) * canvas.width);
+        const y = Math.max(0, (bbox.y - padding) * canvas.height);
+        const w = Math.min(canvas.width - x, (bbox.w + padding * 2) * canvas.width);
+        const h = Math.min(canvas.height - y, (bbox.h + padding * 2) * canvas.height);
+        const out = document.createElement("canvas");
+        out.width = Math.ceil(w);
+        out.height = Math.ceil(h);
+        const ctx = out.getContext("2d");
+        if (!ctx) throw new Error("canvas 上下文创建失败");
+        ctx.drawImage(canvas, x, y, w, h, 0, 0, out.width, out.height);
+        return out;
+      };
+
+      for (const q of qs) {
+        const regions = regionsByQ.get(q.number);
+        if (!regions || regions.length === 0) continue;
+        try {
+          const crops: HTMLCanvasElement[] = [];
+          for (const r of regions) {
+            const canvas = pageCanvases.get(r.page);
+            if (!canvas) continue;
+            crops.push(cropToCanvas(canvas, r.bbox, 0.003));
+          }
+          if (crops.length === 0) continue;
+          const blob = await stitchCrops(crops);
+          q.stemImageBlob = blob;
+          q.stemImageDataUrl = URL.createObjectURL(blob);
+          q.optionsImageBlob = null;
+          q.optionsImageDataUrl = null;
+        } catch (err) {
+          console.error("crop failed", q.number, err);
+        }
+      }
+
+      // 释放 canvas
+      for (const c of pageCanvases.values()) {
+        c.width = 0;
+        c.height = 0;
+      }
+
+      // ===== 校对：在合并区域内核对 PDF 文字是否包含 AI 提取的题干前缀 =====
+      setStage("校对截图与文字...");
       const mismatched: number[] = [];
       for (const q of qs) {
-        if (!q.stem_bbox) continue;
+        const regions = regionsByQ.get(q.number);
+        if (!regions || regions.length === 0) continue;
         const aiNorm = normalizeText(q.stem ?? "");
         if (aiNorm.length < 8) continue;
-        const pageItems = pageTexts[q.stem_page_index]?.items ?? [];
-        const bx = q.stem_bbox.x;
-        const by = q.stem_bbox.y;
-        const bxe = bx + q.stem_bbox.w;
-        const bye = by + q.stem_bbox.h;
-        const inRegion = pageItems
-          .filter(
-            (it) =>
-              it.y + it.h > by - 0.005 &&
-              it.y < bye + 0.005 &&
-              it.x + it.w > bx - 0.02 &&
-              it.x < bxe + 0.02,
-          )
-          .sort((a, b) => {
-            const dy = Math.round(a.y * 200) - Math.round(b.y * 200);
-            return dy !== 0 ? dy : a.x - b.x;
-          });
-        const cropNorm = normalizeText(inRegion.map((it) => it.str).join(" "));
-        // 用 AI 文本的前缀作为关键片段：在裁剪文本中找子串
+        const collected: string[] = [];
+        for (const r of regions) {
+          const pageItems = pageTexts[r.page]?.items ?? [];
+          const bx = r.bbox.x;
+          const by = r.bbox.y;
+          const bxe = bx + r.bbox.w;
+          const bye = by + r.bbox.h;
+          const inRegion = pageItems
+            .filter(
+              (it) =>
+                it.y + it.h > by - 0.005 &&
+                it.y < bye + 0.005 &&
+                it.x + it.w > bx - 0.02 &&
+                it.x < bxe + 0.02,
+            )
+            .sort((a, b) => {
+              const dy = Math.round(a.y * 200) - Math.round(b.y * 200);
+              return dy !== 0 ? dy : a.x - b.x;
+            });
+          collected.push(inRegion.map((it) => it.str).join(" "));
+        }
+        const cropNorm = normalizeText(collected.join(" "));
         const keyLen = Math.min(20, Math.max(10, Math.floor(aiNorm.length * 0.4)));
         const key = aiNorm.slice(0, keyLen);
-        const ok = cropNorm.includes(key);
+        // 同时校对：选项 (A)~(E) 全部应出现
+        const hasAllOpts = ["(A)", "(B)", "(C)", "(D)", "(E)"].every((tag) =>
+          collected.join(" ").includes(tag),
+        );
+        const ok = cropNorm.includes(key) && hasAllOpts;
         if (!ok) {
           mismatched.push(q.number);
-          console.warn(
-            `[校对] 第 ${q.number} 题截图与文字内容不一致`,
-            { aiHead: aiNorm.slice(0, 40), cropHead: cropNorm.slice(0, 80) },
-          );
+          console.warn(`[校对] 第 ${q.number} 题截图与文字/选项不一致`, {
+            aiHead: aiNorm.slice(0, 40),
+            cropHead: cropNorm.slice(0, 80),
+            hasAllOpts,
+          });
         }
       }
       if (mismatched.length) {
-        toast.warning(`校对：第 ${mismatched.join(", ")} 题截图与文字疑似不一致，请预览中核对`);
-      }
-
-      setStage("裁剪题目与选项截图...");
-      // 每张页面单独收集落在该页上的 slot（题干 / 选项分别可能在不同页）
-      type Slot = {
-        q: ExtractedQuestion;
-        kind: "stem" | "options";
-        bbox: NonNullable<Bbox>;
-      };
-      const slotsByPage = new Map<number, Slot[]>();
-      for (const q of qs) {
-        if (q.stem_bbox && paperPages[q.stem_page_index]) {
-          const arr = slotsByPage.get(q.stem_page_index) ?? [];
-          arr.push({ q, kind: "stem", bbox: { ...q.stem_bbox } });
-          slotsByPage.set(q.stem_page_index, arr);
-        }
-        if (q.options_bbox && paperPages[q.options_page_index]) {
-          const arr = slotsByPage.get(q.options_page_index) ?? [];
-          arr.push({ q, kind: "options", bbox: { ...q.options_bbox } });
-          slotsByPage.set(q.options_page_index, arr);
-        }
-      }
-      // 在每一页内：横向扩到该页 slot 的列宽，纵向只填补相邻 slot 间的空白，
-      // 并强制 stem 底部严格停在同页 options 顶部之上。
-      const tightenSlotsOnPage = (pageSlots: Slot[]) => {
-        // 1) 同题且同页：把 stem 底部裁到 options 顶部之上，**始终执行**，
-        //    防止 AI 把 (A)(B)... 选项行错误地圈进 stem_bbox。
-        for (const s of pageSlots) {
-          if (s.kind !== "stem") continue;
-          const q = s.q;
-          if (
-            q.options_bbox &&
-            q.stem_page_index === q.options_page_index
-          ) {
-            const stemTop = s.bbox.y;
-            const optsTop = q.options_bbox.y;
-            // 题干顶部必须高于选项顶部；否则保留 AI 给的（罕见，可能跨布局）
-            if (stemTop < optsTop) {
-              const maxBottom = optsTop - 0.006;
-              const newH = Math.max(0.01, maxBottom - stemTop);
-              if (newH < s.bbox.h) s.bbox.h = newH;
-            }
-          }
-        }
-
-        // 2) 横向：扩到该页所有 slot 的列宽并加 padX 边距
-        let minX = 1;
-        let maxX = 0;
-        for (const s of pageSlots) {
-          minX = Math.min(minX, s.bbox.x);
-          maxX = Math.max(maxX, s.bbox.x + s.bbox.w);
-        }
-        const padX = 0.03;
-        const colX = Math.max(0, minX - padX);
-        const colRight = Math.min(1, maxX + padX);
-
-        // 3) 纵向：按 y 排序，只做极轻微的扩展（约一行间距），避免把上下 slot 卷进来
-        const sorted = [...pageSlots].sort((a, b) => a.bbox.y - b.bbox.y);
-        const padY = 0.002;
-        for (let i = 0; i < sorted.length; i++) {
-          const cur = sorted[i];
-          const prev = sorted[i - 1];
-          const next = sorted[i + 1];
-          const topLimit = prev ? prev.bbox.y + prev.bbox.h + padY : 0;
-          let bottomLimit = next ? next.bbox.y - padY : 1;
-          if (
-            cur.kind === "stem" &&
-            cur.q.options_bbox &&
-            cur.q.stem_page_index === cur.q.options_page_index
-          ) {
-            bottomLimit = Math.min(bottomLimit, cur.q.options_bbox.y - 0.006);
-          }
-          const newY = Math.max(topLimit, cur.bbox.y - padY);
-          const newBottom = Math.min(bottomLimit, cur.bbox.y + cur.bbox.h + padY);
-          cur.bbox.x = colX;
-          cur.bbox.w = Math.max(0, colRight - colX);
-          cur.bbox.y = newY;
-          cur.bbox.h = Math.max(0, newBottom - newY);
-        }
-      };
-
-      for (const [pageIndex, pageSlots] of slotsByPage) {
-        tightenSlotsOnPage(pageSlots);
-        setStage(`裁剪第 ${pageIndex + 1} 页（${pageSlots.length} 块）...`);
-        const canvas = await renderPdfPageCanvas(paperPdfFile, pageIndex, 1.15);
-        try {
-          for (const s of pageSlots) {
-            const pad = 0.003;
-            try {
-              const blob = await cropCanvasToBlob(canvas, s.bbox, pad);
-              if (s.kind === "stem") {
-                s.q.stemImageBlob = blob;
-                s.q.stemImageDataUrl = URL.createObjectURL(blob);
-              } else {
-                s.q.optionsImageBlob = blob;
-                s.q.optionsImageDataUrl = URL.createObjectURL(blob);
-              }
-            } catch (err) {
-              console.error("crop failed", s.q.number, s.kind, err);
-            }
-          }
-        } finally {
-          canvas.width = 0;
-          canvas.height = 0;
-        }
+        toast.warning(`校对：第 ${mismatched.join(", ")} 题截图可能不完整，请预览中核对`);
       }
 
       setExtracted(qs);
