@@ -95,8 +95,45 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
       .replace(/^```(?:json)?\s*/i, "")
       .replace(/```$/i, "")
       .trim();
-    const parsed = JSON.parse(contentText);
-    return parsed as {
+    const parsed = JSON.parse(contentText) as {
+      questions: Array<{
+        number: number;
+        stem: string;
+        option_a: string | null;
+        option_b: string | null;
+        option_c: string | null;
+        option_d: string | null;
+        option_e: string | null;
+        correct_answer: string | null;
+        has_figure: boolean;
+        page_index: number;
+        bbox_2d?: [number, number, number, number] | null;
+        bbox?: { x: number; y: number; w: number; h: number } | null;
+      }>;
+    };
+    // Convert Gemini's [ymin, xmin, ymax, xmax] (0-1000 ints) into normalized {x, y, w, h}
+    const questions = (parsed.questions ?? []).map((q) => {
+      let bbox: { x: number; y: number; w: number; h: number } | null = null;
+      const raw = q.bbox_2d;
+      if (Array.isArray(raw) && raw.length === 4 && raw.every((n) => Number.isFinite(n))) {
+        const [ymin, xmin, ymax, xmax] = raw.map((n) => Number(n));
+        // detect scale: 0-1000 (Gemini default), 0-100, or 0-1
+        const maxVal = Math.max(ymin, xmin, ymax, xmax);
+        const scale = maxVal > 100 ? 1000 : maxVal > 1 ? 100 : 1;
+        const x = Math.max(0, Math.min(1, xmin / scale));
+        const y = Math.max(0, Math.min(1, ymin / scale));
+        const w = Math.max(0, Math.min(1 - x, (xmax - xmin) / scale));
+        const h = Math.max(0, Math.min(1 - y, (ymax - ymin) / scale));
+        if (w > 0.005 && h > 0.005) bbox = { x, y, w, h };
+      } else if (q.bbox && typeof q.bbox === "object") {
+        const { x, y, w, h } = q.bbox;
+        if ([x, y, w, h].every((n) => Number.isFinite(n)) && w > 0 && h > 0) {
+          bbox = { x, y, w, h };
+        }
+      }
+      return { ...q, bbox };
+    });
+    return { questions } as {
       questions: Array<{
         number: number;
         stem: string;
