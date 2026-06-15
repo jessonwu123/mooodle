@@ -680,12 +680,25 @@ function QuestionEditor({
           );
         })}
       </div>
-      {q.imageDataUrl && (
-        <img
-          src={q.imageDataUrl}
-          alt={`第 ${q.number} 题配图`}
-          className="mt-2 max-h-48 rounded border"
-        />
+      {q.stemImageDataUrl && (
+        <div className="mt-2">
+          <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">题干截图</div>
+          <img
+            src={q.stemImageDataUrl}
+            alt={`第 ${q.number} 题题干`}
+            className="max-h-64 rounded border"
+          />
+        </div>
+      )}
+      {q.optionsImageDataUrl && (
+        <div className="mt-2">
+          <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">选项截图</div>
+          <img
+            src={q.optionsImageDataUrl}
+            alt={`第 ${q.number} 题选项`}
+            className="max-h-48 rounded border"
+          />
+        </div>
       )}
     </div>
   );
