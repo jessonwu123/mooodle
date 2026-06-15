@@ -63,7 +63,9 @@ import {
   renderPdfPages,
   renderPdfPageCanvas,
   cropCanvasToBlob,
+  getPdfTextItems,
   type RenderedPage,
+  type PdfPageText,
 } from "@/lib/pdf-render";
 
 const SearchSchema = z.object({
