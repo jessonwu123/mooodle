@@ -230,6 +230,8 @@ export const saveMathPaper = createServerFn({ method: "POST" })
       correct_answer: q.correct_answer,
       image_path: q.image_path,
       options_image_path: q.options_image_path,
+      stem_render_mode: q.stem_render_mode ?? "text",
+      options_render_mode: q.options_render_mode ?? "text",
     }));
     const { error: e2 } = await supabase.from("math_questions").insert(rows);
     if (e2) {
