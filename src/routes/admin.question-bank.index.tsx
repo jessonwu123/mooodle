@@ -375,6 +375,8 @@ function QuestionBankPage() {
             page_index: Number.isInteger(Number(q.page_index)) ? Number(q.page_index) : 0,
             stem_bbox: q.stem_bbox ?? null,
             options_bbox: q.options_bbox ?? null,
+            stem_render_mode: q.stem_render_mode === "image" ? "image" : "text",
+            options_render_mode: q.options_render_mode === "image" ? "image" : "text",
           });
         }
       }
