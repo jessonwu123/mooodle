@@ -347,22 +347,29 @@ function QuestionBankPage() {
     try {
       const yNum = Number(year);
       const ts = Date.now();
-      // upload crops
-      for (const q of extracted) {
-        if (q.imageBlob) {
-          const path = `${yNum}/${ts}/q${String(q.number).padStart(2, "0")}.png`;
+      // upload crops (stem + options)
+      type WithPaths = ExtractedQuestion & { image_path?: string; options_image_path?: string };
+      for (const q of extracted as WithPaths[]) {
+        const base = `${yNum}/${ts}/q${String(q.number).padStart(2, "0")}`;
+        if (q.stemImageBlob) {
+          const path = `${base}-stem.png`;
           const { error } = await supabase.storage
             .from("math-question-images")
-            .upload(path, q.imageBlob, { contentType: "image/png", upsert: true });
-          if (error) {
-            console.error("upload crop failed", q.number, error);
-          } else {
-            (q as ExtractedQuestion & { image_path?: string }).image_path = path;
-          }
+            .upload(path, q.stemImageBlob, { contentType: "image/png", upsert: true });
+          if (error) console.error("upload stem failed", q.number, error);
+          else q.image_path = path;
+        }
+        if (q.optionsImageBlob) {
+          const path = `${base}-options.png`;
+          const { error } = await supabase.storage
+            .from("math-question-images")
+            .upload(path, q.optionsImageBlob, { contentType: "image/png", upsert: true });
+          if (error) console.error("upload options failed", q.number, error);
+          else q.options_image_path = path;
         }
       }
 
-      const payload = extracted.map((q) => ({
+      const payload = (extracted as WithPaths[]).map((q) => ({
         number: q.number,
         stem: q.stem,
         option_a: q.option_a,
@@ -371,8 +378,10 @@ function QuestionBankPage() {
         option_d: q.option_d,
         option_e: q.option_e,
         correct_answer: q.correct_answer,
-        image_path: (q as ExtractedQuestion & { image_path?: string }).image_path ?? null,
+        image_path: q.image_path ?? null,
+        options_image_path: q.options_image_path ?? null,
       }));
+
 
       await saveMathPaper({
         data: {
