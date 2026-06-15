@@ -28,6 +28,8 @@ interface QuestionRow {
   correct_answer: string | null;
   image_path: string | null;
   options_image_path: string | null;
+  stem_render_mode: "text" | "image";
+  options_render_mode: "text" | "image";
   tags: string[];
 }
 
@@ -46,7 +48,7 @@ function PaperDetailPage() {
         supabase
           .from("math_questions")
           .select(
-            "id, question_number, stem, option_a, option_b, option_c, option_d, option_e, correct_answer, image_path, options_image_path, tags",
+            "id, question_number, stem, option_a, option_b, option_c, option_d, option_e, correct_answer, image_path, options_image_path, stem_render_mode, options_render_mode, tags",
           )
           .eq("paper_id", paperId)
           .order("question_number"),
