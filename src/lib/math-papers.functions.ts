@@ -134,12 +134,18 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
         page_index: number;
         stem_bbox_2d?: [number, number, number, number] | null;
         options_bbox_2d?: [number, number, number, number] | null;
+        stem_render_mode?: string | null;
+        options_render_mode?: string | null;
       }>;
     };
+    const normMode = (m: unknown): "text" | "image" =>
+      typeof m === "string" && m.toLowerCase() === "image" ? "image" : "text";
     const questions = (parsed.questions ?? []).map((q) => ({
       ...q,
       stem_bbox: bboxFromGemini(q.stem_bbox_2d),
       options_bbox: bboxFromGemini(q.options_bbox_2d),
+      stem_render_mode: normMode(q.stem_render_mode),
+      options_render_mode: normMode(q.options_render_mode),
     }));
     return { questions } as {
       questions: Array<{
@@ -154,6 +160,8 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
         page_index: number;
         stem_bbox: Bbox;
         options_bbox: Bbox;
+        stem_render_mode: "text" | "image";
+        options_render_mode: "text" | "image";
       }>;
     };
   });
