@@ -7,7 +7,8 @@ export interface RenderedPage {
   width: number;
   height: number;
   canvas: HTMLCanvasElement;
-  dataUrl: string; // jpeg
+  blob: Blob; // jpeg
+  dataUrl?: string; // kept optional for previews/debug only
 }
 
 let pdfjsPromise: Promise<typeof import("pdfjs-dist")> | null = null;
@@ -26,8 +27,8 @@ async function loadPdfjs() {
 
 export async function renderPdfPages(
   file: File,
-  scale = 1.35,
-  jpegQuality = 0.72,
+  scale = 1.15,
+  jpegQuality = 0.68,
 ): Promise<RenderedPage[]> {
   const pdfjsLib = await loadPdfjs();
   const buf = await file.arrayBuffer();
@@ -42,13 +43,15 @@ export async function renderPdfPages(
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("无法创建 canvas 上下文");
     await page.render({ canvasContext: ctx, viewport, canvas }).promise;
-    const dataUrl = canvas.toDataURL("image/jpeg", jpegQuality);
+    const blob = await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("页面图片生成失败"))), "image/jpeg", jpegQuality),
+    );
     pages.push({
       pageIndex: i - 1,
       width: canvas.width,
       height: canvas.height,
       canvas,
-      dataUrl,
+      blob,
     });
   }
   return pages;

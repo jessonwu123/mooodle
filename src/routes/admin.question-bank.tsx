@@ -73,6 +73,33 @@ function extractYearFromFilename(name: string): number | null {
   return m ? Number(m[0]) : null;
 }
 
+async function uploadRenderedPageImages(
+  pages: RenderedPage[],
+  prefix: string,
+  label: "试卷" | "答案",
+  setStage: (stage: string) => void,
+) {
+  const bucket = supabase.storage.from("math-papers");
+  const paths: string[] = [];
+  for (const page of pages) {
+    const pageNo = page.pageIndex + 1;
+    const path = `${prefix}/${label === "试卷" ? "paper" : "answer"}-${String(pageNo).padStart(2, "0")}.jpg`;
+    setStage(`上传${label}页面图片 ${pageNo}/${pages.length}...`);
+    const { error } = await bucket.upload(path, page.blob, {
+      contentType: "image/jpeg",
+      upsert: true,
+    });
+    if (error) throw new Error(`上传${label}页面图片失败：${error.message}`);
+    paths.push(path);
+  }
+
+  const { data, error } = await bucket.createSignedUrls(paths, 60 * 60);
+  if (error) throw new Error(`生成${label}页面访问链接失败：${error.message}`);
+  const signedUrls = (data ?? []).map((item) => item.signedUrl).filter(Boolean);
+  if (signedUrls.length !== paths.length) throw new Error(`${label}页面访问链接生成不完整`);
+  return { paths, signedUrls };
+}
+
 function QuestionBankPage() {
   const [papers, setPapers] = useState<PaperRow[]>([]);
   const [loading, setLoading] = useState(true);
