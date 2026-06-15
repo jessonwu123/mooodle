@@ -221,9 +221,11 @@ export type Database = {
           option_d: string | null
           option_e: string | null
           options_image_path: string | null
+          options_render_mode: string
           paper_id: string
           question_number: number
           stem: string
+          stem_render_mode: string
           tags: string[]
           updated_at: string
           year: number | null
@@ -240,9 +242,11 @@ export type Database = {
           option_d?: string | null
           option_e?: string | null
           options_image_path?: string | null
+          options_render_mode?: string
           paper_id: string
           question_number: number
           stem: string
+          stem_render_mode?: string
           tags?: string[]
           updated_at?: string
           year?: number | null
@@ -259,9 +263,11 @@ export type Database = {
           option_d?: string | null
           option_e?: string | null
           options_image_path?: string | null
+          options_render_mode?: string
           paper_id?: string
           question_number?: number
           stem?: string
+          stem_render_mode?: string
           tags?: string[]
           updated_at?: string
           year?: number | null

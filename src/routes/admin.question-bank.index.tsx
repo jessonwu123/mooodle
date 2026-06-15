@@ -104,6 +104,8 @@ interface ExtractedQuestion {
   page_index: number;
   stem_bbox: Bbox;
   options_bbox: Bbox;
+  stem_render_mode: "text" | "image";
+  options_render_mode: "text" | "image";
   stemImageBlob?: Blob | null;
   stemImageDataUrl?: string | null;
   optionsImageBlob?: Blob | null;
@@ -373,6 +375,8 @@ function QuestionBankPage() {
             page_index: Number.isInteger(Number(q.page_index)) ? Number(q.page_index) : 0,
             stem_bbox: q.stem_bbox ?? null,
             options_bbox: q.options_bbox ?? null,
+            stem_render_mode: q.stem_render_mode === "image" ? "image" : "text",
+            options_render_mode: q.options_render_mode === "image" ? "image" : "text",
           });
         }
       }
@@ -468,6 +472,8 @@ function QuestionBankPage() {
         correct_answer: q.correct_answer,
         image_path: q.image_path ?? null,
         options_image_path: q.options_image_path ?? null,
+        stem_render_mode: q.stem_render_mode,
+        options_render_mode: q.options_render_mode,
       }));
 
       await replaceMathPaperQuestions({
@@ -879,15 +885,56 @@ function QuestionEditor({
               答案 {q.correct_answer}
             </span>
           )}
-          {q.stemImageDataUrl && (
-            <span className="ml-2 inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700">
-              <ImageIcon className="h-3 w-3" /> 题干图
-            </span>
-          )}
+          <span
+            className={
+              "ml-2 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] " +
+              (q.stem_render_mode === "image"
+                ? "bg-amber-100 text-amber-700"
+                : "bg-slate-100 text-slate-600")
+            }
+            title="题干渲染模式"
+          >
+            <ImageIcon className="h-3 w-3" /> 题干:{q.stem_render_mode === "image" ? "图" : "文"}
+          </span>
+          <span
+            className={
+              "ml-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] " +
+              (q.options_render_mode === "image"
+                ? "bg-amber-100 text-amber-700"
+                : "bg-slate-100 text-slate-600")
+            }
+            title="选项渲染模式"
+          >
+            <ImageIcon className="h-3 w-3" /> 选项:{q.options_render_mode === "image" ? "图" : "文"}
+          </span>
         </div>
-        <Button variant="ghost" size="sm" onClick={() => setEditing((v) => !v)}>
-          {editing ? <X className="h-3 w-3" /> : <Pencil className="h-3 w-3" />}
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            onClick={() =>
+              onChange({ stem_render_mode: q.stem_render_mode === "image" ? "text" : "image" })
+            }
+          >
+            切题干
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            onClick={() =>
+              onChange({
+                options_render_mode: q.options_render_mode === "image" ? "text" : "image",
+              })
+            }
+          >
+            切选项
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setEditing((v) => !v)}>
+            {editing ? <X className="h-3 w-3" /> : <Pencil className="h-3 w-3" />}
+          </Button>
+        </div>
       </div>
       {editing ? (
         <div className="mt-2 space-y-2">
