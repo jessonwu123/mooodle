@@ -1,0 +1,1 @@
+ALTER TABLE public.math_questions ALTER COLUMN year DROP NOT NULL;

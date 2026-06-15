@@ -123,41 +123,90 @@ export type Database = {
         }
         Relationships: []
       }
+      math_paper_folders: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          parent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "math_paper_folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "math_paper_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       math_papers: {
         Row: {
           answer_pdf_path: string | null
           created_at: string
+          folder_id: string | null
           id: string
+          kind: string
           name: string
-          pdf_path: string
+          pdf_path: string | null
           question_count: number
           updated_at: string
           uploaded_by: string | null
-          year: number
+          year: number | null
         }
         Insert: {
           answer_pdf_path?: string | null
           created_at?: string
+          folder_id?: string | null
           id?: string
+          kind?: string
           name: string
-          pdf_path: string
+          pdf_path?: string | null
           question_count?: number
           updated_at?: string
           uploaded_by?: string | null
-          year: number
+          year?: number | null
         }
         Update: {
           answer_pdf_path?: string | null
           created_at?: string
+          folder_id?: string | null
           id?: string
+          kind?: string
           name?: string
-          pdf_path?: string
+          pdf_path?: string | null
           question_count?: number
           updated_at?: string
           uploaded_by?: string | null
-          year?: number
+          year?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "math_papers_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "math_paper_folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       math_questions: {
         Row: {
@@ -177,7 +226,7 @@ export type Database = {
           stem: string
           tags: string[]
           updated_at: string
-          year: number
+          year: number | null
         }
         Insert: {
           answer_type?: string
@@ -196,7 +245,7 @@ export type Database = {
           stem: string
           tags?: string[]
           updated_at?: string
-          year: number
+          year?: number | null
         }
         Update: {
           answer_type?: string
@@ -215,7 +264,7 @@ export type Database = {
           stem?: string
           tags?: string[]
           updated_at?: string
-          year?: number
+          year?: number | null
         }
         Relationships: [
           {
