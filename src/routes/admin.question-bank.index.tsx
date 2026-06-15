@@ -698,7 +698,7 @@ function QuestionBankPage() {
       const pageCanvases = new Map<number, HTMLCanvasElement>();
       for (const p of pagesNeeded) {
         setStage(`渲染第 ${p + 1} 页...`);
-        pageCanvases.set(p, await renderPdfPageCanvas(paperPdfFile, p, 1.15));
+        pageCanvases.set(p, await renderPdfPageCanvas(paperPdfFile, p, 2.5));
       }
 
       const stitchCrops = async (crops: HTMLCanvasElement[]): Promise<Blob> => {
