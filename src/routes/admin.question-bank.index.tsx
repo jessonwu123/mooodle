@@ -366,6 +366,15 @@ function QuestionBankPage() {
           const q = raw as ExtractedQuestion;
           const number = Number(q.number);
           if (!Number.isInteger(number) || number < questionStart || number > questionEnd) continue;
+          const pageIdx = Number.isInteger(Number(q.page_index)) ? Number(q.page_index) : 0;
+          const stemPage = Number.isInteger(Number(q.stem_page_index))
+            ? Number(q.stem_page_index)
+            : pageIdx;
+          const optsPage = Number.isInteger(Number(q.options_page_index))
+            ? Number(q.options_page_index)
+            : pageIdx;
+          const clampPage = (p: number) =>
+            Math.max(0, Math.min(paperPages.length - 1, p));
           byNumber.set(number, {
             ...q,
             number,
@@ -376,7 +385,9 @@ function QuestionBankPage() {
             option_d: q.option_d ?? null,
             option_e: q.option_e ?? null,
             correct_answer: q.correct_answer ? q.correct_answer.toUpperCase().slice(0, 1) : null,
-            page_index: Number.isInteger(Number(q.page_index)) ? Number(q.page_index) : 0,
+            page_index: clampPage(pageIdx),
+            stem_page_index: clampPage(stemPage),
+            options_page_index: clampPage(optsPage),
             stem_bbox: q.stem_bbox ?? null,
             options_bbox: q.options_bbox ?? null,
             stem_render_mode: q.stem_render_mode === "image" ? "image" : "text",
@@ -389,11 +400,24 @@ function QuestionBankPage() {
       if (qs.length < 25) toast.warning(`只抽取到 ${qs.length} 道题，请在预览中检查`);
 
       setStage("裁剪题目与选项截图...");
-      const byPage = new Map<number, ExtractedQuestion[]>();
+      // 每张页面单独收集落在该页上的 slot（题干 / 选项分别可能在不同页）
+      type Slot = {
+        q: ExtractedQuestion;
+        kind: "stem" | "options";
+        bbox: NonNullable<Bbox>;
+      };
+      const slotsByPage = new Map<number, Slot[]>();
       for (const q of qs) {
-        if (!paperPages[q.page_index]) continue;
-        if (!q.stem_bbox && !q.options_bbox) continue;
-        byPage.set(q.page_index, [...(byPage.get(q.page_index) ?? []), q]);
+        if (q.stem_bbox && paperPages[q.stem_page_index]) {
+          const arr = slotsByPage.get(q.stem_page_index) ?? [];
+          arr.push({ q, kind: "stem", bbox: { ...q.stem_bbox } });
+          slotsByPage.set(q.stem_page_index, arr);
+        }
+        if (q.options_bbox && paperPages[q.options_page_index]) {
+          const arr = slotsByPage.get(q.options_page_index) ?? [];
+          arr.push({ q, kind: "options", bbox: { ...q.options_bbox } });
+          slotsByPage.set(q.options_page_index, arr);
+        }
       }
       // 扩展 bbox：AI 给出的框常常偏紧、漏掉题目附带的图形/几何图。
       // 在同一页内把每道题的 stem/options 框扩展到相邻题目之间的空白处，
