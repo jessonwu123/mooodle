@@ -149,16 +149,21 @@ function PaperDetailPage() {
                 <>
                   <MathText block text={q.stem} className="mt-1 whitespace-pre-wrap text-muted-foreground" />
                   {stemImg && (
-                    <div className="mt-2">
-                      <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                        题干截图（备份）
-                      </div>
-                      <img
-                        src={stemImg}
-                        alt={`第 ${q.question_number} 题题干`}
-                        className="max-h-64 rounded border"
-                      />
-                    </div>
+                    <Collapsible className="mt-2">
+                      <CollapsibleTrigger asChild>
+                        <Button variant="outline" size="sm" className="gap-1.5 group">
+                          <ChevronDown className="h-3.5 w-3.5 transition-transform group-data-[state=open]:rotate-180" />
+                          查看原题
+                        </Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="mt-2">
+                        <img
+                          src={stemImg}
+                          alt={`第 ${q.question_number} 题原题`}
+                          className="max-h-[600px] rounded border"
+                        />
+                      </CollapsibleContent>
+                    </Collapsible>
                   )}
                 </>
               )}
