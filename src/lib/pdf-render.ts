@@ -2,7 +2,6 @@
 // Renders each page of a PDF File to a canvas, returns data URLs and canvases.
 
 import * as pdfjsLib from "pdfjs-dist";
-// @ts-expect-error - vite ?url import
 import workerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
