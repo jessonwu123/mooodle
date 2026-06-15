@@ -67,10 +67,36 @@ interface ExtractedQuestion {
   imageBlob?: Blob | null;
 }
 
-
 function extractYearFromFilename(name: string): number | null {
   const m = name.match(/(19|20)\d{2}/);
   return m ? Number(m[0]) : null;
+}
+
+async function uploadRenderedPageImages(
+  pages: RenderedPage[],
+  prefix: string,
+  label: "试卷" | "答案",
+  setStage: (stage: string) => void,
+) {
+  const bucket = supabase.storage.from("math-papers");
+  const paths: string[] = [];
+  for (const page of pages) {
+    const pageNo = page.pageIndex + 1;
+    const path = `${prefix}/${label === "试卷" ? "paper" : "answer"}-${String(pageNo).padStart(2, "0")}.jpg`;
+    setStage(`上传${label}页面图片 ${pageNo}/${pages.length}...`);
+    const { error } = await bucket.upload(path, page.blob, {
+      contentType: "image/jpeg",
+      upsert: true,
+    });
+    if (error) throw new Error(`上传${label}页面图片失败：${error.message}`);
+    paths.push(path);
+  }
+
+  const { data, error } = await bucket.createSignedUrls(paths, 60 * 60);
+  if (error) throw new Error(`生成${label}页面访问链接失败：${error.message}`);
+  const signedUrls = (data ?? []).map((item) => item.signedUrl).filter(Boolean);
+  if (signedUrls.length !== paths.length) throw new Error(`${label}页面访问链接生成不完整`);
+  return { paths, signedUrls };
 }
 
 function QuestionBankPage() {
@@ -148,15 +174,23 @@ function QuestionBankPage() {
       }
 
       setStage("渲染试卷页面...");
-      const paperPages = await renderPdfPages(paperFile, 1.35);
+      const paperPages = await renderPdfPages(paperFile, 1.15, 0.68);
       let answerPages: RenderedPage[] = [];
       if (answerFile) {
         setStage("渲染答案页面...");
-        answerPages = await renderPdfPages(answerFile, 1.2);
+        answerPages = await renderPdfPages(answerFile, 1.05, 0.68);
       }
 
-      const paperPageImages = paperPages.map((p) => p.dataUrl);
-      const answerPageImages = answerPages.map((p) => p.dataUrl);
+      const imagePrefix = `${yNum}/${ts}-pages`;
+      const { signedUrls: paperPageImages } = await uploadRenderedPageImages(
+        paperPages,
+        imagePrefix,
+        "试卷",
+        setStage,
+      );
+      const { signedUrls: answerPageImages } = answerPages.length
+        ? await uploadRenderedPageImages(answerPages, imagePrefix, "答案", setStage)
+        : { signedUrls: [] as string[] };
       const byNumber = new Map<number, ExtractedQuestion>();
       setStage(`AI 抽取全部 25 道题（约 30-60 秒）...`);
       const result = await extractPaperQuestions({
