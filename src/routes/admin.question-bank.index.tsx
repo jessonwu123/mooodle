@@ -395,6 +395,20 @@ function QuestionBankPage() {
       // 在同一页内把每道题的 stem/options 框扩展到相邻题目之间的空白处，
       // 让图形也能被完整包含进来。
       const expandBboxesOnPage = (pageQs: ExtractedQuestion[]) => {
+        // 先修正 AI 可能给出的 stem/options 重叠：把 stem 底部裁到 options 顶部之上。
+        for (const q of pageQs) {
+          if (q.stem_bbox && q.options_bbox) {
+            const stemTop = q.stem_bbox.y;
+            const stemBottom = q.stem_bbox.y + q.stem_bbox.h;
+            const optsTop = q.options_bbox.y;
+            if (stemBottom > optsTop - 0.003 && stemTop < optsTop) {
+              q.stem_bbox = {
+                ...q.stem_bbox,
+                h: Math.max(0.01, optsTop - 0.005 - stemTop),
+              };
+            }
+          }
+        }
         type Slot = { q: ExtractedQuestion; kind: "stem" | "options"; bbox: NonNullable<Bbox> };
         const slots: Slot[] = [];
         for (const q of pageQs) {
@@ -402,14 +416,14 @@ function QuestionBankPage() {
           if (q.options_bbox) slots.push({ q, kind: "options", bbox: { ...q.options_bbox } });
         }
         slots.sort((a, b) => a.bbox.y - b.bbox.y);
-        // 计算 x 列宽联合，作为水平参考；保留一点空白
+        // 计算 x 列宽联合，作为水平参考；左右多留一些空白以更美观
         let minX = 1;
         let maxX = 0;
         for (const s of slots) {
           minX = Math.min(minX, s.bbox.x);
           maxX = Math.max(maxX, s.bbox.x + s.bbox.w);
         }
-        const padX = 0.015;
+        const padX = 0.03;
         const colX = Math.max(0, minX - padX);
         const colRight = Math.min(1, maxX + padX);
         for (let i = 0; i < slots.length; i++) {
@@ -417,7 +431,11 @@ function QuestionBankPage() {
           const prev = slots[i - 1];
           const next = slots[i + 1];
           const topLimit = prev ? prev.bbox.y + prev.bbox.h + 0.003 : 0;
-          const bottomLimit = next ? next.bbox.y - 0.003 : 1;
+          // stem 不能向下扩展到把自己的 options 包进来
+          let bottomLimit = next ? next.bbox.y - 0.003 : 1;
+          if (cur.kind === "stem" && cur.q.options_bbox) {
+            bottomLimit = Math.min(bottomLimit, cur.q.options_bbox.y - 0.005);
+          }
           const newY = Math.max(topLimit, cur.bbox.y - 0.02);
           const newBottom = Math.min(bottomLimit, cur.bbox.y + cur.bbox.h + 0.02);
           cur.bbox.x = colX;
@@ -430,6 +448,7 @@ function QuestionBankPage() {
           else s.q.options_bbox = s.bbox;
         }
       };
+
       for (const [pageIndex, pageQuestions] of byPage) {
         expandBboxesOnPage(pageQuestions);
         setStage(`裁剪第 ${pageIndex + 1} 页（${pageQuestions.length} 题）...`);
