@@ -76,7 +76,7 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
 即使 render_mode 为 "image"，stem 与各 option 字段仍要尽量给出文字（用于搜索和打 tag），无法识别的图形可用简短描述代替，如 "[象形符号]"。
 
 严格只返回如下 JSON：
-{ "questions": [ { "number": 1, "stem": "...", "option_a": "...", "option_b": "...", "option_c": "...", "option_d": "...", "option_e": "...", "correct_answer": "B", "page_index": 0, "stem_bbox_2d": [..], "options_bbox_2d": [..], "stem_render_mode": "text", "options_render_mode": "text" }, ... ] }`;
+{ "questions": [ { "number": 1, "stem": "...", "option_a": "...", "option_b": "...", "option_c": "...", "option_d": "...", "option_e": "...", "correct_answer": "B", "page_index": 0, "stem_page_index": 0, "options_page_index": 0, "stem_bbox_2d": [..], "options_bbox_2d": [..], "stem_render_mode": "text", "options_render_mode": "text" }, ... ] }`;
 
     const messages = [
       {
