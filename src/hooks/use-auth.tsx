@@ -38,16 +38,16 @@ function loadRoles(uid: string) {
 
   const request = (async () => {
     const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", uid);
-      if (error) throw error;
-      const roles = (data ?? []).map((r) => r.role as string);
-      const nextRoles = {
-        isAdmin: roles.includes("admin"),
-        isTeacher: roles.includes("teacher") || roles.includes("admin"),
-      };
-      roleCache.set(uid, nextRoles);
-      if (snapshot.session?.user.id === uid) {
-        updateSnapshot({ ...nextRoles, loading: false });
-      }
+    if (error) throw error;
+    const roles = (data ?? []).map((r) => r.role as string);
+    const nextRoles = {
+      isAdmin: roles.includes("admin"),
+      isTeacher: roles.includes("teacher") || roles.includes("admin"),
+    };
+    roleCache.set(uid, nextRoles);
+    if (snapshot.session?.user.id === uid) {
+      updateSnapshot({ ...nextRoles, loading: false });
+    }
   })()
     .catch((error: unknown) => {
       console.error("load roles failed", error);
