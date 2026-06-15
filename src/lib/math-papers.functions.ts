@@ -104,7 +104,7 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
         messages,
         response_format: { type: "json_object" },
         temperature: 0,
-        max_tokens: 16000,
+        max_tokens: 32000,
       }),
     });
     if (!resp.ok) {
@@ -115,13 +115,57 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
     }
     const json = await resp.json();
     const content = json.choices?.[0]?.message?.content;
+    const finishReason = json.choices?.[0]?.finish_reason;
     if (!content) throw new Error("AI 返回为空");
-    const contentText = String(content)
+    let contentText = String(content)
       .trim()
       .replace(/^```(?:json)?\s*/i, "")
       .replace(/```$/i, "")
       .trim();
-    const parsed = JSON.parse(contentText) as {
+    // Attempt to recover from truncated JSON (finish_reason === "length")
+    const tryParse = (s: string) => {
+      try { return JSON.parse(s); } catch { return null; }
+    };
+    let parsedRaw = tryParse(contentText);
+    if (!parsedRaw) {
+      // Truncate to last complete question object inside "questions": [ ... ]
+      const arrStart = contentText.indexOf('"questions"');
+      if (arrStart >= 0) {
+        const bracketStart = contentText.indexOf("[", arrStart);
+        if (bracketStart >= 0) {
+          // find last "}," or "}" at depth 1
+          let depth = 0;
+          let lastGood = -1;
+          let inStr = false;
+          let esc = false;
+          for (let i = bracketStart; i < contentText.length; i++) {
+            const c = contentText[i];
+            if (inStr) {
+              if (esc) esc = false;
+              else if (c === "\\") esc = true;
+              else if (c === '"') inStr = false;
+              continue;
+            }
+            if (c === '"') inStr = true;
+            else if (c === "{") depth++;
+            else if (c === "}") {
+              depth--;
+              if (depth === 1) lastGood = i;
+            }
+          }
+          if (lastGood > 0) {
+            const repaired = contentText.slice(0, lastGood + 1) + "]}";
+            parsedRaw = tryParse(repaired);
+          }
+        }
+      }
+      if (!parsedRaw) {
+        const hint = finishReason === "length" ? "（AI 输出超长被截断，请缩小题号范围分批抽取）" : "";
+        throw new Error(`AI 返回的 JSON 无法解析${hint}`);
+      }
+    }
+    const parsed = parsedRaw as {
+
       questions: Array<{
         number: number;
         stem: string;
