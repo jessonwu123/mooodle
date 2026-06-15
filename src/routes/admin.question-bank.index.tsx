@@ -407,7 +407,7 @@ function QuestionBankPage() {
       //   2) 题干正文文本匹配（AI 抽取的 stem 在 PDF 文本层中的位置）
       //   3) "N." 题号
       //   4) AI bbox
-      // 截图底部：同页 "(A)" 选项行上方一行
+      // 截图底部：只能由 (A)~(E) 选项文本决定，不能用页码/页脚作为下边界
       let pageTexts: PdfPageText[] = [];
       try {
         pageTexts = await getPdfTextItems(paperPdfFile);
@@ -421,6 +421,11 @@ function QuestionBankPage() {
           .replace(/\$[^$]*\$/g, " ")
           .toLowerCase()
           .replace(/[^a-z0-9]/g, "");
+      const isFooterPageNumber = (it: { str: string; x: number; y: number; w: number }) => {
+        const text = it.str.trim();
+        const centerX = it.x + it.w / 2;
+        return /^-?\s*\d{1,3}\s*-?$/.test(text) && it.y > 0.88 && centerX > 0.35 && centerX < 0.65;
+      };
       type PageStream = { pageIndex: number; norm: string; ys: number[] };
       const pageStreams: PageStream[] = pageTexts.map((p) => {
         const sorted = [...p.items].sort((a, b) => {
