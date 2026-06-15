@@ -78,7 +78,7 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
         messages,
         response_format: { type: "json_object" },
         temperature: 0,
-        max_tokens: 6000,
+        max_tokens: 16000,
       }),
     });
     if (!resp.ok) {
