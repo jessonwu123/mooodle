@@ -61,6 +61,14 @@ interface ExtractedQuestion {
   imageBlob?: Blob | null;
 }
 
+const QUESTION_BATCHES: Array<[number, number]> = [
+  [1, 5],
+  [6, 10],
+  [11, 15],
+  [16, 20],
+  [21, 25],
+];
+
 function extractYearFromFilename(name: string): number | null {
   const m = name.match(/(19|20)\d{2}/);
   return m ? Number(m[0]) : null;
@@ -76,6 +84,7 @@ function QuestionBankPage() {
   const [name, setName] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState<string>("");
+  const [processError, setProcessError] = useState<string>("");
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [extracted, setExtracted] = useState<ExtractedQuestion[]>([]);
@@ -119,6 +128,7 @@ function QuestionBankPage() {
     if (!name.trim()) return toast.error("请填写试卷名称");
 
     setBusy(true);
+    setProcessError("");
     try {
       setStage("上传试卷 PDF...");
       const ts = Date.now();
@@ -139,22 +149,49 @@ function QuestionBankPage() {
       }
 
       setStage("渲染试卷页面...");
-      const paperPages = await renderPdfPages(paperFile, 1.8);
+      const paperPages = await renderPdfPages(paperFile, 1.35);
       let answerPages: RenderedPage[] = [];
       if (answerFile) {
         setStage("渲染答案页面...");
-        answerPages = await renderPdfPages(answerFile, 1.5);
+        answerPages = await renderPdfPages(answerFile, 1.2);
       }
 
-      setStage("AI 抽取题目（可能需要 30-60 秒）...");
-      const result = await extractPaperQuestions({
-        data: {
-          paperPageImages: paperPages.map((p) => p.dataUrl),
-          answerPageImages: answerPages.map((p) => p.dataUrl),
-        },
-      });
-      const qs = result.questions as ExtractedQuestion[];
+      const paperPageImages = paperPages.map((p) => p.dataUrl);
+      const answerPageImages = answerPages.map((p) => p.dataUrl);
+      const byNumber = new Map<number, ExtractedQuestion>();
+      for (const [questionStart, questionEnd] of QUESTION_BATCHES) {
+        setStage(`AI 抽取第 ${questionStart}-${questionEnd} 题...`);
+        const result = await extractPaperQuestions({
+          data: {
+            paperPageImages,
+            answerPageImages,
+            questionStart,
+            questionEnd,
+          },
+        });
+        for (const raw of result.questions ?? []) {
+          const q = raw as ExtractedQuestion;
+          const number = Number(q.number);
+          if (!Number.isInteger(number) || number < questionStart || number > questionEnd) continue;
+          byNumber.set(number, {
+            ...q,
+            number,
+            stem: q.stem ?? "",
+            option_a: q.option_a ?? null,
+            option_b: q.option_b ?? null,
+            option_c: q.option_c ?? null,
+            option_d: q.option_d ?? null,
+            option_e: q.option_e ?? null,
+            correct_answer: q.correct_answer ? q.correct_answer.toUpperCase().slice(0, 1) : null,
+            has_figure: Boolean(q.has_figure),
+            page_index: Number.isInteger(Number(q.page_index)) ? Number(q.page_index) : 0,
+            bbox: q.bbox ?? null,
+          });
+        }
+      }
+      const qs = Array.from(byNumber.values()).sort((a, b) => a.number - b.number);
       if (!qs?.length) throw new Error("AI 未抽取到题目");
+      if (qs.length < 25) toast.warning(`只抽取到 ${qs.length} 道题，请在预览中检查`);
 
       setStage("裁剪题目配图...");
       for (const q of qs) {
@@ -171,13 +208,15 @@ function QuestionBankPage() {
 
       setPaperPath(pPath);
       setAnswerPath(aPath);
-      setExtracted(qs.sort((a, b) => a.number - b.number));
+      setExtracted(qs);
       setUploadOpen(false);
       setPreviewOpen(true);
       toast.success(`已抽取 ${qs.length} 道题，请确认后入库`);
     } catch (err) {
       console.error(err);
-      toast.error(err instanceof Error ? err.message : "处理失败");
+      const message = err instanceof Error ? err.message : "处理失败";
+      setProcessError(message);
+      toast.error(message);
     } finally {
       setBusy(false);
       setStage("");
