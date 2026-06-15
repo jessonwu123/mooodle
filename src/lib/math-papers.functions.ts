@@ -62,9 +62,11 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
 - stem: 题干文本（保留原语言；数学公式用 $...$ 包裹，例如 $x^2 + 1$）
 - option_a/option_b/option_c/option_d/option_e: 五个选项文本（保留 $...$）
 - correct_answer: 正确答案字母（A/B/C/D/E），从答案页查得；如无答案页则为 null
-- page_index: 该题所在的试卷页索引（0 到 ${paperCount - 1}）。如果题目跨页，请按选项 (A)-(E) 所在的页来填。
-- stem_bbox_2d: 题干区域的边界框。**必须把题号、题干文字以及题目附带的全部图形/几何图/示意图/表格完整圈进来**（图形可能在文字上方、下方或与文字穿插，都要包含；宁可框得宽松一点也不要切掉图形的任何一边，包括图形上方/下方的留白、坐标轴标签、刻度文字、单位说明），但不要包含 A-E 选项行。格式 [ymin, xmin, ymax, xmax]，0-1000 范围整数，左上角原点，相对 page_index 那张页面图片。
-- options_bbox_2d: 包含 A-E 全部 5 个选项的整块区域的边界框（如果选项里有图形，必须把图形完整包进来），格式同上。
+- stem_page_index: 题干（含题号和附带图形）所在的试卷页索引（0 到 ${paperCount - 1}）。
+- options_page_index: A-E 五个选项所在的试卷页索引（0 到 ${paperCount - 1}）。**如果题目跨页**（题干在某一页底部，选项在下一页顶部），stem_page_index 和 options_page_index 必须分别填写正确的页号。
+- page_index: 与 options_page_index 相同，保留作兼容字段。
+- stem_bbox_2d: 题干区域的边界框，**坐标必须相对 stem_page_index 那一页**。**必须把题号、题干文字以及题目附带的全部图形/几何图/示意图/表格完整圈进来**（图形可能在文字上方、下方或与文字穿插，都要包含；宁可框得宽松一点也不要切掉图形的任何一边，包括图形上方/下方的留白、坐标轴标签、刻度文字、单位说明）。**绝对不要把以 (A)、(B) 等开头的选项行包含进 stem_bbox**——题干的下边界必须严格停在选项行的上方。格式 [ymin, xmin, ymax, xmax]，0-1000 范围整数，左上角原点。
+- options_bbox_2d: 包含 A-E 全部 5 个选项的整块区域的边界框，**坐标相对 options_page_index 那一页**。如果选项里有图形，必须把图形完整包进来。格式同上。
 - stem_render_mode: "text" 或 "image"。判定规则：
     * 题干**仅由文字、数字、可用 LaTeX 表示的公式**组成 → "text"
     * 题干含有**无法用文字或 LaTeX 表达的图形**（如几何图、函数图像、示意图、表格、象形符号嵌在句中、图片穿插在文字之间）→ "image"
@@ -74,7 +76,7 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
 即使 render_mode 为 "image"，stem 与各 option 字段仍要尽量给出文字（用于搜索和打 tag），无法识别的图形可用简短描述代替，如 "[象形符号]"。
 
 严格只返回如下 JSON：
-{ "questions": [ { "number": 1, "stem": "...", "option_a": "...", "option_b": "...", "option_c": "...", "option_d": "...", "option_e": "...", "correct_answer": "B", "page_index": 0, "stem_bbox_2d": [..], "options_bbox_2d": [..], "stem_render_mode": "text", "options_render_mode": "text" }, ... ] }`;
+{ "questions": [ { "number": 1, "stem": "...", "option_a": "...", "option_b": "...", "option_c": "...", "option_d": "...", "option_e": "...", "correct_answer": "B", "page_index": 0, "stem_page_index": 0, "options_page_index": 0, "stem_bbox_2d": [..], "options_bbox_2d": [..], "stem_render_mode": "text", "options_render_mode": "text" }, ... ] }`;
 
     const messages = [
       {
@@ -176,6 +178,8 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
         option_e: string | null;
         correct_answer: string | null;
         page_index: number;
+        stem_page_index?: number | null;
+        options_page_index?: number | null;
         stem_bbox_2d?: [number, number, number, number] | null;
         options_bbox_2d?: [number, number, number, number] | null;
         stem_render_mode?: string | null;
@@ -184,13 +188,23 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
     };
     const normMode = (m: unknown): "text" | "image" =>
       typeof m === "string" && m.toLowerCase() === "image" ? "image" : "text";
-    const questions = (parsed.questions ?? []).map((q) => ({
-      ...q,
-      stem_bbox: bboxFromGemini(q.stem_bbox_2d),
-      options_bbox: bboxFromGemini(q.options_bbox_2d),
-      stem_render_mode: normMode(q.stem_render_mode),
-      options_render_mode: normMode(q.options_render_mode),
-    }));
+    const toPageIdx = (v: unknown, fallback: number): number => {
+      const n = Number(v);
+      return Number.isInteger(n) && n >= 0 && n < paperCount ? n : fallback;
+    };
+    const questions = (parsed.questions ?? []).map((q) => {
+      const basePage = toPageIdx(q.page_index, 0);
+      return {
+        ...q,
+        page_index: basePage,
+        stem_page_index: toPageIdx(q.stem_page_index, basePage),
+        options_page_index: toPageIdx(q.options_page_index, basePage),
+        stem_bbox: bboxFromGemini(q.stem_bbox_2d),
+        options_bbox: bboxFromGemini(q.options_bbox_2d),
+        stem_render_mode: normMode(q.stem_render_mode),
+        options_render_mode: normMode(q.options_render_mode),
+      };
+    });
     return { questions } as {
       questions: Array<{
         number: number;
@@ -202,6 +216,8 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
         option_e: string | null;
         correct_answer: string | null;
         page_index: number;
+        stem_page_index: number;
+        options_page_index: number;
         stem_bbox: Bbox;
         options_bbox: Bbox;
         stem_render_mode: "text" | "image";
