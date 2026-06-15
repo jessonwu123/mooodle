@@ -530,9 +530,9 @@ function QuestionBankPage() {
           <div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <BookOpen className="h-4 w-4" />
-              题库管理
+              原始题库
             </div>
-            <h1 className="mt-1 text-2xl font-bold text-foreground">数学试卷题库</h1>
+            <h1 className="mt-1 text-2xl font-bold text-foreground">原始题库 · 数学试卷</h1>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
