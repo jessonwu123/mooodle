@@ -45,10 +45,10 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
 - correct_answer: 正确答案字母（A/B/C/D/E），从答案页查得；如无答案页则为 null
 - has_figure: 该题是否包含必须显示的图形、几何图、坐标图、示意图（true/false）；纯文字题为 false
 - page_index: 该题题干所在的试卷页索引（0 到 ${paperCount - 1}）
-- bbox: 当 has_figure=true 时，给出该图形在 page_index 那张图中的归一化矩形 { x, y, w, h }（0-1 范围，左上角原点）；尽量只圈住图形本身，不要包含题号和大段文字；has_figure=false 时为 null
+- bbox_2d: 当 has_figure=true 时，给出该图形在 page_index 那张图中的边界框，格式为 [ymin, xmin, ymax, xmax]，所有值为 0-1000 范围的整数（Gemini 标准 2D bounding box 格式，左上角原点）；尽量只圈住图形本身，不要包含题号和大段文字；has_figure=false 时为 null
 
 严格只返回如下 JSON：
-{ "questions": [ { "number": 1, "stem": "...", "option_a": "...", "option_b": "...", "option_c": "...", "option_d": "...", "option_e": "...", "correct_answer": "B", "has_figure": false, "page_index": 0, "bbox": null }, ... ] }`;
+{ "questions": [ { "number": 1, "stem": "...", "option_a": "...", "option_b": "...", "option_c": "...", "option_d": "...", "option_e": "...", "correct_answer": "B", "has_figure": false, "page_index": 0, "bbox_2d": null }, ... ] }`;
 
     const messages = [
       {
