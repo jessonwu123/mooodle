@@ -616,7 +616,8 @@ function QuestionBankPage() {
             (m, it) => Math.max(m, it.y + it.h),
             0,
           );
-          const bottom = Math.min(0.995, lastY + oneLine * 1.2);
+          // 仅在最后一行选项下方留一点空白，避免吃进页脚页码
+          const bottom = Math.min(0.97, lastY + oneLine * 0.35);
           regionsByQ.set(q.number, [
             {
               page: loc.page,
@@ -656,7 +657,7 @@ function QuestionBankPage() {
           if (nextPageOpts.length > 0) {
             const topY = Math.max(0, nextPageOpts[0].y - 0.006);
             const lastY = nextPageOpts.reduce((m, it) => Math.max(m, it.y + it.h), 0);
-            const bottomY = Math.min(0.995, lastY + oneLine * 1.2);
+            const bottomY = Math.min(0.97, lastY + oneLine * 0.35);
             regions.push({
               page: next.page,
               bbox: {
