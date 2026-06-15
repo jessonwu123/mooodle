@@ -206,7 +206,9 @@ function QuestionBankPage() {
         : { signedUrls: [] as string[] };
       const byNumber = new Map<number, ExtractedQuestion>();
       for (const [batchIndex, [questionStart, questionEnd]] of QUESTION_BATCHES.entries()) {
-        setStage(`AI 抽取第 ${questionStart}-${questionEnd} 题（${batchIndex + 1}/${QUESTION_BATCHES.length}）...`);
+        setStage(
+          `AI 抽取第 ${questionStart}-${questionEnd} 题（${batchIndex + 1}/${QUESTION_BATCHES.length}）...`,
+        );
         const result = await extractPaperQuestions({
           data: {
             paperPageImages,
