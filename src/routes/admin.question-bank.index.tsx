@@ -604,14 +604,6 @@ function QuestionBankPage() {
         const next = stemLocByNum.get(q.number + 1) ?? null;
         const stemTop = Math.max(0, loc.y - 0.006);
 
-        // 估计一行高度
-        const nearItems = pageTexts[loc.page]?.items.filter(
-          (it) => Math.abs(it.y - loc.y) < 0.2 && it.h > 0,
-        ) ?? [];
-        const heights = nearItems.map((it) => it.h).sort((a, b) => a - b);
-        const sampleH = heights[Math.floor(heights.length / 2)] ?? 0.014;
-        const oneLine = Math.max(0.012, sampleH * 1.1);
-
         const markerRe = /^\([A-E]\)/;
         const optionMarkerRank = (it: { str: string }) => {
           const m = it.str.trim().match(/^\(([A-E])\)/);
@@ -674,7 +666,7 @@ function QuestionBankPage() {
                 x: MARGIN_X,
                 y: stemTop,
                 w: MARGIN_W,
-                h: Math.max(0.02, 0.995 - stemTop),
+                h: Math.max(0.02, (getPageContentBottom(loc.page, stemTop) ?? 0.995) - stemTop),
               },
             },
           ];
@@ -698,8 +690,10 @@ function QuestionBankPage() {
           q.stem_bbox = regions[0].bbox;
           q.options_bbox = regions[1]?.bbox ?? null;
         } else {
-          // 无选项标记：取到下题之前或页底
-          const bottom = next && next.page === loc.page ? next.y - 0.006 : 0.995;
+          // 无选项标记：取到下题之前；若没有下题，仅取到正文最后一行，明确排除页脚页码
+          const bottom = next && next.page === loc.page
+            ? next.y - 0.006
+            : (getPageContentBottom(loc.page, stemTop) ?? 0.995);
           const bbox = {
             x: MARGIN_X,
             y: stemTop,
