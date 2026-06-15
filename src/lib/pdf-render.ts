@@ -100,3 +100,55 @@ export function cropCanvasToBlob(
     out.toBlob((b) => (b ? resolve(b) : reject(new Error("裁剪失败"))), "image/png"),
   );
 }
+
+// 从 PDF 文本层抽取每页所有文本片段（坐标已归一化到 0-1，左上角原点）。
+// 用来定位题号 "1." "16." 等锚点和选项 "(A)" 锚点。
+export interface PdfTextItem {
+  str: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+export interface PdfPageText {
+  pageIndex: number;
+  items: PdfTextItem[];
+}
+export async function getPdfTextItems(file: File): Promise<PdfPageText[]> {
+  const pdfjsLib = await loadPdfjs();
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const pages: PdfPageText[] = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 1 });
+    const content = await page.getTextContent();
+    const items: PdfTextItem[] = [];
+    for (const raw of content.items as Array<{
+      str?: string;
+      transform?: number[];
+      width?: number;
+      height?: number;
+    }>) {
+      if (typeof raw.str !== "string" || !raw.str.trim()) continue;
+      const tr = raw.transform;
+      if (!Array.isArray(tr) || tr.length < 6) continue;
+      const b = tr[1];
+      const d = tr[3];
+      const e = tr[4];
+      const f = tr[5];
+      const fontHeight = Math.hypot(b, d) || raw.height || 0;
+      const [vx, vy] = viewport.convertToViewportPoint(e, f);
+      items.push({
+        str: raw.str,
+        x: vx / viewport.width,
+        y: (vy - fontHeight) / viewport.height,
+        w: (raw.width || 0) / viewport.width,
+        h: fontHeight / viewport.height,
+      });
+    }
+    pages.push({ pageIndex: i - 1, items });
+  }
+  return pages;
+}
+
