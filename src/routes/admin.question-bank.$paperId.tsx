@@ -144,7 +144,7 @@ function PaperDetailPage() {
                 </div>
               ) : (
                 <>
-                  <div className="mt-1 whitespace-pre-wrap text-muted-foreground">{q.stem}</div>
+                  <MathText block text={q.stem} className="mt-1 whitespace-pre-wrap text-muted-foreground" />
                   {stemImg && (
                     <div className="mt-2">
                       <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
