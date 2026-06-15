@@ -1,6 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Upload, Trash2, Loader2, BookOpen, ImageIcon, Pencil, Check, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Upload,
+  Trash2,
+  Loader2,
+  BookOpen,
+  ImageIcon,
+  Pencil,
+  Check,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -26,11 +36,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  extractPaperQuestions,
-  saveMathPaper,
-  deleteMathPaper,
-} from "@/lib/math-papers.functions";
+import { extractPaperQuestions, saveMathPaper, deleteMathPaper } from "@/lib/math-papers.functions";
 import { renderPdfPages, cropCanvasToBlob, type RenderedPage } from "@/lib/pdf-render";
 
 export const Route = createFileRoute("/admin/question-bank")({

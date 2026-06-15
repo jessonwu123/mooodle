@@ -70,9 +70,6 @@ export function cropCanvasToBlob(
   if (!ctx) throw new Error("无法创建 canvas 上下文");
   ctx.drawImage(canvas, x, y, w, h, 0, 0, out.width, out.height);
   return new Promise<Blob>((resolve, reject) =>
-    out.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error("裁剪失败"))),
-      "image/png",
-    ),
+    out.toBlob((b) => (b ? resolve(b) : reject(new Error("裁剪失败"))), "image/png"),
   );
 }

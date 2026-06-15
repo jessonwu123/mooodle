@@ -2,15 +2,17 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-const ExtractInput = z.object({
-  paperPageImages: z.array(z.string()).min(1).max(30),
-  answerPageImages: z.array(z.string()).max(10).default([]),
-  questionStart: z.number().int().min(1).max(25).default(1),
-  questionEnd: z.number().int().min(1).max(25).default(25),
-}).refine((d) => d.questionStart <= d.questionEnd, {
-  message: "题号范围无效",
-  path: ["questionEnd"],
-});
+const ExtractInput = z
+  .object({
+    paperPageImages: z.array(z.string()).min(1).max(30),
+    answerPageImages: z.array(z.string()).max(10).default([]),
+    questionStart: z.number().int().min(1).max(25).default(1),
+    questionEnd: z.number().int().min(1).max(25).default(25),
+  })
+  .refine((d) => d.questionStart <= d.questionEnd, {
+    message: "题号范围无效",
+    path: ["questionEnd"],
+  });
 
 export const extractPaperQuestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -26,9 +28,10 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
     if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
 
     const paperCount = data.paperPageImages.length;
-    const rangeText = data.questionStart === 1 && data.questionEnd === 25
-      ? "全部 25 道题目"
-      : `第 ${data.questionStart}-${data.questionEnd} 题（只返回这个题号范围）`;
+    const rangeText =
+      data.questionStart === 1 && data.questionEnd === 25
+        ? "全部 25 道题目"
+        : `第 ${data.questionStart}-${data.questionEnd} 题（只返回这个题号范围）`;
     const prompt = `这是一份 AMC 8 数学竞赛试卷，共 25 道选择题，每题有 A-E 五个选项。
 
 我会按顺序给你两类图片：
@@ -87,7 +90,11 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
     const json = await resp.json();
     const content = json.choices?.[0]?.message?.content;
     if (!content) throw new Error("AI 返回为空");
-    const contentText = String(content).trim().replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim();
+    const contentText = String(content)
+      .trim()
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/```$/i, "")
+      .trim();
     const parsed = JSON.parse(contentText);
     return parsed as {
       questions: Array<{
