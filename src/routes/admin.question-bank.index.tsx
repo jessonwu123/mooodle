@@ -56,6 +56,8 @@ interface PaperRow {
   created_at: string;
 }
 
+type Bbox = { x: number; y: number; w: number; h: number } | null;
+
 interface ExtractedQuestion {
   number: number;
   stem: string;
@@ -65,11 +67,13 @@ interface ExtractedQuestion {
   option_d: string | null;
   option_e: string | null;
   correct_answer: string | null;
-  has_figure: boolean;
   page_index: number;
-  bbox: { x: number; y: number; w: number; h: number } | null;
-  imageDataUrl?: string | null;
-  imageBlob?: Blob | null;
+  stem_bbox: Bbox;
+  options_bbox: Bbox;
+  stemImageBlob?: Blob | null;
+  stemImageDataUrl?: string | null;
+  optionsImageBlob?: Blob | null;
+  optionsImageDataUrl?: string | null;
 }
 
 let paperRowsCache: PaperRow[] | null = null;
