@@ -137,15 +137,15 @@ function QuestionBankPage() {
     if (showLoading) setLoading(true);
     try {
       if (!paperRowsRequest) {
-        paperRowsRequest = supabase
-          .from("math_papers")
-          .select("id, year, name, question_count, created_at")
-          .order("year", { ascending: false })
-          .order("created_at", { ascending: false })
-          .then(({ data, error }) => {
+        paperRowsRequest = (async () => {
+          const { data, error } = await supabase
+            .from("math_papers")
+            .select("id, year, name, question_count, created_at")
+            .order("year", { ascending: false })
+            .order("created_at", { ascending: false });
             if (error) throw error;
             return (data ?? []) as PaperRow[];
-          })
+        })()
           .finally(() => {
             paperRowsRequest = null;
           });
