@@ -178,6 +178,8 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
         option_e: string | null;
         correct_answer: string | null;
         page_index: number;
+        stem_page_index?: number | null;
+        options_page_index?: number | null;
         stem_bbox_2d?: [number, number, number, number] | null;
         options_bbox_2d?: [number, number, number, number] | null;
         stem_render_mode?: string | null;
@@ -186,13 +188,23 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
     };
     const normMode = (m: unknown): "text" | "image" =>
       typeof m === "string" && m.toLowerCase() === "image" ? "image" : "text";
-    const questions = (parsed.questions ?? []).map((q) => ({
-      ...q,
-      stem_bbox: bboxFromGemini(q.stem_bbox_2d),
-      options_bbox: bboxFromGemini(q.options_bbox_2d),
-      stem_render_mode: normMode(q.stem_render_mode),
-      options_render_mode: normMode(q.options_render_mode),
-    }));
+    const toPageIdx = (v: unknown, fallback: number): number => {
+      const n = Number(v);
+      return Number.isInteger(n) && n >= 0 && n < paperCount ? n : fallback;
+    };
+    const questions = (parsed.questions ?? []).map((q) => {
+      const basePage = toPageIdx(q.page_index, 0);
+      return {
+        ...q,
+        page_index: basePage,
+        stem_page_index: toPageIdx(q.stem_page_index, basePage),
+        options_page_index: toPageIdx(q.options_page_index, basePage),
+        stem_bbox: bboxFromGemini(q.stem_bbox_2d),
+        options_bbox: bboxFromGemini(q.options_bbox_2d),
+        stem_render_mode: normMode(q.stem_render_mode),
+        options_render_mode: normMode(q.options_render_mode),
+      };
+    });
     return { questions } as {
       questions: Array<{
         number: number;
@@ -204,6 +216,8 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
         option_e: string | null;
         correct_answer: string | null;
         page_index: number;
+        stem_page_index: number;
+        options_page_index: number;
         stem_bbox: Bbox;
         options_bbox: Bbox;
         stem_render_mode: "text" | "image";
