@@ -1,16 +1,35 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, BookOpen, ChevronDown } from "lucide-react";
+import { ArrowLeft, BookOpen, ChevronDown, Sparkles, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { MathText } from "@/components/math-text";
-
+import {
+  listTags,
+  listQuestionTags,
+  setQuestionTags,
+  autoTagPaper,
+} from "@/lib/math-tags.functions";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 export const Route = createFileRoute("/admin/question-bank/$paperId")({
   component: PaperDetailPage,
 });
+
+type TagRow = {
+  id: string;
+  name: string;
+  category: string;
+  color: string | null;
+  description: string | null;
+};
 
 interface PaperRow {
   id: string;
