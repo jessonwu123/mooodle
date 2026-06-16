@@ -140,8 +140,9 @@ function PaperDetailPage() {
                     className="max-h-80 rounded border"
                   />
                   {q.stem && (
-                    <div className="mt-1 text-[10px] text-muted-foreground">
-                      文本备份：{q.stem}
+                    <div className="mt-1 flex gap-1 text-[10px] text-muted-foreground">
+                      <span className="shrink-0">文本备份：</span>
+                      <MathText text={q.stem} className="flex-1" />
                     </div>
                   )}
                 </div>
