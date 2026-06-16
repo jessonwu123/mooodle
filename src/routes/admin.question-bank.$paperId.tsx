@@ -57,15 +57,45 @@ interface QuestionRow {
 
 function PaperDetailPage() {
   const { paperId } = Route.useParams();
+  const fetchTags = useServerFn(listTags);
+  const fetchQuestionTags = useServerFn(listQuestionTags);
+  const saveQuestionTags = useServerFn(setQuestionTags);
+  const runAutoTag = useServerFn(autoTagPaper);
+
   const [paper, setPaper] = useState<PaperRow | null>(null);
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [allTags, setAllTags] = useState<TagRow[]>([]);
+  const [questionTagMap, setQuestionTagMap] = useState<Record<string, string[]>>({});
+  const [aiAssigned, setAiAssigned] = useState<Record<string, Set<string>>>({});
+  const [autoTagging, setAutoTagging] = useState(false);
+
+  const tagById = useMemo(() => {
+    const m: Record<string, TagRow> = {};
+    allTags.forEach((t) => (m[t.id] = t));
+    return m;
+  }, [allTags]);
+
+  const loadQuestionTags = async (qIds: string[]) => {
+    if (qIds.length === 0) return;
+    const { links } = await fetchQuestionTags({ data: { questionIds: qIds } });
+    const map: Record<string, string[]> = {};
+    const ai: Record<string, Set<string>> = {};
+    (links as Array<{ question_id: string; tag_id: string; assigned_by_ai: boolean }>).forEach(
+      (l) => {
+        (map[l.question_id] ??= []).push(l.tag_id);
+        if (l.assigned_by_ai) (ai[l.question_id] ??= new Set()).add(l.tag_id);
+      },
+    );
+    setQuestionTagMap(map);
+    setAiAssigned(ai);
+  };
 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const [{ data: p }, { data: qs }] = await Promise.all([
+      const [{ data: p }, { data: qs }, tagsRes] = await Promise.all([
         supabase.from("math_papers").select("id, year, name, question_count").eq("id", paperId).single(),
         supabase
           .from("math_questions")
@@ -74,6 +104,7 @@ function PaperDetailPage() {
           )
           .eq("paper_id", paperId)
           .order("question_number"),
+        fetchTags().catch(() => ({ tags: [] })),
       ]);
       if (!p) {
         toast.error("试卷不存在");
@@ -83,8 +114,8 @@ function PaperDetailPage() {
       setPaper(p as PaperRow);
       const list = (qs ?? []) as QuestionRow[];
       setQuestions(list);
+      setAllTags(((tagsRes as { tags: TagRow[] }).tags ?? []) as TagRow[]);
 
-      // sign image URLs (stem + options)
       const paths = list
         .flatMap((q) => [q.image_path, q.options_image_path])
         .filter(Boolean) as string[];
@@ -98,9 +129,43 @@ function PaperDetailPage() {
         });
         setImageUrls(map);
       }
+      await loadQuestionTags(list.map((q) => q.id));
       setLoading(false);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paperId]);
+
+  const handleAutoTag = async () => {
+    if (allTags.length === 0) {
+      toast.error("请先到「分类题库」创建至少一个标签");
+      return;
+    }
+    if (!confirm("使用 AI 自动给本卷所有题目打标签？将在已有标签基础上追加（已有的不会被删除）。")) return;
+    setAutoTagging(true);
+    try {
+      const r = await runAutoTag({ data: { paperId, overwrite: false } });
+      toast.success(`AI 完成：${r.totalQuestions} 题，新增 ${r.inserted} 条标签`);
+      await loadQuestionTags(questions.map((q) => q.id));
+    } catch (e: any) {
+      toast.error(e?.message ?? "AI 打标签失败");
+    } finally {
+      setAutoTagging(false);
+    }
+  };
+
+  const toggleTag = async (questionId: string, tagId: string) => {
+    const current = questionTagMap[questionId] ?? [];
+    const next = current.includes(tagId)
+      ? current.filter((t) => t !== tagId)
+      : [...current, tagId];
+    setQuestionTagMap((m) => ({ ...m, [questionId]: next }));
+    try {
+      await saveQuestionTags({ data: { questionId, tagIds: next } });
+    } catch (e: any) {
+      toast.error(e?.message ?? "保存失败");
+      setQuestionTagMap((m) => ({ ...m, [questionId]: current }));
+    }
+  };
 
   if (loading) {
     return <div className="rounded-xl border bg-card p-8 text-center text-sm text-muted-foreground">加载中...</div>;
