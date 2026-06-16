@@ -181,13 +181,22 @@ function PaperDetailPage() {
             返回题库
           </Button>
         </Link>
-        <div>
+        <div className="flex-1">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <BookOpen className="h-4 w-4" />
             {paper.year} 试卷详情
           </div>
           <h1 className="mt-1 text-2xl font-bold text-foreground">{paper.name}</h1>
         </div>
+        <Button
+          onClick={handleAutoTag}
+          disabled={autoTagging}
+          className="gap-1.5"
+          variant="outline"
+        >
+          <Sparkles className="h-4 w-4" />
+          {autoTagging ? "AI 打标签中..." : "AI 自动打标签"}
+        </Button>
       </div>
       <div className="space-y-3">
         {questions.map((q) => {
