@@ -1494,6 +1494,9 @@ function QuestionEditor({
           onOpenChange={setCropOpen}
           initialRegions={q.regions!}
           pageImages={pageImages}
+          paperPdfFile={paperPdfFile}
+          totalPdfPages={totalPdfPages}
+          onPageRendered={onPageRendered}
           onSaved={(regions, blob, dataUrl) => {
             if (q.stemImageDataUrl) {
               try { URL.revokeObjectURL(q.stemImageDataUrl); } catch { /* noop */ }
