@@ -207,6 +207,7 @@ function QuestionBankPage() {
   const [extractError, setExtractError] = useState<string>("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [extracted, setExtracted] = useState<ExtractedQuestion[]>([]);
+  const [pageImages, setPageImages] = useState<Map<number, string>>(new Map());
   const [savingPreview, setSavingPreview] = useState(false);
 
   const [downloadingId, setDownloadingId] = useState<string>("");
