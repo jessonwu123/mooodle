@@ -130,7 +130,6 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
     // Also strip stray control characters that break JSON.parse inside strings.
     const fixLatexEscapes = (s: string) =>
       s
-        .replace(/\\(?=u[0-9a-fA-F]{4})/g, "\\u")
         .replace(/\\(?!["\\/bfnrtu])/g, "\\\\")
         .replace(/\\u(?![0-9a-fA-F]{4})/g, "\\\\u")
         .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ");
