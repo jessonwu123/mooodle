@@ -348,6 +348,8 @@ function QuestionBankPage() {
 
       setStage("渲染试卷页面...");
       const paperPages = await renderPdfPages(paperPdfFile, 1.15, 0.68);
+      setPaperPdfFile(paperPdfFile);
+      setTotalPdfPages(paperPages.length);
 
       const imagePrefix = `${paper.year ?? "n"}/${paper.id}-pages`;
       const { signedUrls: paperPageImages } = await uploadRenderedPageImages(
