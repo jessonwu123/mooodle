@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Upload,
@@ -16,6 +16,7 @@ import {
   FolderPlus,
   Folder,
   ChevronRight,
+  Crop,
 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -95,6 +96,7 @@ interface PaperRow {
 }
 
 type Bbox = { x: number; y: number; w: number; h: number } | null;
+type Region = { page: number; bbox: NonNullable<Bbox> };
 
 interface ExtractedQuestion {
   number: number;
@@ -116,6 +118,7 @@ interface ExtractedQuestion {
   stemImageDataUrl?: string | null;
   optionsImageBlob?: Blob | null;
   optionsImageDataUrl?: string | null;
+  regions?: Region[];
 }
 
 const QUESTION_BATCHES = [
@@ -204,6 +207,7 @@ function QuestionBankPage() {
   const [extractError, setExtractError] = useState<string>("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [extracted, setExtracted] = useState<ExtractedQuestion[]>([]);
+  const [pageImages, setPageImages] = useState<Map<number, string>>(new Map());
   const [savingPreview, setSavingPreview] = useState(false);
 
   const [downloadingId, setDownloadingId] = useState<string>("");
@@ -589,7 +593,7 @@ function QuestionBankPage() {
       const MARGIN_X = 0.085;
       const MARGIN_W = 1 - MARGIN_X * 2;
       // 每题对应的待截区域（可能跨页，需要后续纵向拼接）
-      type Region = { page: number; bbox: NonNullable<Bbox> };
+      // Region type declared at module scope
       const regionsByQ = new Map<number, Region[]>();
 
       for (const q of qs) {
@@ -772,6 +776,7 @@ function QuestionBankPage() {
       for (const q of qs) {
         const regions = regionsByQ.get(q.number);
         if (!regions || regions.length === 0) continue;
+        q.regions = regions.map((r) => ({ page: r.page, bbox: { ...r.bbox } }));
         try {
           const crops: HTMLCanvasElement[] = [];
           for (const r of regions) {
@@ -789,6 +794,17 @@ function QuestionBankPage() {
           console.error("crop failed", q.number, err);
         }
       }
+
+      // 保留各页全分辨率图像（dataURL），用于人工调整截图时再次裁剪
+      const pageImagesMap = new Map<number, string>();
+      for (const [p, canvas] of pageCanvases.entries()) {
+        try {
+          pageImagesMap.set(p, canvas.toDataURL("image/jpeg", 0.85));
+        } catch (err) {
+          console.warn("toDataURL failed", p, err);
+        }
+      }
+      setPageImages(pageImagesMap);
 
       // 释放 canvas
       for (const c of pageCanvases.values()) {
@@ -1266,6 +1282,7 @@ function QuestionBankPage() {
               <QuestionEditor
                 key={q.number}
                 q={q}
+                pageImages={pageImages}
                 onChange={(patch) => {
                   const next = [...extracted];
                   next[idx] = { ...q, ...patch };
@@ -1294,12 +1311,16 @@ function QuestionBankPage() {
 
 function QuestionEditor({
   q,
+  pageImages,
   onChange,
 }: {
   q: ExtractedQuestion;
+  pageImages: Map<number, string>;
   onChange: (patch: Partial<ExtractedQuestion>) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [cropOpen, setCropOpen] = useState(false);
+  const canCrop = !!(q.regions && q.regions.length > 0 && pageImages.size > 0);
   return (
     <div className="rounded-lg border bg-card p-3 text-sm">
       <div className="flex items-start justify-between gap-2">
@@ -1412,8 +1433,20 @@ function QuestionEditor({
 
       {q.stemImageDataUrl && (
         <div className="mt-2">
-          <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-            题干截图
+          <div className="mb-1 flex items-center justify-between">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              题干截图
+            </div>
+            {canCrop && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 gap-1 px-2 text-[10px]"
+                onClick={() => setCropOpen(true)}
+              >
+                <Crop className="h-3 w-3" /> 调整截图
+              </Button>
+            )}
           </div>
           <img
             src={q.stemImageDataUrl}
@@ -1434,6 +1467,271 @@ function QuestionEditor({
           />
         </div>
       )}
+
+      {canCrop && (
+        <CropEditDialog
+          open={cropOpen}
+          onOpenChange={setCropOpen}
+          initialRegions={q.regions!}
+          pageImages={pageImages}
+          onSaved={(regions, blob, dataUrl) => {
+            if (q.stemImageDataUrl) {
+              try { URL.revokeObjectURL(q.stemImageDataUrl); } catch { /* noop */ }
+            }
+            onChange({
+              regions,
+              stemImageBlob: blob,
+              stemImageDataUrl: dataUrl,
+            });
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function CropEditDialog({
+  open,
+  onOpenChange,
+  initialRegions,
+  pageImages,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  initialRegions: Region[];
+  pageImages: Map<number, string>;
+  onSaved: (regions: Region[], blob: Blob, dataUrl: string) => void;
+}) {
+  const [regions, setRegions] = useState<Region[]>(initialRegions);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (open) setRegions(initialRegions.map((r) => ({ page: r.page, bbox: { ...r.bbox } })));
+  }, [open, initialRegions]);
+
+  const updateBbox = (i: number, bbox: Region["bbox"]) => {
+    setRegions((rs) => rs.map((r, idx) => (idx === i ? { ...r, bbox } : r)));
+  };
+
+  const handleApply = async () => {
+    setSaving(true);
+    try {
+      const loadImg = (src: string) =>
+        new Promise<HTMLImageElement>((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error("加载页面图片失败"));
+          img.src = src;
+        });
+      const crops: HTMLCanvasElement[] = [];
+      for (const r of regions) {
+        const src = pageImages.get(r.page);
+        if (!src) continue;
+        const img = await loadImg(src);
+        const pad = 0.003;
+        const x = Math.max(0, (r.bbox.x - pad) * img.naturalWidth);
+        const y = Math.max(0, (r.bbox.y - pad) * img.naturalHeight);
+        const w = Math.min(img.naturalWidth - x, (r.bbox.w + pad * 2) * img.naturalWidth);
+        const h = Math.min(img.naturalHeight - y, (r.bbox.h + pad * 2) * img.naturalHeight);
+        const c = document.createElement("canvas");
+        c.width = Math.ceil(w);
+        c.height = Math.ceil(h);
+        const ctx = c.getContext("2d");
+        if (!ctx) continue;
+        ctx.drawImage(img, x, y, w, h, 0, 0, c.width, c.height);
+        crops.push(c);
+      }
+      if (!crops.length) throw new Error("无可裁剪的区域");
+      const maxW = Math.max(...crops.map((c) => c.width));
+      const totalH = crops.reduce((s, c) => s + c.height, 0);
+      const out = document.createElement("canvas");
+      out.width = maxW;
+      out.height = totalH;
+      const ctx = out.getContext("2d");
+      if (!ctx) throw new Error("canvas 上下文创建失败");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, maxW, totalH);
+      let cy = 0;
+      for (const c of crops) {
+        ctx.drawImage(c, 0, cy);
+        cy += c.height;
+      }
+      const blob = await new Promise<Blob>((res, rej) =>
+        out.toBlob((b) => (b ? res(b) : rej(new Error("生成图片失败"))), "image/png"),
+      );
+      const dataUrl = URL.createObjectURL(blob);
+      onSaved(regions, blob, dataUrl);
+      onOpenChange(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "应用失败");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>调整截图区域</DialogTitle>
+        </DialogHeader>
+        <p className="text-xs text-muted-foreground">
+          拖动方框中央移动，拖动边缘/角点调整大小。完成后点击「应用」即可重新生成题干截图。
+        </p>
+        <div className="space-y-4">
+          {regions.map((r, i) => (
+            <CropRegionEditor
+              key={i}
+              region={r}
+              imageUrl={pageImages.get(r.page) ?? null}
+              onChange={(bbox) => updateBbox(i, bbox)}
+            />
+          ))}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+            取消
+          </Button>
+          <Button onClick={handleApply} disabled={saving}>
+            {saving ? "应用中..." : "应用"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CropRegionEditor({
+  region,
+  imageUrl,
+  onChange,
+}: {
+  region: Region;
+  imageUrl: string | null;
+  onChange: (bbox: Region["bbox"]) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState<
+    | null
+    | {
+        mode: string;
+        startX: number;
+        startY: number;
+        startBbox: Region["bbox"];
+      }
+  >(null);
+  const bbox = region.bbox;
+
+  useEffect(() => {
+    if (!drag) return;
+    const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+    const onMove = (e: PointerEvent) => {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const dxN = (e.clientX - drag.startX) / rect.width;
+      const dyN = (e.clientY - drag.startY) / rect.height;
+      let { x, y, w, h } = drag.startBbox;
+      if (drag.mode === "move") {
+        x = clamp01(drag.startBbox.x + dxN);
+        y = clamp01(drag.startBbox.y + dyN);
+        x = Math.min(x, 1 - w);
+        y = Math.min(y, 1 - h);
+      } else {
+        if (drag.mode.includes("e")) {
+          w = Math.max(0.02, Math.min(1 - x, drag.startBbox.w + dxN));
+        }
+        if (drag.mode.includes("s")) {
+          h = Math.max(0.02, Math.min(1 - y, drag.startBbox.h + dyN));
+        }
+        if (drag.mode.includes("w")) {
+          const nx = clamp01(drag.startBbox.x + dxN);
+          const limited = Math.min(nx, drag.startBbox.x + drag.startBbox.w - 0.02);
+          x = Math.max(0, limited);
+          w = Math.max(0.02, drag.startBbox.w - (x - drag.startBbox.x));
+        }
+        if (drag.mode.includes("n")) {
+          const ny = clamp01(drag.startBbox.y + dyN);
+          const limited = Math.min(ny, drag.startBbox.y + drag.startBbox.h - 0.02);
+          y = Math.max(0, limited);
+          h = Math.max(0.02, drag.startBbox.h - (y - drag.startBbox.y));
+        }
+      }
+      onChange({ x, y, w, h });
+    };
+    const onUp = () => setDrag(null);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, [drag, onChange]);
+
+  const startDrag = (mode: string) => (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDrag({ mode, startX: e.clientX, startY: e.clientY, startBbox: { ...bbox } });
+  };
+
+  if (!imageUrl) {
+    return <div className="text-xs text-destructive">第 {region.page + 1} 页缺少图像缓存</div>;
+  }
+  const handles: Array<{
+    d: string;
+    style: React.CSSProperties;
+    cursor: string;
+  }> = [
+    { d: "nw", style: { top: -5, left: -5 }, cursor: "nwse-resize" },
+    { d: "ne", style: { top: -5, right: -5 }, cursor: "nesw-resize" },
+    { d: "sw", style: { bottom: -5, left: -5 }, cursor: "nesw-resize" },
+    { d: "se", style: { bottom: -5, right: -5 }, cursor: "nwse-resize" },
+    { d: "n", style: { top: -5, left: "50%", marginLeft: -5 }, cursor: "ns-resize" },
+    { d: "s", style: { bottom: -5, left: "50%", marginLeft: -5 }, cursor: "ns-resize" },
+    { d: "w", style: { left: -5, top: "50%", marginTop: -5 }, cursor: "ew-resize" },
+    { d: "e", style: { right: -5, top: "50%", marginTop: -5 }, cursor: "ew-resize" },
+  ];
+  return (
+    <div className="space-y-1">
+      <div className="text-[10px] text-muted-foreground">第 {region.page + 1} 页</div>
+      <div
+        ref={containerRef}
+        className="relative w-full select-none overflow-hidden rounded border bg-muted/30"
+        style={{ touchAction: "none" }}
+      >
+        <img
+          src={imageUrl}
+          alt=""
+          className="pointer-events-none block w-full"
+          draggable={false}
+        />
+        <div
+          className="absolute cursor-move border-2 border-blue-500 bg-blue-500/10"
+          style={{
+            left: `${bbox.x * 100}%`,
+            top: `${bbox.y * 100}%`,
+            width: `${bbox.w * 100}%`,
+            height: `${bbox.h * 100}%`,
+          }}
+          onPointerDown={startDrag("move")}
+        >
+          {handles.map((h) => (
+            <div
+              key={h.d}
+              onPointerDown={startDrag(h.d)}
+              style={{
+                position: "absolute",
+                width: 10,
+                height: 10,
+                background: "#3b82f6",
+                border: "1px solid white",
+                cursor: h.cursor,
+                ...h.style,
+              }}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
