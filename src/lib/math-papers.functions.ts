@@ -125,11 +125,16 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
       .replace(/^```(?:json)?\s*/i, "")
       .replace(/```$/i, "")
       .trim();
+    // Fix invalid JSON escapes coming from raw LaTeX (\sqrt, \pi, \cdot, ...)
+    // JSON only allows \" \\ \/ \b \f \n \r \t \uXXXX. Any other \X must become \\X.
+    const fixLatexEscapes = (s: string) =>
+      s.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
     // Attempt to recover from truncated JSON (finish_reason === "length")
     const tryParse = (s: string) => {
       try { return JSON.parse(s); } catch { return null; }
     };
-    let parsedRaw = tryParse(contentText);
+    let parsedRaw = tryParse(contentText) ?? tryParse(fixLatexEscapes(contentText));
+    if (!parsedRaw) contentText = fixLatexEscapes(contentText);
     if (!parsedRaw) {
       // Truncate to last complete question object inside "questions": [ ... ]
       const arrStart = contentText.indexOf('"questions"');
