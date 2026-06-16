@@ -1287,6 +1287,16 @@ function QuestionBankPage() {
                 key={q.number}
                 q={q}
                 pageImages={pageImages}
+                paperPdfFile={paperPdfFile}
+                totalPdfPages={totalPdfPages}
+                onPageRendered={(page, url) => {
+                  setPageImages((prev) => {
+                    if (prev.has(page)) return prev;
+                    const next = new Map(prev);
+                    next.set(page, url);
+                    return next;
+                  });
+                }}
                 onChange={(patch) => {
                   const next = [...extracted];
                   next[idx] = { ...q, ...patch };
