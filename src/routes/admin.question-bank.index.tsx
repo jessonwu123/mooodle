@@ -1518,22 +1518,61 @@ function CropEditDialog({
   onOpenChange,
   initialRegions,
   pageImages,
+  paperPdfFile,
+  totalPdfPages,
+  onPageRendered,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   initialRegions: Region[];
   pageImages: Map<number, string>;
+  paperPdfFile: File | null;
+  totalPdfPages: number;
+  onPageRendered: (page: number, url: string) => void;
   onSaved: (regions: Region[], blob: Blob, dataUrl: string) => void;
 }) {
   const [regions, setRegions] = useState<Region[]>(initialRegions);
   const [saving, setSaving] = useState(false);
+  const [renderingPage, setRenderingPage] = useState<number | null>(null);
   useEffect(() => {
     if (open) setRegions(initialRegions.map((r) => ({ page: r.page, bbox: { ...r.bbox } })));
   }, [open, initialRegions]);
 
+  const ensurePage = async (page: number) => {
+    if (pageImages.has(page) || !paperPdfFile) return;
+    setRenderingPage(page);
+    try {
+      const canvas = await renderPdfPageCanvas(paperPdfFile, page, 2.5);
+      const url = canvas.toDataURL("image/jpeg", 0.85);
+      canvas.width = 0;
+      canvas.height = 0;
+      onPageRendered(page, url);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "渲染页面失败");
+    } finally {
+      setRenderingPage(null);
+    }
+  };
+
   const updateBbox = (i: number, bbox: Region["bbox"]) => {
     setRegions((rs) => rs.map((r, idx) => (idx === i ? { ...r, bbox } : r)));
+  };
+  const updatePage = async (i: number, page: number) => {
+    await ensurePage(page);
+    setRegions((rs) => rs.map((r, idx) => (idx === i ? { ...r, page } : r)));
+  };
+  const removeRegion = (i: number) => {
+    setRegions((rs) => rs.filter((_, idx) => idx !== i));
+  };
+  const addRegion = async () => {
+    const last = regions[regions.length - 1];
+    const nextPage = last ? Math.min(totalPdfPages - 1, last.page + 1) : 0;
+    await ensurePage(nextPage);
+    setRegions((rs) => [
+      ...rs,
+      { page: nextPage, bbox: { x: 0.08, y: 0.4, w: 0.84, h: 0.2 } },
+    ]);
   };
 
   const handleApply = async () => {
@@ -1592,6 +1631,8 @@ function CropEditDialog({
     }
   };
 
+  const pageOptions = Array.from({ length: Math.max(totalPdfPages, 1) }, (_, i) => i);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
@@ -1599,23 +1640,64 @@ function CropEditDialog({
           <DialogTitle>调整截图区域</DialogTitle>
         </DialogHeader>
         <p className="text-xs text-muted-foreground">
-          拖动方框中央移动，拖动边缘/角点调整大小。完成后点击「应用」即可重新生成题干截图。
+          支持跨页与多段截图：每个区域可独立选择页码并拖动调整，最终按顺序竖向拼接为题干截图。
         </p>
         <div className="space-y-4">
           {regions.map((r, i) => (
-            <CropRegionEditor
-              key={i}
-              region={r}
-              imageUrl={pageImages.get(r.page) ?? null}
-              onChange={(bbox) => updateBbox(i, bbox)}
-            />
+            <div key={i} className="rounded border bg-muted/20 p-2">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="font-medium">区域 {i + 1}</span>
+                  <label className="flex items-center gap-1">
+                    页码：
+                    <select
+                      value={r.page}
+                      onChange={(e) => updatePage(i, Number(e.target.value))}
+                      className="rounded border bg-background px-1 py-0.5 text-xs"
+                    >
+                      {pageOptions.map((p) => (
+                        <option key={p} value={p}>
+                          第 {p + 1} 页
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {renderingPage === r.page && (
+                    <span className="text-[10px] text-muted-foreground">加载页面中...</span>
+                  )}
+                </div>
+                {regions.length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-destructive"
+                    onClick={() => removeRegion(i)}
+                  >
+                    删除
+                  </Button>
+                )}
+              </div>
+              <CropRegionEditor
+                region={r}
+                imageUrl={pageImages.get(r.page) ?? null}
+                onChange={(bbox) => updateBbox(i, bbox)}
+              />
+            </div>
           ))}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={addRegion}
+            disabled={saving || renderingPage !== null}
+          >
+            + 添加截图区域（支持跨页）
+          </Button>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             取消
           </Button>
-          <Button onClick={handleApply} disabled={saving}>
+          <Button onClick={handleApply} disabled={saving || regions.length === 0}>
             {saving ? "应用中..." : "应用"}
           </Button>
         </DialogFooter>
