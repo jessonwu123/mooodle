@@ -1282,6 +1282,7 @@ function QuestionBankPage() {
               <QuestionEditor
                 key={q.number}
                 q={q}
+                pageImages={pageImages}
                 onChange={(patch) => {
                   const next = [...extracted];
                   next[idx] = { ...q, ...patch };
