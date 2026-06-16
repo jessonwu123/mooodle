@@ -127,8 +127,13 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
       .trim();
     // Fix invalid JSON escapes coming from raw LaTeX (\sqrt, \pi, \cdot, ...)
     // JSON only allows \" \\ \/ \b \f \n \r \t \uXXXX. Any other \X must become \\X.
+    // Also strip stray control characters that break JSON.parse inside strings.
     const fixLatexEscapes = (s: string) =>
-      s.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
+      s
+        .replace(/\\(?=u[0-9a-fA-F]{4})/g, "\\u")
+        .replace(/\\(?!["\\/bfnrtu])/g, "\\\\")
+        .replace(/\\u(?![0-9a-fA-F]{4})/g, "\\\\u")
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ");
     // Attempt to recover from truncated JSON (finish_reason === "length")
     const tryParse = (s: string) => {
       try { return JSON.parse(s); } catch { return null; }
