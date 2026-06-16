@@ -16,6 +16,7 @@ import {
   FolderPlus,
   Folder,
   ChevronRight,
+  Crop,
 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
