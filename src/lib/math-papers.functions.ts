@@ -125,59 +125,102 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
       .replace(/^```(?:json)?\s*/i, "")
       .replace(/```$/i, "")
       .trim();
-    // Fix invalid JSON escapes coming from raw LaTeX (\sqrt, \pi, \cdot, ...)
-    // JSON only allows \" \\ \/ \b \f \n \r \t \uXXXX. Any other \X must become \\X.
-    // Also strip stray control characters that break JSON.parse inside strings.
+
+    // Clip to first { ... last } so any stray prose around the JSON is dropped.
+    const firstBrace = contentText.indexOf("{");
+    const lastBrace = contentText.lastIndexOf("}");
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+      contentText = contentText.slice(firstBrace, lastBrace + 1);
+    }
+
+    // Fix invalid JSON escapes (\sqrt, \pi, ...) WITHOUT double-escaping
+    // already-valid pairs like \\, \", \n. We consume `\X` greedily so a
+    // valid `\\` is matched as one unit and the following char is left alone.
     const fixLatexEscapes = (s: string) =>
       s
-        .replace(/\\(?!["\\/bfnrtu])/g, "\\\\")
+        .replace(/\\([\s\S])/g, (m, ch: string) => {
+          if ('"\\/bfnrt'.includes(ch)) return m;
+          if (ch === "u") return m; // unicode escape handled below
+          return "\\\\" + ch;
+        })
+        // \u not followed by 4 hex digits is invalid
         .replace(/\\u(?![0-9a-fA-F]{4})/g, "\\\\u")
+        // strip stray control chars (other than already-handled whitespace)
         .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ");
-    // Attempt to recover from truncated JSON (finish_reason === "length")
+
     const tryParse = (s: string) => {
-      try { return JSON.parse(s); } catch { return null; }
+      try { return JSON.parse(s); } catch (e) { return { __err: (e as Error).message, __at: parseErrPos((e as Error).message) }; }
     };
-    let parsedRaw = tryParse(contentText) ?? tryParse(fixLatexEscapes(contentText));
-    if (!parsedRaw) contentText = fixLatexEscapes(contentText);
-    if (!parsedRaw) {
-      // Truncate to last complete question object inside "questions": [ ... ]
-      const arrStart = contentText.indexOf('"questions"');
-      if (arrStart >= 0) {
-        const bracketStart = contentText.indexOf("[", arrStart);
-        if (bracketStart >= 0) {
-          // find last "}," or "}" at depth 1
-          let depth = 0;
-          let lastGood = -1;
-          let inStr = false;
-          let esc = false;
-          for (let i = bracketStart; i < contentText.length; i++) {
-            const c = contentText[i];
-            if (inStr) {
-              if (esc) esc = false;
-              else if (c === "\\") esc = true;
-              else if (c === '"') inStr = false;
-              continue;
+    function parseErrPos(msg: string): number | null {
+      const m = msg.match(/position\s+(\d+)/);
+      return m ? Number(m[1]) : null;
+    }
+    const isOk = (v: any) => v && !v.__err;
+
+    let attempt = tryParse(contentText);
+    if (!isOk(attempt)) {
+      const fixed = fixLatexEscapes(contentText);
+      const a2 = tryParse(fixed);
+      if (isOk(a2)) {
+        attempt = a2;
+        contentText = fixed;
+      } else {
+        // Truncation repair: keep only complete question objects inside "questions": [ ... ]
+        contentText = fixed;
+        const arrStart = contentText.indexOf('"questions"');
+        if (arrStart >= 0) {
+          const bracketStart = contentText.indexOf("[", arrStart);
+          if (bracketStart >= 0) {
+            let depth = 0; // tracks {} only
+            let lastGood = -1;
+            let inStr = false;
+            let esc = false;
+            for (let i = bracketStart + 1; i < contentText.length; i++) {
+              const c = contentText[i];
+              if (inStr) {
+                if (esc) esc = false;
+                else if (c === "\\") esc = true;
+                else if (c === '"') inStr = false;
+                continue;
+              }
+              if (c === '"') inStr = true;
+              else if (c === "{") depth++;
+              else if (c === "}") {
+                depth--;
+                if (depth === 0) lastGood = i; // closed a question object
+              }
             }
-            if (c === '"') inStr = true;
-            else if (c === "{") depth++;
-            else if (c === "}") {
-              depth--;
-              if (depth === 1) lastGood = i;
+            if (lastGood > 0) {
+              const repaired = contentText.slice(0, lastGood + 1) + "]}";
+              const a3 = tryParse(repaired);
+              if (isOk(a3)) {
+                attempt = a3;
+                contentText = repaired;
+              }
             }
-          }
-          if (lastGood > 0) {
-            const repaired = contentText.slice(0, lastGood + 1) + "]}";
-            parsedRaw = tryParse(repaired);
           }
         }
       }
-      if (!parsedRaw) {
-        const hint = finishReason === "length" ? "（AI 输出超长被截断，请缩小题号范围分批抽取）" : "";
-        throw new Error(`AI 返回的 JSON 无法解析${hint}`);
-      }
     }
-    const parsed = parsedRaw as {
 
+    if (!isOk(attempt)) {
+      const errMsg = attempt?.__err ?? "unknown";
+      const pos = attempt?.__at;
+      const snippet =
+        typeof pos === "number"
+          ? contentText.slice(Math.max(0, pos - 80), pos + 80)
+          : contentText.slice(0, 200);
+      console.error("[extractPaperQuestions] JSON parse failed", {
+        finishReason,
+        errMsg,
+        pos,
+        snippet,
+        totalLen: contentText.length,
+      });
+      const hint = finishReason === "length" ? "（AI 输出超长被截断，请缩小题号范围分批抽取）" : "";
+      throw new Error(`AI 返回的 JSON 无法解析${hint}：${errMsg.slice(0, 120)}`);
+    }
+    const parsed = attempt as {
       questions: Array<{
         number: number;
         stem: string;
