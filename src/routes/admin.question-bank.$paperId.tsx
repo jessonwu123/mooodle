@@ -299,6 +299,73 @@ function PaperDetailPage() {
                   )}
                 </>
               )}
+
+              {/* Tags */}
+              <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t pt-2">
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  标签
+                </span>
+                {(questionTagMap[q.id] ?? []).map((tid) => {
+                  const t = tagById[tid];
+                  if (!t) return null;
+                  const isAi = aiAssigned[q.id]?.has(tid);
+                  return (
+                    <span
+                      key={tid}
+                      className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"
+                      style={t.color ? { borderColor: t.color, backgroundColor: t.color + "1a" } : undefined}
+                      title={t.description ?? undefined}
+                    >
+                      {isAi && <Sparkles className="h-3 w-3 opacity-60" />}
+                      {t.name}
+                      <button
+                        onClick={() => toggleTag(q.id, tid)}
+                        className="ml-0.5 rounded-full p-0.5 hover:bg-background"
+                        aria-label="移除"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  );
+                })}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+                      + 添加
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-2" align="start">
+                    {allTags.length === 0 ? (
+                      <div className="p-2 text-xs text-muted-foreground">
+                        还没有标签，先去「分类题库」创建。
+                      </div>
+                    ) : (
+                      <div className="max-h-72 space-y-1 overflow-auto">
+                        {allTags.map((t) => {
+                          const checked = (questionTagMap[q.id] ?? []).includes(t.id);
+                          return (
+                            <button
+                              key={t.id}
+                              onClick={() => toggleTag(q.id, t.id)}
+                              className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-muted"
+                            >
+                              <span
+                                className="h-2 w-2 shrink-0 rounded-full"
+                                style={{ backgroundColor: t.color ?? "#94a3b8" }}
+                              />
+                              <span className="text-[10px] uppercase text-muted-foreground">
+                                {t.category}
+                              </span>
+                              <span className="flex-1">{t.name}</span>
+                              {checked && <Check className="h-3.5 w-3.5 text-primary" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
           );
         })}
