@@ -593,7 +593,7 @@ function QuestionBankPage() {
       const MARGIN_X = 0.085;
       const MARGIN_W = 1 - MARGIN_X * 2;
       // 每题对应的待截区域（可能跨页，需要后续纵向拼接）
-      type Region = { page: number; bbox: NonNullable<Bbox> };
+      // Region type declared at module scope
       const regionsByQ = new Map<number, Region[]>();
 
       for (const q of qs) {
