@@ -220,12 +220,7 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
       const hint = finishReason === "length" ? "（AI 输出超长被截断，请缩小题号范围分批抽取）" : "";
       throw new Error(`AI 返回的 JSON 无法解析${hint}：${errMsg.slice(0, 120)}`);
     }
-    const parsedRaw = attempt as {
-        throw new Error(`AI 返回的 JSON 无法解析${hint}`);
-      }
-    }
-    const parsed = parsedRaw as {
-
+    const parsed = attempt as {
       questions: Array<{
         number: number;
         stem: string;
