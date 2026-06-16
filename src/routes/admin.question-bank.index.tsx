@@ -1326,10 +1326,16 @@ function QuestionBankPage() {
 function QuestionEditor({
   q,
   pageImages,
+  paperPdfFile,
+  totalPdfPages,
+  onPageRendered,
   onChange,
 }: {
   q: ExtractedQuestion;
   pageImages: Map<number, string>;
+  paperPdfFile: File | null;
+  totalPdfPages: number;
+  onPageRendered: (page: number, url: string) => void;
   onChange: (patch: Partial<ExtractedQuestion>) => void;
 }) {
   const [editing, setEditing] = useState(false);
