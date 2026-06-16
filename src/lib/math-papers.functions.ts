@@ -73,7 +73,8 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
 - options_render_mode: "text" 或 "image"，判定规则同上（选项含图形/图片就用 "image"，纯文本/纯公式就用 "text"）。
 
 务必保证 stem_bbox_2d 与 options_bbox_2d 互不重叠，且都尽量紧凑只圈住对应内容。
-即使 render_mode 为 "image"，stem 与各 option 字段仍要尽量给出文字（用于搜索和打 tag），无法识别的图形可用简短描述代替，如 "[象形符号]"。
+**stem 与各 option 字段必须始终使用 LaTeX 格式**：行内数学用 $...$，独立公式用 $$...$$，文字（包括英文/中文叙述）保持原样不要包进数学环境。
+即使 stem_render_mode 或 options_render_mode 为 "image"，stem 与各 option 字段仍**必须给出 LaTeX 文字备份**（用于搜索和打 tag）。无法用 LaTeX 表达的图形/几何示意图/表格，请用 LaTeX 文本占位代替，例如 $\\text{[几何示意图]}$、$\\text{[函数图像]}$、$\\text{[表格]}$，而不是裸的方括号文字。务必保证所有数学符号（分数、根号、上下标、希腊字母、向量、矩阵等）都使用规范的 LaTeX 命令。
 
 严格只返回如下 JSON：
 { "questions": [ { "number": 1, "stem": "...", "option_a": "...", "option_b": "...", "option_c": "...", "option_d": "...", "option_e": "...", "correct_answer": "B", "page_index": 0, "stem_page_index": 0, "options_page_index": 0, "stem_bbox_2d": [..], "options_bbox_2d": [..], "stem_render_mode": "text", "options_render_mode": "text" }, ... ] }`;
