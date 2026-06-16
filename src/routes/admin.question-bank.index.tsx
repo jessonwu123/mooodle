@@ -96,6 +96,7 @@ interface PaperRow {
 }
 
 type Bbox = { x: number; y: number; w: number; h: number } | null;
+type Region = { page: number; bbox: NonNullable<Bbox> };
 
 interface ExtractedQuestion {
   number: number;
@@ -117,6 +118,7 @@ interface ExtractedQuestion {
   stemImageDataUrl?: string | null;
   optionsImageBlob?: Blob | null;
   optionsImageDataUrl?: string | null;
+  regions?: Region[];
 }
 
 const QUESTION_BATCHES = [
