@@ -776,6 +776,7 @@ function QuestionBankPage() {
       for (const q of qs) {
         const regions = regionsByQ.get(q.number);
         if (!regions || regions.length === 0) continue;
+        q.regions = regions.map((r) => ({ page: r.page, bbox: { ...r.bbox } }));
         try {
           const crops: HTMLCanvasElement[] = [];
           for (const r of regions) {
@@ -793,6 +794,17 @@ function QuestionBankPage() {
           console.error("crop failed", q.number, err);
         }
       }
+
+      // 保留各页全分辨率图像（dataURL），用于人工调整截图时再次裁剪
+      const pageImagesMap = new Map<number, string>();
+      for (const [p, canvas] of pageCanvases.entries()) {
+        try {
+          pageImagesMap.set(p, canvas.toDataURL("image/jpeg", 0.85));
+        } catch (err) {
+          console.warn("toDataURL failed", p, err);
+        }
+      }
+      setPageImages(pageImagesMap);
 
       // 释放 canvas
       for (const c of pageCanvases.values()) {
