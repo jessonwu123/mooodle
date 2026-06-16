@@ -208,6 +208,48 @@ export type Database = {
           },
         ]
       }
+      math_question_tags: {
+        Row: {
+          assigned_by_ai: boolean
+          confidence: number | null
+          created_at: string
+          id: string
+          question_id: string
+          tag_id: string
+        }
+        Insert: {
+          assigned_by_ai?: boolean
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          question_id: string
+          tag_id: string
+        }
+        Update: {
+          assigned_by_ai?: boolean
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          question_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "math_question_tags_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "math_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "math_question_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "math_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       math_questions: {
         Row: {
           answer_type: string
@@ -281,6 +323,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      math_tags: {
+        Row: {
+          category: string
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       pet_foods: {
         Row: {
