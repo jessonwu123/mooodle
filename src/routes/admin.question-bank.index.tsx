@@ -208,6 +208,8 @@ function QuestionBankPage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [extracted, setExtracted] = useState<ExtractedQuestion[]>([]);
   const [pageImages, setPageImages] = useState<Map<number, string>>(new Map());
+  const [paperPdfFile, setPaperPdfFile] = useState<File | null>(null);
+  const [totalPdfPages, setTotalPdfPages] = useState(0);
   const [savingPreview, setSavingPreview] = useState(false);
 
   const [downloadingId, setDownloadingId] = useState<string>("");
