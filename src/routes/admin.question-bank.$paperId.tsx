@@ -290,6 +290,19 @@ function PaperDetailPage() {
           <h1 className="mt-1 text-2xl font-bold text-foreground">{paper.name}</h1>
         </div>
         <Button
+          onClick={handleExtractSolutions}
+          disabled={extractingSolutions}
+          className="gap-1.5"
+          variant="outline"
+        >
+          {extractingSolutions ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <FileText className="h-4 w-4" />
+          )}
+          {extractingSolutions ? extractStage || "提取中..." : "提取详细解析"}
+        </Button>
+        <Button
           onClick={handleAutoTag}
           disabled={autoTagging}
           className="gap-1.5"
