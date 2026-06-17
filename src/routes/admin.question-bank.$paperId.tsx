@@ -63,6 +63,8 @@ interface QuestionRow {
   options_render_mode: "text" | "image";
   tags: string[];
   solution_md: string | null;
+  solution_md_zh: string | null;
+  solution_images: Array<{ marker: string; path: string }> | null;
 }
 
 function PaperDetailPage() {
