@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Trash2, Shield } from "lucide-react";
+import { Loader2, Trash2, Shield, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -17,6 +17,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import {
   listFolderOverrides,
   listSubjectsForPermission,
@@ -24,6 +34,72 @@ import {
   removeFolderPermission,
   type FolderPermLevel,
 } from "@/lib/folder-permissions.functions";
+
+interface SearchableSelectProps {
+  value: string;
+  onChange: (v: string) => void;
+  options: Array<{ id: string; label: string }>;
+  placeholder: string;
+  emptyText: string;
+  searchPlaceholder?: string;
+}
+
+function SearchableSelect({
+  value,
+  onChange,
+  options,
+  placeholder,
+  emptyText,
+  searchPlaceholder,
+}: SearchableSelectProps) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find((o) => o.id === value);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="flex-1 justify-between font-normal"
+        >
+          <span className={cn("truncate", !selected && "text-muted-foreground")}>
+            {selected ? selected.label : placeholder}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder={searchPlaceholder ?? "搜索..."} />
+          <CommandList>
+            <CommandEmpty>{emptyText}</CommandEmpty>
+            <CommandGroup>
+              {options.map((o) => (
+                <CommandItem
+                  key={o.id}
+                  value={`${o.label} ${o.id}`}
+                  onSelect={() => {
+                    onChange(o.id);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === o.id ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  <span className="truncate">{o.label}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 const TEACHER_LEVELS: Array<{ value: FolderPermLevel; label: string }> = [
   { value: "read", label: "只读" },
@@ -219,22 +295,14 @@ export function FolderPermissionsDialog({ folderId, folderName, trigger }: Props
               </div>
 
               <div className="flex items-center gap-2 border-t pt-3">
-                <Select value={newStudentId} onValueChange={setNewStudentId}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="选择学生..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableStudents.length === 0 ? (
-                      <div className="px-3 py-2 text-xs text-muted-foreground">无可添加学生</div>
-                    ) : (
-                      availableStudents.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>
-                          {s.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={newStudentId}
+                  onChange={setNewStudentId}
+                  options={availableStudents.map((s) => ({ id: s.id, label: s.name }))}
+                  placeholder="选择学生..."
+                  emptyText="未找到匹配学生"
+                  searchPlaceholder="搜索学生姓名..."
+                />
                 <Select
                   value={newStudentLevel}
                   onValueChange={(v) => setNewStudentLevel(v as FolderPermLevel)}
@@ -299,22 +367,14 @@ export function FolderPermissionsDialog({ folderId, folderName, trigger }: Props
               </div>
 
               <div className="flex items-center gap-2 border-t pt-3">
-                <Select value={newTeacherId} onValueChange={setNewTeacherId}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="选择教师..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableTeachers.length === 0 ? (
-                      <div className="px-3 py-2 text-xs text-muted-foreground">无可添加教师</div>
-                    ) : (
-                      availableTeachers.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
-                          {t.email ?? t.id}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={newTeacherId}
+                  onChange={setNewTeacherId}
+                  options={availableTeachers.map((t) => ({ id: t.id, label: t.email ?? t.id }))}
+                  placeholder="选择教师..."
+                  emptyText="未找到匹配教师"
+                  searchPlaceholder="搜索教师邮箱..."
+                />
                 <Select
                   value={newTeacherLevel}
                   onValueChange={(v) => setNewTeacherLevel(v as FolderPermLevel)}
