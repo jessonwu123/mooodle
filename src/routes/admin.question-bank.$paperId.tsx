@@ -80,6 +80,9 @@ function PaperDetailPage() {
   const [questionTagMap, setQuestionTagMap] = useState<Record<string, string[]>>({});
   const [aiAssigned, setAiAssigned] = useState<Record<string, Set<string>>>({});
   const [autoTagging, setAutoTagging] = useState(false);
+  const [extractingSolutions, setExtractingSolutions] = useState(false);
+  const [extractStage, setExtractStage] = useState<string>("");
+  const [solutionOpenFor, setSolutionOpenFor] = useState<QuestionRow | null>(null);
 
   const tagById = useMemo(() => {
     const m: Record<string, TagRow> = {};
