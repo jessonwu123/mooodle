@@ -17,6 +17,7 @@ import {
   Folder,
   ChevronRight,
   Crop,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
