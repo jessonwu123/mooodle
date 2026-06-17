@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, BookOpen, ChevronDown, Sparkles, Check, X } from "lucide-react";
+import { ArrowLeft, BookOpen, ChevronDown, Sparkles, Check, X, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,11 +13,19 @@ import {
   setQuestionTags,
   autoTagPaper,
 } from "@/lib/math-tags.functions";
+import { extractSolutionsForPaper } from "@/lib/math-solutions.functions";
+import { renderPdfPages } from "@/lib/pdf-render";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/admin/question-bank/$paperId")({
   component: PaperDetailPage,
