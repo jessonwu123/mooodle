@@ -123,6 +123,44 @@ export type Database = {
         }
         Relationships: []
       }
+      math_paper_folder_permissions: {
+        Row: {
+          created_at: string
+          folder_id: string
+          id: string
+          level: Database["public"]["Enums"]["folder_permission_level"]
+          subject_id: string
+          subject_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          folder_id: string
+          id?: string
+          level: Database["public"]["Enums"]["folder_permission_level"]
+          subject_id: string
+          subject_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          folder_id?: string
+          id?: string
+          level?: Database["public"]["Enums"]["folder_permission_level"]
+          subject_id?: string
+          subject_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "math_paper_folder_permissions_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "math_paper_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       math_paper_folders: {
         Row: {
           created_at: string
@@ -604,6 +642,10 @@ export type Database = {
     }
     Functions: {
       find_user_id_by_email: { Args: { _email: string }; Returns: string }
+      get_effective_folder_permission: {
+        Args: { _folder_id: string; _subject_id: string; _subject_type: string }
+        Returns: Database["public"]["Enums"]["folder_permission_level"]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -630,6 +672,26 @@ export type Database = {
           user_id: string
         }[]
       }
+      list_folder_permission_overrides: {
+        Args: { _folder_id: string }
+        Returns: {
+          display_name: string
+          id: string
+          level: Database["public"]["Enums"]["folder_permission_level"]
+          subject_id: string
+          subject_type: string
+        }[]
+      }
+      list_student_accessible_folders: {
+        Args: { _student_id: string }
+        Returns: {
+          folder_id: string
+          is_ancestor: boolean
+          level: Database["public"]["Enums"]["folder_permission_level"]
+          name: string
+          parent_id: string
+        }[]
+      }
       list_teacher_students: {
         Args: { _teacher_id: string }
         Returns: {
@@ -644,6 +706,12 @@ export type Database = {
     Enums: {
       app_role: "admin" | "teacher"
       assessment_category: "knowledge" | "thinking" | "learning_quality"
+      folder_permission_level:
+        | "none"
+        | "read"
+        | "download"
+        | "upload"
+        | "manage"
       food_tier: "normal" | "quality" | "elixir"
       pet_species:
         | "baize"
@@ -785,6 +853,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "teacher"],
       assessment_category: ["knowledge", "thinking", "learning_quality"],
+      folder_permission_level: ["none", "read", "download", "upload", "manage"],
       food_tier: ["normal", "quality", "elixir"],
       pet_species: [
         "baize",

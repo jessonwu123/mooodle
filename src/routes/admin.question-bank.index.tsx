@@ -18,7 +18,9 @@ import {
   ChevronRight,
   Crop,
   Zap,
+  Shield,
 } from "lucide-react";
+import { FolderPermissionsDialog } from "@/components/folder-permissions-dialog";
 import { toast } from "sonner";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
@@ -1145,6 +1147,17 @@ function QuestionBankPage() {
               {syncing ? syncProgress || "同步中..." : "一键同步答案"}
             </Button>
           )}
+          {currentFolderId && (
+            <FolderPermissionsDialog
+              folderId={currentFolderId}
+              folderName={breadcrumb[breadcrumb.length - 1]?.name ?? "当前文件夹"}
+              trigger={
+                <Button variant="outline" className="gap-1.5">
+                  <Shield className="h-4 w-4" /> 权限设置
+                </Button>
+              }
+            />
+          )}
         </div>
       </div>
 
@@ -1191,6 +1204,20 @@ function QuestionBankPage() {
                 <Folder className="h-5 w-5 text-amber-500" />
                 <div className="font-medium truncate">{f.name}</div>
               </button>
+              <FolderPermissionsDialog
+                folderId={f.id}
+                folderName={f.name}
+                trigger={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-foreground"
+                    title="权限设置"
+                  >
+                    <Shield className="h-4 w-4" />
+                  </Button>
+                }
+              />
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
