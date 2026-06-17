@@ -499,6 +499,26 @@ function PaperDetailPage() {
           );
         })}
       </div>
+
+      <Dialog open={!!solutionOpenFor} onOpenChange={(o) => !o && setSolutionOpenFor(null)}>
+        <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              第 {solutionOpenFor?.question_number} 题 · 详细解答
+              {solutionOpenFor?.correct_answer && (
+                <span className="ml-2 rounded bg-green-100 px-1.5 py-0.5 text-xs font-normal text-green-700">
+                  答案 {solutionOpenFor.correct_answer}
+                </span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          {solutionOpenFor?.solution_md && (
+            <div className="text-sm leading-relaxed">
+              <MathText block text={solutionOpenFor.solution_md} />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
