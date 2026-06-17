@@ -52,6 +52,7 @@ import {
   replaceMathPaperQuestions,
   getMathPaperPdfUrls,
   deleteMathPaper,
+  bulkUpdateQuestionAnswers,
 } from "@/lib/math-papers.functions";
 import {
   listMathPaperFolders,
