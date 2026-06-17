@@ -293,6 +293,13 @@ function AdminHome() {
             </Link>
           )}
           {isAdmin && (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setTagOpen(true)}>
+              <Tags className="h-4 w-4" />
+              批量添加知识点
+            </Button>
+          )}
+
+          {isAdmin && (
             <Link to="/admin/teachers">
               <Button variant="outline" size="sm" className="gap-1.5">
                 <ShieldCheck className="h-4 w-4" />
