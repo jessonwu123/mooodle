@@ -213,6 +213,50 @@ function AdminHome() {
     load();
   };
 
+  // Batch tag creation helpers
+  const updateTagDraft = (idx: number, patch: Partial<{ name: string; description: string }>) => {
+    setTagDrafts((rows) => rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  };
+  const addTagDraft = () => setTagDrafts((rows) => [...rows, { name: "", description: "" }]);
+  const removeTagDraft = (idx: number) =>
+    setTagDrafts((rows) => (rows.length === 1 ? rows : rows.filter((_, i) => i !== idx)));
+  const resetTagDialog = () => {
+    setTagDrafts([{ name: "", description: "" }]);
+    setTagOpen(false);
+  };
+  const handleCreateTags = async () => {
+    const valid = tagDrafts
+      .map((d) => ({ name: d.name.trim(), description: d.description.trim() }))
+      .filter((d) => d.name.length > 0);
+    if (valid.length === 0) {
+      toast.error("请至少输入一个知识点名称");
+      return;
+    }
+    setTagBusy(true);
+    let ok = 0;
+    let fail = 0;
+    for (const d of valid) {
+      try {
+        await createTagFn({
+          data: {
+            name: d.name,
+            category: "knowledge",
+            color: null,
+            description: d.description || null,
+          },
+        });
+        ok++;
+      } catch (e: any) {
+        fail++;
+        toast.error(`「${d.name}」创建失败：${e?.message ?? "未知错误"}`);
+      }
+    }
+    setTagBusy(false);
+    if (ok > 0) toast.success(`已创建 ${ok} 个知识点${fail ? `，失败 ${fail} 个` : ""}`);
+    if (fail === 0) resetTagDialog();
+  };
+
+
   return (
     <div>
       <div className="mb-8 flex items-end justify-between gap-4">
