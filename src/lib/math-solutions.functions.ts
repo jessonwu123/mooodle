@@ -102,16 +102,82 @@ export const extractSolutionsForPaper = createServerFn({ method: "POST" })
     const first = text.indexOf("{");
     const last = text.lastIndexOf("}");
     if (first >= 0 && last > first) text = text.slice(first, last + 1);
-    const fixed = text.replace(/\\([\s\S])/g, (m, ch: string) => {
-      if ('"\\/bfnrt'.includes(ch)) return m;
-      if (ch === "u") return m;
-      return "\\\\" + ch;
-    });
-    let parsed: any;
-    try {
-      parsed = JSON.parse(fixed);
-    } catch (e) {
-      throw new Error("AI 返回 JSON 无法解析：" + (e as Error).message.slice(0, 120));
+
+    // Repair common AI JSON issues: stray LaTeX backslashes + raw control chars inside strings.
+    const repair = (src: string) => {
+      let out = "";
+      let inStr = false;
+      let escape = false;
+      for (let i = 0; i < src.length; i++) {
+        const c = src[i];
+        if (escape) {
+          // Previous char was a backslash inside a string. Keep valid JSON escapes; double anything else.
+          if ('"\\/bfnrtu'.includes(c)) out += "\\" + c;
+          else out += "\\\\" + c;
+          escape = false;
+          continue;
+        }
+        if (inStr) {
+          if (c === "\\") { escape = true; continue; }
+          if (c === '"') { inStr = false; out += c; continue; }
+          if (c === "\n") { out += "\\n"; continue; }
+          if (c === "\r") { out += "\\r"; continue; }
+          if (c === "\t") { out += "\\t"; continue; }
+          const code = c.charCodeAt(0);
+          if (code < 0x20) { out += "\\u" + code.toString(16).padStart(4, "0"); continue; }
+          out += c;
+        } else {
+          if (c === '"') { inStr = true; out += c; continue; }
+          out += c;
+        }
+      }
+      // Drop trailing commas
+      return out.replace(/,\s*([}\]])/g, "$1");
+    };
+
+    const tryParse = (s: string) => {
+      try { return JSON.parse(s); } catch { return null; }
+    };
+
+    let parsed: any = tryParse(text) ?? tryParse(repair(text));
+
+    // Salvage: extract individual solution objects if the top-level array is broken/truncated.
+    if (!parsed) {
+      const arrStart = text.indexOf('"solutions"');
+      const bracket = arrStart >= 0 ? text.indexOf("[", arrStart) : -1;
+      if (bracket >= 0) {
+        const objs: any[] = [];
+        let i = bracket + 1;
+        while (i < text.length) {
+          // find next '{'
+          while (i < text.length && text[i] !== "{") i++;
+          if (i >= text.length) break;
+          // walk balanced braces honoring strings
+          let depth = 0, j = i, inS = false, esc = false;
+          for (; j < text.length; j++) {
+            const c = text[j];
+            if (esc) { esc = false; continue; }
+            if (inS) {
+              if (c === "\\") esc = true;
+              else if (c === '"') inS = false;
+              continue;
+            }
+            if (c === '"') inS = true;
+            else if (c === "{") depth++;
+            else if (c === "}") { depth--; if (depth === 0) { j++; break; } }
+          }
+          if (depth !== 0) break; // incomplete trailing object
+          const chunk = text.slice(i, j);
+          const obj = tryParse(chunk) ?? tryParse(repair(chunk));
+          if (obj) objs.push(obj);
+          i = j;
+        }
+        if (objs.length > 0) parsed = { solutions: objs };
+      }
+    }
+
+    if (!parsed) {
+      throw new Error("AI 返回 JSON 无法解析（已尝试自动修复），请重试或缩小范围");
     }
 
     type Figure = { id: string; page: number; bbox: { x: number; y: number; w: number; h: number } };
