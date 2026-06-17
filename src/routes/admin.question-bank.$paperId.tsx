@@ -563,13 +563,89 @@ function PaperDetailPage() {
               )}
             </DialogTitle>
           </DialogHeader>
-          {solutionOpenFor?.solution_md && (
-            <div className="text-sm leading-relaxed">
-              <MathText block text={solutionOpenFor.solution_md} />
-            </div>
+          {solutionOpenFor && (
+            <SolutionView
+              md={solutionOpenFor.solution_md}
+              mdZh={solutionOpenFor.solution_md_zh}
+              images={solutionOpenFor.solution_images ?? []}
+            />
           )}
         </DialogContent>
       </Dialog>
     </div>
   );
+}
+
+function SolutionView({
+  md,
+  mdZh,
+  images,
+}: {
+  md: string | null;
+  mdZh: string | null;
+  images: Array<{ marker: string; path: string }>;
+}) {
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!images.length) {
+      setUrls({});
+      return;
+    }
+    (async () => {
+      const { data } = await supabase.storage
+        .from("math-question-images")
+        .createSignedUrls(images.map((i) => i.path), 3600);
+      const m: Record<string, string> = {};
+      images.forEach((img) => {
+        const found = data?.find((s) => s.path === img.path);
+        if (found?.signedUrl) m[img.marker] = found.signedUrl;
+      });
+      setUrls(m);
+    })();
+  }, [images]);
+
+  const hasZh = !!(mdZh && mdZh.trim());
+  const hasEn = !!(md && md.trim());
+
+  const renderBody = (text: string) => {
+    const parts = text.split(/\[\[FIG:([^\]]+)\]\]/g);
+    return (
+      <div className="text-sm leading-relaxed">
+        {parts.map((seg, i) => {
+          if (i % 2 === 1) {
+            const url = urls[seg.trim()];
+            return url ? (
+              <img
+                key={i}
+                src={url}
+                alt={`figure ${seg}`}
+                className="my-2 max-h-80 rounded border"
+              />
+            ) : (
+              <div key={i} className="my-2 text-xs text-muted-foreground">
+                [图片加载中：{seg}]
+              </div>
+            );
+          }
+          return <MathText key={i} block text={seg} />;
+        })}
+      </div>
+    );
+  };
+
+  if (hasZh && hasEn) {
+    return (
+      <Tabs defaultValue="zh" className="w-full">
+        <TabsList>
+          <TabsTrigger value="zh">中文</TabsTrigger>
+          <TabsTrigger value="en">English</TabsTrigger>
+        </TabsList>
+        <TabsContent value="zh" className="mt-3">{renderBody(mdZh!)}</TabsContent>
+        <TabsContent value="en" className="mt-3">{renderBody(md!)}</TabsContent>
+      </Tabs>
+    );
+  }
+  if (hasZh) return renderBody(mdZh!);
+  if (hasEn) return renderBody(md!);
+  return null;
 }
