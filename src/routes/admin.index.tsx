@@ -458,6 +458,63 @@ function AdminHome() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Batch tag creation dialog */}
+      <Dialog open={tagOpen} onOpenChange={setTagOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>批量添加知识点</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+            {tagDrafts.map((d, idx) => (
+              <div key={idx} className="rounded-md border p-3 space-y-2 relative">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">#{idx + 1}</span>
+                  {tagDrafts.length > 1 ? (
+                    <button
+                      onClick={() => removeTagDraft(idx)}
+                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive"
+                      aria-label="移除"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>名称</Label>
+                  <Input
+                    value={d.name}
+                    onChange={(e) => updateTagDraft(idx, { name: e.target.value })}
+                    placeholder="如：勾股定理"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>说明</Label>
+                  <Textarea
+                    rows={2}
+                    value={d.description}
+                    onChange={(e) => updateTagDraft(idx, { description: e.target.value })}
+                    placeholder="会作为提示给 AI，描述越清晰打标越准"
+                  />
+                </div>
+              </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={addTagDraft} className="gap-1.5">
+              <Plus className="h-4 w-4" />
+              再加一个
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTagOpen(false)} disabled={tagBusy}>
+              取消
+            </Button>
+            <Button onClick={handleCreateTags} disabled={tagBusy}>
+              {tagBusy ? "保存中..." : "全部保存"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
