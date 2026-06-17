@@ -438,6 +438,10 @@ function StudentProfile() {
             />
           </TabsContent>
 
+          <TabsContent value="library">
+            <StudentLibraryTab studentId={id} />
+          </TabsContent>
+
           <TabsContent value="pet">
             <PetTab studentId={id} editable={isOwner} />
           </TabsContent>
