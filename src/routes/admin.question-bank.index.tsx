@@ -1129,6 +1129,22 @@ function QuestionBankPage() {
           <Button variant="outline" className="gap-1.5" onClick={() => openUpload("paper")}>
             <Upload className="h-4 w-4" /> 批量上传
           </Button>
+          {syncPair && (
+            <Button
+              variant="default"
+              className="gap-1.5"
+              onClick={handleSyncAnswersFromKeys}
+              disabled={syncing}
+              title="按年份匹配，从「简版答案」PDF 中提取答案并写入「题目」试卷"
+            >
+              {syncing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Zap className="h-4 w-4" />
+              )}
+              {syncing ? syncProgress || "同步中..." : "一键同步答案"}
+            </Button>
+          )}
         </div>
       </div>
 
