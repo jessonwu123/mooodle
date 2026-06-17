@@ -166,6 +166,94 @@ function PaperDetailPage() {
     }
   };
 
+  const handleExtractSolutions = async () => {
+    if (!paper) return;
+    if (!paper.year) {
+      toast.error("当前试卷未设置年份，无法自动匹配解析");
+      return;
+    }
+    const confirmMsg = questions.some((q) => q.solution_md)
+      ? "本卷已有部分题目存在解析，继续将用新提取的内容覆盖匹配到的题号。是否继续？"
+      : `从「详细答案」文件夹中查找 ${paper.year} 年的解析 PDF，并用 AI 提取每道题的详细解答？`;
+    if (!confirm(confirmMsg)) return;
+    setExtractingSolutions(true);
+    setExtractStage("查找解析 PDF...");
+    try {
+      // 在「详细答案」文件夹下找同年份的答案 PDF
+      const { data: solutionPapers, error: spErr } = await supabase
+        .from("math_papers")
+        .select("id, name, pdf_path, folder:math_paper_folders!inner(name)")
+        .eq("year", paper.year)
+        .eq("folder.name", "详细答案")
+        .limit(1);
+      if (spErr) throw new Error(spErr.message);
+      const solutionPaper = solutionPapers?.[0] as
+        | { id: string; name: string; pdf_path: string }
+        | undefined;
+      if (!solutionPaper) throw new Error(`未在「详细答案」文件夹中找到 ${paper.year} 年的解析文件`);
+
+      setExtractStage("下载解析 PDF...");
+      const { data: signed, error: sErr } = await supabase.storage
+        .from("math-papers")
+        .createSignedUrl(solutionPaper.pdf_path, 3600);
+      if (sErr || !signed?.signedUrl) throw new Error("生成解析 PDF 链接失败");
+      const res = await fetch(signed.signedUrl);
+      if (!res.ok) throw new Error("下载解析 PDF 失败");
+      const blob = await res.blob();
+      const file = new File([blob], "solution.pdf", { type: "application/pdf" });
+
+      setExtractStage("渲染解析 PDF 页面...");
+      const pages = await renderPdfPages(file, 1.4, 0.75);
+
+      setExtractStage(`上传 ${pages.length} 页图片...`);
+      const bucket = supabase.storage.from("math-papers");
+      const prefix = `solutions/${paperId}/${Date.now()}`;
+      const paths: string[] = [];
+      for (let i = 0; i < pages.length; i++) {
+        const path = `${prefix}/page-${String(i + 1).padStart(2, "0")}.jpg`;
+        const { error } = await bucket.upload(path, pages[i].blob, {
+          contentType: "image/jpeg",
+          upsert: true,
+        });
+        if (error) throw new Error(`上传解析页面 ${i + 1} 失败：${error.message}`);
+        paths.push(path);
+      }
+      const { data: urls, error: uErr } = await bucket.createSignedUrls(paths, 60 * 60);
+      if (uErr) throw new Error("生成解析页面链接失败");
+      const solutionPageImages = (urls ?? [])
+        .map((x) => x.signedUrl)
+        .filter(Boolean) as string[];
+      if (solutionPageImages.length !== paths.length)
+        throw new Error("解析页面链接不完整");
+
+      setExtractStage("AI 提取解析中（可能需要 30 秒）...");
+      const r = await runExtractSolutions({
+        data: { paperId, solutionPageImages },
+      });
+      toast.success(`提取完成：${r.updated}/${r.totalQuestions} 题已写入解析`);
+
+      // refresh solutions
+      const { data: refreshed } = await supabase
+        .from("math_questions")
+        .select("id, solution_md")
+        .eq("paper_id", paperId);
+      if (refreshed) {
+        const map = new Map<string, string | null>();
+        (refreshed as Array<{ id: string; solution_md: string | null }>).forEach((r) =>
+          map.set(r.id, r.solution_md),
+        );
+        setQuestions((prev) =>
+          prev.map((q) => ({ ...q, solution_md: map.get(q.id) ?? q.solution_md })),
+        );
+      }
+    } catch (e: any) {
+      toast.error(e?.message ?? "提取解析失败");
+    } finally {
+      setExtractingSolutions(false);
+      setExtractStage("");
+    }
+  };
+
   const toggleTag = async (questionId: string, tagId: string) => {
     const current = questionTagMap[questionId] ?? [];
     const next = current.includes(tagId)
