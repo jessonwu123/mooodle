@@ -74,6 +74,7 @@ function PaperDetailPage() {
   const saveQuestionTags = useServerFn(setQuestionTags);
   const runAutoTag = useServerFn(autoTagPaper);
   const runExtractSolutions = useServerFn(extractSolutionsForPaper);
+  const runSaveSolutionImages = useServerFn(saveSolutionImages);
 
   const [paper, setPaper] = useState<PaperRow | null>(null);
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
