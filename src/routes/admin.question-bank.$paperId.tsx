@@ -113,7 +113,7 @@ function PaperDetailPage() {
         supabase
           .from("math_questions")
           .select(
-            "id, question_number, stem, option_a, option_b, option_c, option_d, option_e, correct_answer, image_path, options_image_path, stem_render_mode, options_render_mode, tags",
+            "id, question_number, stem, option_a, option_b, option_c, option_d, option_e, correct_answer, image_path, options_image_path, stem_render_mode, options_render_mode, tags, solution_md",
           )
           .eq("paper_id", paperId)
           .order("question_number"),
