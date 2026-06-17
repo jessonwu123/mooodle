@@ -216,6 +216,11 @@ function QuestionBankPage() {
 
   const [downloadingId, setDownloadingId] = useState<string>("");
 
+  // bulk sync answers from 简版答案
+  const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<string>("");
+
+
   const subfolders = useMemo(
     () => allFolders.filter((f) => f.parent_id === currentFolderId),
     [allFolders, currentFolderId],
