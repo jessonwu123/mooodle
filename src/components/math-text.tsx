@@ -16,8 +16,11 @@ export function MathText({
   block?: boolean;
 }) {
   const html = useMemo(() => {
-    const src = text ?? "";
-    if (!src) return "";
+    const raw = text ?? "";
+    if (!raw) return "";
+    // 先把转义的 \$（字面美元，如货币）替换为占位符，避免被当成数学分隔符
+    const DOLLAR_PH = "\u0000DOLLAR\u0000";
+    const src = raw.replace(/\\\$/g, DOLLAR_PH);
     // 拆分 $$...$$ 和 $...$
     const parts: Array<{ type: "text" | "inline" | "block"; value: string }> = [];
     const re = /\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$/g;
@@ -25,21 +28,22 @@ export function MathText({
     let m: RegExpExecArray | null;
     // 文本段内识别裸 LaTeX（如 133\frac{1}{3}、\sqrt{2}、\text{...}），自动按数学渲染
     const bareLatexRe = /(\d+)?\\[a-zA-Z]+(?:\s*\{[^{}]*\}|\s*\[[^\]]*\]){0,4}/g;
+    const restore = (s: string) => s.split(DOLLAR_PH).join("$");
     const pushText = (txt: string) => {
       let li = 0;
       let mm: RegExpExecArray | null;
       bareLatexRe.lastIndex = 0;
       while ((mm = bareLatexRe.exec(txt))) {
-        if (mm.index > li) parts.push({ type: "text", value: txt.slice(li, mm.index) });
-        parts.push({ type: "inline", value: mm[0] });
+        if (mm.index > li) parts.push({ type: "text", value: restore(txt.slice(li, mm.index)) });
+        parts.push({ type: "inline", value: restore(mm[0]) });
         li = mm.index + mm[0].length;
       }
-      if (li < txt.length) parts.push({ type: "text", value: txt.slice(li) });
+      if (li < txt.length) parts.push({ type: "text", value: restore(txt.slice(li)) });
     };
     while ((m = re.exec(src))) {
       if (m.index > lastIndex) pushText(src.slice(lastIndex, m.index));
-      if (m[1] != null) parts.push({ type: "block", value: m[1] });
-      else if (m[2] != null) parts.push({ type: "inline", value: m[2] });
+      if (m[1] != null) parts.push({ type: "block", value: restore(m[1]) });
+      else if (m[2] != null) parts.push({ type: "inline", value: restore(m[2]) });
       lastIndex = m.index + m[0].length;
     }
     if (lastIndex < src.length) pushText(src.slice(lastIndex));
