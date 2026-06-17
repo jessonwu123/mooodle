@@ -77,7 +77,7 @@ function handleSession(sess: Session | null) {
       isAdmin: sameUser ? snapshot.isAdmin : false,
       isTeacher: sameUser ? snapshot.isTeacher : false,
     }),
-    loading: !cached && !sameUser,
+    loading: !cached,
   });
   void loadRoles(sess.user.id);
 }
