@@ -509,3 +509,39 @@ export const deleteMathPaper = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// 批量更新某试卷题目的正确答案（按题号匹配）
+const BulkAnswersInput = z.object({
+  paperId: z.string().uuid(),
+  answers: z
+    .array(
+      z.object({
+        number: z.number().int().min(1).max(100),
+        answer: z.enum(["A", "B", "C", "D", "E"]),
+      }),
+    )
+    .min(1)
+    .max(100),
+});
+export const bulkUpdateQuestionAnswers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => BulkAnswersInput.parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: isAdmin } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (!isAdmin) throw new Error("仅管理员可执行");
+    let updated = 0;
+    for (const { number, answer } of data.answers) {
+      const { error, count } = await context.supabase
+        .from("math_questions")
+        .update({ correct_answer: answer }, { count: "exact" })
+        .eq("paper_id", data.paperId)
+        .eq("question_number", number);
+      if (error) throw new Error(`更新第 ${number} 题失败：${error.message}`);
+      updated += count ?? 0;
+    }
+    return { ok: true, updated };
+  });
+

@@ -17,6 +17,7 @@ import {
   Folder,
   ChevronRight,
   Crop,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -52,6 +53,7 @@ import {
   replaceMathPaperQuestions,
   getMathPaperPdfUrls,
   deleteMathPaper,
+  bulkUpdateQuestionAnswers,
 } from "@/lib/math-papers.functions";
 import {
   listMathPaperFolders,
@@ -214,6 +216,11 @@ function QuestionBankPage() {
 
   const [downloadingId, setDownloadingId] = useState<string>("");
 
+  // bulk sync answers from 简版答案
+  const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<string>("");
+
+
   const subfolders = useMemo(
     () => allFolders.filter((f) => f.parent_id === currentFolderId),
     [allFolders, currentFolderId],
@@ -236,6 +243,25 @@ function QuestionBankPage() {
     }
     return chain;
   }, [currentFolderId, folderById]);
+
+  // 当前位置可同步答案的条件：找到一对（题目文件夹 + 简版答案文件夹）位于同一父级
+  const syncPair = useMemo(() => {
+    // 1) 当前文件夹下同时存在两个子文件夹
+    const paperSub = subfolders.find((f) => f.name.trim() === "题目");
+    const keySub = subfolders.find((f) => f.name.trim() === "简版答案");
+    if (paperSub && keySub) return { paperFolderId: paperSub.id, keyFolderId: keySub.id };
+    // 2) 当前就是「题目」，找同级「简版答案」
+    const cur = currentFolderId ? folderById.get(currentFolderId) : null;
+    if (cur && cur.name.trim() === "题目") {
+      const sibling = allFolders.find(
+        (f) => f.parent_id === cur.parent_id && f.name.trim() === "简版答案",
+      );
+      if (sibling) return { paperFolderId: cur.id, keyFolderId: sibling.id };
+    }
+    return null;
+  }, [subfolders, currentFolderId, folderById, allFolders]);
+
+
 
   const load = async () => {
     setLoading(true);
@@ -964,6 +990,96 @@ function QuestionBankPage() {
     }
   };
 
+  const handleSyncAnswersFromKeys = async () => {
+    if (!syncPair) return;
+    if (syncing) return;
+    setSyncing(true);
+    setSyncProgress("加载文件列表...");
+    try {
+      const [{ papers: paperList }, { papers: keyList }] = await Promise.all([
+        listMathPapersInFolder({ data: { folderId: syncPair.paperFolderId } }),
+        listMathPapersInFolder({ data: { folderId: syncPair.keyFolderId } }),
+      ]);
+      const paperByYear = new Map<number, PaperRow>();
+      for (const p of paperList as PaperRow[]) {
+        if (p.kind === "paper" && p.year) paperByYear.set(p.year, p);
+      }
+      const keyByYear = new Map<number, PaperRow>();
+      for (const p of keyList as PaperRow[]) {
+        if (p.year) keyByYear.set(p.year, p);
+      }
+      const matched: Array<{ year: number; paper: PaperRow; key: PaperRow }> = [];
+      for (const [year, key] of keyByYear) {
+        const paper = paperByYear.get(year);
+        if (paper) matched.push({ year, paper, key });
+      }
+      matched.sort((a, b) => a.year - b.year);
+      if (matched.length === 0) {
+        toast.warning("没有找到可匹配的年份");
+        return;
+      }
+
+      let ok = 0;
+      const failures: string[] = [];
+      const skipped: string[] = [];
+      for (let i = 0; i < matched.length; i++) {
+        const { year, paper, key } = matched[i];
+        setSyncProgress(`处理 ${year}（${i + 1}/${matched.length}）...`);
+        try {
+          if (paper.question_count === 0) {
+            skipped.push(`${year}：题目卷尚未抽题`);
+            continue;
+          }
+          const urls = await getMathPaperPdfUrls({ data: { paperId: key.id } });
+          if (!urls.pdfUrl) throw new Error("答案 PDF 链接获取失败");
+          const file = await downloadAsFile(urls.pdfUrl, `key-${year}.pdf`);
+          const pages = await getPdfTextItems(file);
+          // 合并所有页文本，按 y、x 排序成单行
+          const allItems = pages.flatMap((pg) =>
+            pg.items.map((it) => ({ ...it, page: pg.pageIndex })),
+          );
+          allItems.sort((a, b) => {
+            if (a.page !== b.page) return a.page - b.page;
+            const dy = Math.round(a.y * 200) - Math.round(b.y * 200);
+            return dy !== 0 ? dy : a.x - b.x;
+          });
+          const text = allItems.map((it) => it.str).join(" ");
+          // 匹配 "1. D" / "1 . D" / "1: D" / "1) D"
+          const re = /\b(\d{1,2})\s*[\.\):]\s*([A-Ea-e])\b/g;
+          const found = new Map<number, string>();
+          let m: RegExpExecArray | null;
+          while ((m = re.exec(text)) !== null) {
+            const n = Number(m[1]);
+            const a = m[2].toUpperCase();
+            if (n >= 1 && n <= 25 && !found.has(n)) found.set(n, a);
+          }
+          if (found.size < 20) {
+            throw new Error(`仅解析到 ${found.size} 个答案，可能不是标准答案表`);
+          }
+          const answers = Array.from(found.entries())
+            .sort(([x], [y]) => x - y)
+            .map(([number, answer]) => ({ number, answer: answer as "A" | "B" | "C" | "D" | "E" }));
+          await bulkUpdateQuestionAnswers({ data: { paperId: paper.id, answers } });
+          ok++;
+        } catch (err) {
+          failures.push(`${year}：${err instanceof Error ? err.message : "未知错误"}`);
+        }
+      }
+
+      const msgs = [`成功 ${ok} 份`];
+      if (skipped.length) msgs.push(`跳过 ${skipped.length} 份`);
+      if (failures.length) msgs.push(`失败 ${failures.length} 份`);
+      toast.success(msgs.join("，"));
+      if (skipped.length) console.warn("[同步答案] 跳过：", skipped);
+      if (failures.length) console.error("[同步答案] 失败：", failures);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "同步失败");
+    } finally {
+      setSyncing(false);
+      setSyncProgress("");
+    }
+  };
+
   const goToFolder = (id: string | null) => {
     navigate({ search: { folder: id } });
   };
@@ -1013,6 +1129,22 @@ function QuestionBankPage() {
           <Button variant="outline" className="gap-1.5" onClick={() => openUpload("paper")}>
             <Upload className="h-4 w-4" /> 批量上传
           </Button>
+          {syncPair && (
+            <Button
+              variant="default"
+              className="gap-1.5"
+              onClick={handleSyncAnswersFromKeys}
+              disabled={syncing}
+              title="按年份匹配，从「简版答案」PDF 中提取答案并写入「题目」试卷"
+            >
+              {syncing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Zap className="h-4 w-4" />
+              )}
+              {syncing ? syncProgress || "同步中..." : "一键同步答案"}
+            </Button>
+          )}
         </div>
       </div>
 
