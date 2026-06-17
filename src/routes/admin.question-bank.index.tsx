@@ -990,6 +990,96 @@ function QuestionBankPage() {
     }
   };
 
+  const handleSyncAnswersFromKeys = async () => {
+    if (!syncPair) return;
+    if (syncing) return;
+    setSyncing(true);
+    setSyncProgress("加载文件列表...");
+    try {
+      const [{ papers: paperList }, { papers: keyList }] = await Promise.all([
+        listMathPapersInFolder({ data: { folderId: syncPair.paperFolderId } }),
+        listMathPapersInFolder({ data: { folderId: syncPair.keyFolderId } }),
+      ]);
+      const paperByYear = new Map<number, PaperRow>();
+      for (const p of paperList as PaperRow[]) {
+        if (p.kind === "paper" && p.year) paperByYear.set(p.year, p);
+      }
+      const keyByYear = new Map<number, PaperRow>();
+      for (const p of keyList as PaperRow[]) {
+        if (p.year) keyByYear.set(p.year, p);
+      }
+      const matched: Array<{ year: number; paper: PaperRow; key: PaperRow }> = [];
+      for (const [year, key] of keyByYear) {
+        const paper = paperByYear.get(year);
+        if (paper) matched.push({ year, paper, key });
+      }
+      matched.sort((a, b) => a.year - b.year);
+      if (matched.length === 0) {
+        toast.warning("没有找到可匹配的年份");
+        return;
+      }
+
+      let ok = 0;
+      const failures: string[] = [];
+      const skipped: string[] = [];
+      for (let i = 0; i < matched.length; i++) {
+        const { year, paper, key } = matched[i];
+        setSyncProgress(`处理 ${year}（${i + 1}/${matched.length}）...`);
+        try {
+          if (paper.question_count === 0) {
+            skipped.push(`${year}：题目卷尚未抽题`);
+            continue;
+          }
+          const urls = await getMathPaperPdfUrls({ data: { paperId: key.id } });
+          if (!urls.pdfUrl) throw new Error("答案 PDF 链接获取失败");
+          const file = await downloadAsFile(urls.pdfUrl, `key-${year}.pdf`);
+          const pages = await getPdfTextItems(file);
+          // 合并所有页文本，按 y、x 排序成单行
+          const allItems = pages.flatMap((pg) =>
+            pg.items.map((it) => ({ ...it, page: pg.pageIndex })),
+          );
+          allItems.sort((a, b) => {
+            if (a.page !== b.page) return a.page - b.page;
+            const dy = Math.round(a.y * 200) - Math.round(b.y * 200);
+            return dy !== 0 ? dy : a.x - b.x;
+          });
+          const text = allItems.map((it) => it.str).join(" ");
+          // 匹配 "1. D" / "1 . D" / "1: D" / "1) D"
+          const re = /\b(\d{1,2})\s*[\.\):]?\s*([A-Ea-e])\b/g;
+          const found = new Map<number, string>();
+          let m: RegExpExecArray | null;
+          while ((m = re.exec(text)) !== null) {
+            const n = Number(m[1]);
+            const a = m[2].toUpperCase();
+            if (n >= 1 && n <= 25 && !found.has(n)) found.set(n, a);
+          }
+          if (found.size < 20) {
+            throw new Error(`仅解析到 ${found.size} 个答案，可能不是标准答案表`);
+          }
+          const answers = Array.from(found.entries())
+            .sort(([x], [y]) => x - y)
+            .map(([number, answer]) => ({ number, answer: answer as "A" | "B" | "C" | "D" | "E" }));
+          await bulkUpdateQuestionAnswers({ data: { paperId: paper.id, answers } });
+          ok++;
+        } catch (err) {
+          failures.push(`${year}：${err instanceof Error ? err.message : "未知错误"}`);
+        }
+      }
+
+      const msgs = [`成功 ${ok} 份`];
+      if (skipped.length) msgs.push(`跳过 ${skipped.length} 份`);
+      if (failures.length) msgs.push(`失败 ${failures.length} 份`);
+      toast.success(msgs.join("，"));
+      if (skipped.length) console.warn("[同步答案] 跳过：", skipped);
+      if (failures.length) console.error("[同步答案] 失败：", failures);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "同步失败");
+    } finally {
+      setSyncing(false);
+      setSyncProgress("");
+    }
+  };
+
   const goToFolder = (id: string | null) => {
     navigate({ search: { folder: id } });
   };
