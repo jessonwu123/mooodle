@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, Users, ChevronRight, Trash2, ShieldCheck, FileText, Copy, CalendarDays, BookOpen } from "lucide-react";
+import { Plus, Users, ChevronRight, Trash2, ShieldCheck, FileText, Copy, CalendarDays, BookOpen, Tags, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,9 @@ import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { buildStudentMonthlySummary } from "@/lib/student-summary";
 import { ensureStudentAccount } from "@/lib/student-account.functions";
+import { createTag } from "@/lib/math-tags.functions";
+import { useServerFn } from "@tanstack/react-start";
+
 
 
 export const Route = createFileRoute("/admin/")({
@@ -53,6 +56,15 @@ function AdminHome() {
   const [summaryFor, setSummaryFor] = useState<Student | null>(null);
   const [summaryText, setSummaryText] = useState("");
   const [summaryLoading, setSummaryLoading] = useState(false);
+
+  // Batch tag creation dialog
+  const [tagOpen, setTagOpen] = useState(false);
+  const [tagDrafts, setTagDrafts] = useState<{ name: string; description: string }[]>([
+    { name: "", description: "" },
+  ]);
+  const [tagBusy, setTagBusy] = useState(false);
+  const createTagFn = useServerFn(createTag);
+
 
   const openSummary = async (s: Student) => {
     setSummaryFor(s);
@@ -201,6 +213,50 @@ function AdminHome() {
     load();
   };
 
+  // Batch tag creation helpers
+  const updateTagDraft = (idx: number, patch: Partial<{ name: string; description: string }>) => {
+    setTagDrafts((rows) => rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  };
+  const addTagDraft = () => setTagDrafts((rows) => [...rows, { name: "", description: "" }]);
+  const removeTagDraft = (idx: number) =>
+    setTagDrafts((rows) => (rows.length === 1 ? rows : rows.filter((_, i) => i !== idx)));
+  const resetTagDialog = () => {
+    setTagDrafts([{ name: "", description: "" }]);
+    setTagOpen(false);
+  };
+  const handleCreateTags = async () => {
+    const valid = tagDrafts
+      .map((d) => ({ name: d.name.trim(), description: d.description.trim() }))
+      .filter((d) => d.name.length > 0);
+    if (valid.length === 0) {
+      toast.error("请至少输入一个知识点名称");
+      return;
+    }
+    setTagBusy(true);
+    let ok = 0;
+    let fail = 0;
+    for (const d of valid) {
+      try {
+        await createTagFn({
+          data: {
+            name: d.name,
+            category: "knowledge",
+            color: null,
+            description: d.description || null,
+          },
+        });
+        ok++;
+      } catch (e: any) {
+        fail++;
+        toast.error(`「${d.name}」创建失败：${e?.message ?? "未知错误"}`);
+      }
+    }
+    setTagBusy(false);
+    if (ok > 0) toast.success(`已创建 ${ok} 个知识点${fail ? `，失败 ${fail} 个` : ""}`);
+    if (fail === 0) resetTagDialog();
+  };
+
+
   return (
     <div>
       <div className="mb-8 flex items-end justify-between gap-4">
@@ -236,6 +292,13 @@ function AdminHome() {
               </Button>
             </Link>
           )}
+          {isAdmin && (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setTagOpen(true)}>
+              <Tags className="h-4 w-4" />
+              批量添加知识点
+            </Button>
+          )}
+
           {isAdmin && (
             <Link to="/admin/teachers">
               <Button variant="outline" size="sm" className="gap-1.5">
@@ -395,6 +458,63 @@ function AdminHome() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Batch tag creation dialog */}
+      <Dialog open={tagOpen} onOpenChange={setTagOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>批量添加知识点</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+            {tagDrafts.map((d, idx) => (
+              <div key={idx} className="rounded-md border p-3 space-y-2 relative">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">#{idx + 1}</span>
+                  {tagDrafts.length > 1 ? (
+                    <button
+                      onClick={() => removeTagDraft(idx)}
+                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive"
+                      aria-label="移除"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>名称</Label>
+                  <Input
+                    value={d.name}
+                    onChange={(e) => updateTagDraft(idx, { name: e.target.value })}
+                    placeholder="如：勾股定理"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>说明</Label>
+                  <Textarea
+                    rows={2}
+                    value={d.description}
+                    onChange={(e) => updateTagDraft(idx, { description: e.target.value })}
+                    placeholder="会作为提示给 AI，描述越清晰打标越准"
+                  />
+                </div>
+              </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={addTagDraft} className="gap-1.5">
+              <Plus className="h-4 w-4" />
+              再加一个
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTagOpen(false)} disabled={tagBusy}>
+              取消
+            </Button>
+            <Button onClick={handleCreateTags} disabled={tagBusy}>
+              {tagBusy ? "保存中..." : "全部保存"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
