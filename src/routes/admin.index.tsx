@@ -243,6 +243,7 @@ function AdminHome() {
               </Button>
             </Link>
           )}
+          {isAdmin && (
             <Link to="/admin/teachers">
               <Button variant="outline" size="sm" className="gap-1.5">
                 <ShieldCheck className="h-4 w-4" />
