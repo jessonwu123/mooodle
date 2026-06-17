@@ -129,7 +129,7 @@ function PaperDetailPage() {
         return;
       }
       setPaper(p as PaperRow);
-      const list = (qs ?? []) as QuestionRow[];
+      const list = ((qs ?? []) as unknown) as QuestionRow[];
       setQuestions(list);
       setAllTags(((tagsRes as { tags: TagRow[] }).tags ?? []) as TagRow[]);
 
