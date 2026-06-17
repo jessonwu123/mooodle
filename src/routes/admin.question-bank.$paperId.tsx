@@ -13,8 +13,9 @@ import {
   setQuestionTags,
   autoTagPaper,
 } from "@/lib/math-tags.functions";
-import { extractSolutionsForPaper } from "@/lib/math-solutions.functions";
-import { renderPdfPages } from "@/lib/pdf-render";
+import { extractSolutionsForPaper, saveSolutionImages } from "@/lib/math-solutions.functions";
+import { renderPdfPages, cropCanvasToBlob } from "@/lib/pdf-render";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Popover,
   PopoverContent,
