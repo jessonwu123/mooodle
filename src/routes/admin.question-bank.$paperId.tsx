@@ -13,8 +13,9 @@ import {
   setQuestionTags,
   autoTagPaper,
 } from "@/lib/math-tags.functions";
-import { extractSolutionsForPaper } from "@/lib/math-solutions.functions";
-import { renderPdfPages } from "@/lib/pdf-render";
+import { extractSolutionsForPaper, saveSolutionImages } from "@/lib/math-solutions.functions";
+import { renderPdfPages, cropCanvasToBlob } from "@/lib/pdf-render";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Popover,
   PopoverContent,
@@ -62,6 +63,8 @@ interface QuestionRow {
   options_render_mode: "text" | "image";
   tags: string[];
   solution_md: string | null;
+  solution_md_zh: string | null;
+  solution_images: Array<{ marker: string; path: string }> | null;
 }
 
 function PaperDetailPage() {
@@ -71,6 +74,7 @@ function PaperDetailPage() {
   const saveQuestionTags = useServerFn(setQuestionTags);
   const runAutoTag = useServerFn(autoTagPaper);
   const runExtractSolutions = useServerFn(extractSolutionsForPaper);
+  const runSaveSolutionImages = useServerFn(saveSolutionImages);
 
   const [paper, setPaper] = useState<PaperRow | null>(null);
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
@@ -113,7 +117,7 @@ function PaperDetailPage() {
         supabase
           .from("math_questions")
           .select(
-            "id, question_number, stem, option_a, option_b, option_c, option_d, option_e, correct_answer, image_path, options_image_path, stem_render_mode, options_render_mode, tags, solution_md",
+            "id, question_number, stem, option_a, option_b, option_c, option_d, option_e, correct_answer, image_path, options_image_path, stem_render_mode, options_render_mode, tags, solution_md, solution_md_zh, solution_images" as any,
           )
           .eq("paper_id", paperId)
           .order("question_number"),
@@ -125,7 +129,7 @@ function PaperDetailPage() {
         return;
       }
       setPaper(p as PaperRow);
-      const list = (qs ?? []) as QuestionRow[];
+      const list = ((qs ?? []) as unknown) as QuestionRow[];
       setQuestions(list);
       setAllTags(((tagsRes as { tags: TagRow[] }).tags ?? []) as TagRow[]);
 
@@ -203,7 +207,7 @@ function PaperDetailPage() {
       const file = new File([blob], "solution.pdf", { type: "application/pdf" });
 
       setExtractStage("渲染解析 PDF 页面...");
-      const pages = await renderPdfPages(file, 1.4, 0.75);
+      const pages = await renderPdfPages(file, 1.6, 0.8, true);
 
       setExtractStage(`上传 ${pages.length} 页图片...`);
       const bucket = supabase.storage.from("math-papers");
@@ -226,24 +230,71 @@ function PaperDetailPage() {
       if (solutionPageImages.length !== paths.length)
         throw new Error("解析页面链接不完整");
 
-      setExtractStage("AI 提取解析中（可能需要 30 秒）...");
+      setExtractStage("AI 提取双语解析中（可能需要 30-60 秒）...");
       const r = await runExtractSolutions({
         data: { paperId, solutionPageImages },
       });
-      toast.success(`提取完成：${r.updated}/${r.totalQuestions} 题已写入解析`);
+
+      // Crop & upload figures, then save per-question image mapping
+      const figureJobs = (r as any).figureJobs as Array<{
+        questionId: string;
+        questionNumber: number;
+        figures: Array<{ id: string; page: number; bbox: { x: number; y: number; w: number; h: number } }>;
+      }>;
+      const figBucket = supabase.storage.from("math-question-images");
+      const newImagesByQuestion: Record<string, Array<{ marker: string; path: string }>> = {};
+      if (figureJobs && figureJobs.length > 0) {
+        setExtractStage(`处理 ${figureJobs.length} 题的配图...`);
+        for (const job of figureJobs) {
+          const saved: Array<{ marker: string; path: string }> = [];
+          for (const f of job.figures) {
+            const page = pages[f.page - 1];
+            if (!page || !page.canvas) continue;
+            try {
+              const blob = await cropCanvasToBlob(page.canvas, f.bbox, 0.005);
+              const path = `solutions/${paperId}/${job.questionId}/${f.id}-${Date.now()}.png`;
+              const { error } = await figBucket.upload(path, blob, {
+                contentType: "image/png",
+                upsert: true,
+              });
+              if (error) {
+                console.warn("上传配图失败", error);
+                continue;
+              }
+              saved.push({ marker: f.id, path });
+            } catch (err) {
+              console.warn("裁剪配图失败", err);
+            }
+          }
+          if (saved.length > 0) {
+            await runSaveSolutionImages({
+              data: { questionId: job.questionId, images: saved },
+            });
+            newImagesByQuestion[job.questionId] = saved;
+          }
+        }
+      }
+      toast.success(`提取完成：${r.updated}/${r.totalQuestions} 题已写入双语解析`);
 
       // refresh solutions
       const { data: refreshed } = await supabase
         .from("math_questions")
-        .select("id, solution_md")
+        .select("id, solution_md, solution_md_zh, solution_images" as any)
         .eq("paper_id", paperId);
       if (refreshed) {
-        const map = new Map<string, string | null>();
-        (refreshed as Array<{ id: string; solution_md: string | null }>).forEach((r) =>
-          map.set(r.id, r.solution_md),
-        );
+        const map = new Map<string, any>();
+        (refreshed as any[]).forEach((r) => map.set(r.id, r));
         setQuestions((prev) =>
-          prev.map((q) => ({ ...q, solution_md: map.get(q.id) ?? q.solution_md })),
+          prev.map((q) => {
+            const r = map.get(q.id);
+            if (!r) return q;
+            return {
+              ...q,
+              solution_md: r.solution_md ?? q.solution_md,
+              solution_md_zh: r.solution_md_zh ?? q.solution_md_zh,
+              solution_images: r.solution_images ?? q.solution_images,
+            };
+          }),
         );
       }
     } catch (e: any) {
@@ -512,13 +563,89 @@ function PaperDetailPage() {
               )}
             </DialogTitle>
           </DialogHeader>
-          {solutionOpenFor?.solution_md && (
-            <div className="text-sm leading-relaxed">
-              <MathText block text={solutionOpenFor.solution_md} />
-            </div>
+          {solutionOpenFor && (
+            <SolutionView
+              md={solutionOpenFor.solution_md}
+              mdZh={solutionOpenFor.solution_md_zh}
+              images={solutionOpenFor.solution_images ?? []}
+            />
           )}
         </DialogContent>
       </Dialog>
     </div>
   );
+}
+
+function SolutionView({
+  md,
+  mdZh,
+  images,
+}: {
+  md: string | null;
+  mdZh: string | null;
+  images: Array<{ marker: string; path: string }>;
+}) {
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!images.length) {
+      setUrls({});
+      return;
+    }
+    (async () => {
+      const { data } = await supabase.storage
+        .from("math-question-images")
+        .createSignedUrls(images.map((i) => i.path), 3600);
+      const m: Record<string, string> = {};
+      images.forEach((img) => {
+        const found = data?.find((s) => s.path === img.path);
+        if (found?.signedUrl) m[img.marker] = found.signedUrl;
+      });
+      setUrls(m);
+    })();
+  }, [images]);
+
+  const hasZh = !!(mdZh && mdZh.trim());
+  const hasEn = !!(md && md.trim());
+
+  const renderBody = (text: string) => {
+    const parts = text.split(/\[\[FIG:([^\]]+)\]\]/g);
+    return (
+      <div className="text-sm leading-relaxed">
+        {parts.map((seg, i) => {
+          if (i % 2 === 1) {
+            const url = urls[seg.trim()];
+            return url ? (
+              <img
+                key={i}
+                src={url}
+                alt={`figure ${seg}`}
+                className="my-2 max-h-80 rounded border"
+              />
+            ) : (
+              <div key={i} className="my-2 text-xs text-muted-foreground">
+                [图片加载中：{seg}]
+              </div>
+            );
+          }
+          return <MathText key={i} block text={seg} />;
+        })}
+      </div>
+    );
+  };
+
+  if (hasZh && hasEn) {
+    return (
+      <Tabs defaultValue="zh" className="w-full">
+        <TabsList>
+          <TabsTrigger value="zh">中文</TabsTrigger>
+          <TabsTrigger value="en">English</TabsTrigger>
+        </TabsList>
+        <TabsContent value="zh" className="mt-3">{renderBody(mdZh!)}</TabsContent>
+        <TabsContent value="en" className="mt-3">{renderBody(md!)}</TabsContent>
+      </Tabs>
+    );
+  }
+  if (hasZh) return renderBody(mdZh!);
+  if (hasEn) return renderBody(md!);
+  return null;
 }

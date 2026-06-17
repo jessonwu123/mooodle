@@ -304,7 +304,9 @@ export type Database = {
           options_render_mode: string
           paper_id: string
           question_number: number
+          solution_images: Json
           solution_md: string | null
+          solution_md_zh: string | null
           stem: string
           stem_render_mode: string
           tags: string[]
@@ -326,7 +328,9 @@ export type Database = {
           options_render_mode?: string
           paper_id: string
           question_number: number
+          solution_images?: Json
           solution_md?: string | null
+          solution_md_zh?: string | null
           stem: string
           stem_render_mode?: string
           tags?: string[]
@@ -348,7 +352,9 @@ export type Database = {
           options_render_mode?: string
           paper_id?: string
           question_number?: number
+          solution_images?: Json
           solution_md?: string | null
+          solution_md_zh?: string | null
           stem?: string
           stem_render_mode?: string
           tags?: string[]
