@@ -244,6 +244,25 @@ function QuestionBankPage() {
     return chain;
   }, [currentFolderId, folderById]);
 
+  // 当前位置可同步答案的条件：找到一对（题目文件夹 + 简版答案文件夹）位于同一父级
+  const syncPair = useMemo(() => {
+    // 1) 当前文件夹下同时存在两个子文件夹
+    const paperSub = subfolders.find((f) => f.name.trim() === "题目");
+    const keySub = subfolders.find((f) => f.name.trim() === "简版答案");
+    if (paperSub && keySub) return { paperFolderId: paperSub.id, keyFolderId: keySub.id };
+    // 2) 当前就是「题目」，找同级「简版答案」
+    const cur = currentFolderId ? folderById.get(currentFolderId) : null;
+    if (cur && cur.name.trim() === "题目") {
+      const sibling = allFolders.find(
+        (f) => f.parent_id === cur.parent_id && f.name.trim() === "简版答案",
+      );
+      if (sibling) return { paperFolderId: cur.id, keyFolderId: sibling.id };
+    }
+    return null;
+  }, [subfolders, currentFolderId, folderById, allFolders]);
+
+
+
   const load = async () => {
     setLoading(true);
     try {
