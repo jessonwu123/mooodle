@@ -1,29 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, BookOpen, Plus, Tags, Trash2, Pencil } from "lucide-react";
+import { ArrowLeft, BookOpen, Plus, Tags, Trash2, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { listTags, createTag, updateTag, deleteTag } from "@/lib/math-tags.functions";
 
 export const Route = createFileRoute("/admin/classified-bank")({
@@ -33,27 +24,6 @@ export const Route = createFileRoute("/admin/classified-bank")({
   }),
 });
 
-const CATEGORY_OPTIONS = [
-  { value: "knowledge", label: "知识点" },
-  { value: "topic", label: "题型" },
-  { value: "difficulty", label: "难度" },
-  { value: "skill", label: "技巧" },
-  { value: "other", label: "其他" },
-];
-const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
-  CATEGORY_OPTIONS.map((o) => [o.value, o.label]),
-);
-const PRESET_COLORS = [
-  "#3b82f6",
-  "#10b981",
-  "#f59e0b",
-  "#ef4444",
-  "#8b5cf6",
-  "#ec4899",
-  "#14b8a6",
-  "#64748b",
-];
-
 type TagRow = {
   id: string;
   name: string;
@@ -61,6 +31,8 @@ type TagRow = {
   color: string | null;
   description: string | null;
 };
+
+type DraftRow = { name: string; description: string };
 
 function ClassifiedBankPage() {
   const fetchTags = useServerFn(listTags);
@@ -70,14 +42,16 @@ function ClassifiedBankPage() {
 
   const [tags, setTags] = useState<TagRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
+
+  // Create (batch) dialog state
+  const [createOpen, setCreateOpen] = useState(false);
+  const [drafts, setDrafts] = useState<DraftRow[]>([{ name: "", description: "" }]);
+  const [saving, setSaving] = useState(false);
+
+  // Edit (single) dialog state
+  const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState<TagRow | null>(null);
-  const [form, setForm] = useState({
-    name: "",
-    category: "knowledge",
-    color: "#3b82f6",
-    description: "",
-  });
+  const [editForm, setEditForm] = useState({ name: "", description: "" });
 
   const refresh = async () => {
     setLoading(true);
@@ -95,50 +69,73 @@ function ClassifiedBankPage() {
   }, []);
 
   const openCreate = () => {
-    setEditing(null);
-    setForm({ name: "", category: "knowledge", color: "#3b82f6", description: "" });
-    setOpen(true);
+    setDrafts([{ name: "", description: "" }]);
+    setCreateOpen(true);
   };
   const openEdit = (t: TagRow) => {
     setEditing(t);
-    setForm({
-      name: t.name,
-      category: t.category,
-      color: t.color ?? "#3b82f6",
-      description: t.description ?? "",
-    });
-    setOpen(true);
+    setEditForm({ name: t.name, description: t.description ?? "" });
+    setEditOpen(true);
   };
 
-  const handleSave = async () => {
-    if (!form.name.trim()) {
-      toast.error("请输入标签名");
+  const updateDraft = (idx: number, patch: Partial<DraftRow>) => {
+    setDrafts((rows) => rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  };
+  const addDraft = () => setDrafts((rows) => [...rows, { name: "", description: "" }]);
+  const removeDraft = (idx: number) =>
+    setDrafts((rows) => (rows.length === 1 ? rows : rows.filter((_, i) => i !== idx)));
+
+  const handleCreateBatch = async () => {
+    const valid = drafts
+      .map((d) => ({ name: d.name.trim(), description: d.description.trim() }))
+      .filter((d) => d.name.length > 0);
+    if (valid.length === 0) {
+      toast.error("请至少输入一个知识点名称");
+      return;
+    }
+    setSaving(true);
+    let ok = 0;
+    let fail = 0;
+    for (const d of valid) {
+      try {
+        await createTagFn({
+          data: {
+            name: d.name,
+            category: "knowledge",
+            color: null,
+            description: d.description || null,
+          },
+        });
+        ok++;
+      } catch (e: any) {
+        fail++;
+        toast.error(`「${d.name}」创建失败：${e?.message ?? "未知错误"}`);
+      }
+    }
+    setSaving(false);
+    if (ok > 0) toast.success(`已创建 ${ok} 个知识点${fail ? `，失败 ${fail} 个` : ""}`);
+    if (fail === 0) setCreateOpen(false);
+    await refresh();
+  };
+
+  const handleEditSave = async () => {
+    if (!editing) return;
+    if (!editForm.name.trim()) {
+      toast.error("请输入名称");
       return;
     }
     try {
-      if (editing) {
-        await updateTagFn({
-          data: {
-            id: editing.id,
-            name: form.name.trim(),
-            category: form.category,
-            color: form.color,
-            description: form.description.trim() || null,
-          },
-        });
-        toast.success("已更新");
-      } else {
-        await createTagFn({
-          data: {
-            name: form.name.trim(),
-            category: form.category,
-            color: form.color,
-            description: form.description.trim() || null,
-          },
-        });
-        toast.success("已创建");
-      }
-      setOpen(false);
+      await updateTagFn({
+        data: {
+          id: editing.id,
+          name: editForm.name.trim(),
+          category: editing.category,
+          color: editing.color,
+          description: editForm.description.trim() || null,
+        },
+      });
+      toast.success("已更新");
+      setEditOpen(false);
       await refresh();
     } catch (e: any) {
       toast.error(e?.message ?? "保存失败");
@@ -146,7 +143,7 @@ function ClassifiedBankPage() {
   };
 
   const handleDelete = async (t: TagRow) => {
-    if (!confirm(`确定删除标签「${t.name}」？所有题目上的该标签也会被移除。`)) return;
+    if (!confirm(`确定删除「${t.name}」？所有题目上的该标签也会被移除。`)) return;
     try {
       await deleteTagFn({ data: { id: t.id } });
       toast.success("已删除");
@@ -155,11 +152,6 @@ function ClassifiedBankPage() {
       toast.error(e?.message ?? "删除失败");
     }
   };
-
-  const grouped = tags.reduce<Record<string, TagRow[]>>((acc, t) => {
-    (acc[t.category] ??= []).push(t);
-    return acc;
-  }, {});
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -175,18 +167,18 @@ function ClassifiedBankPage() {
             <BookOpen className="h-4 w-4" />
             分类题库
           </div>
-          <h1 className="mt-1 text-2xl font-bold text-foreground">标签管理</h1>
+          <h1 className="mt-1 text-2xl font-bold text-foreground">知识点管理</h1>
         </div>
         <Button onClick={openCreate} className="gap-1.5">
           <Plus className="h-4 w-4" />
-          新建标签
+          新建知识点
         </Button>
       </div>
 
       <Card className="p-6">
         <div className="mb-4 flex items-center gap-2">
           <Tags className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold">标签库</h2>
+          <h2 className="text-lg font-semibold">知识点库</h2>
           <span className="text-sm text-muted-foreground">
             共 {tags.length} 个；可在「原始题库」试卷详情页用 AI 自动给题目打 tag。
           </span>
@@ -196,129 +188,125 @@ function ClassifiedBankPage() {
           <div className="py-8 text-center text-sm text-muted-foreground">加载中...</div>
         ) : tags.length === 0 ? (
           <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-            还没有标签。先点右上角「新建标签」，可按知识点/题型/难度等自由分类。
+            还没有知识点。点右上角「新建知识点」开始添加。
           </div>
         ) : (
-          <div className="space-y-6">
-            {CATEGORY_OPTIONS.filter((c) => grouped[c.value]?.length).map((c) => (
-              <div key={c.value}>
-                <div className="mb-2 text-sm font-semibold text-muted-foreground">
-                  {c.label}（{grouped[c.value].length}）
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {grouped[c.value].map((t) => (
-                    <div
-                      key={t.id}
-                      className="group flex items-center gap-1.5 rounded-full border bg-muted/30 py-1 pl-2.5 pr-1 text-sm"
-                      style={t.color ? { borderColor: t.color } : undefined}
-                    >
-                      <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: t.color ?? "#94a3b8" }}
-                      />
-                      <span title={t.description ?? undefined}>{t.name}</span>
-                      <button
-                        onClick={() => openEdit(t)}
-                        className="ml-1 rounded p-1 hover:bg-background"
-                        aria-label="编辑"
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(t)}
-                        className="rounded p-1 text-destructive hover:bg-background"
-                        aria-label="删除"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
+          <div className="divide-y rounded-md border">
+            {tags.map((t) => (
+              <div key={t.id} className="flex items-start gap-3 p-3">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium">{t.name}</div>
+                  {t.description ? (
+                    <div className="mt-0.5 text-xs text-muted-foreground whitespace-pre-wrap">
+                      {t.description}
                     </div>
-                  ))}
+                  ) : null}
                 </div>
+                <button
+                  onClick={() => openEdit(t)}
+                  className="rounded p-1.5 hover:bg-muted"
+                  aria-label="编辑"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => handleDelete(t)}
+                  className="rounded p-1.5 text-destructive hover:bg-muted"
+                  aria-label="删除"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
             ))}
-            {/* Unknown categories */}
-            {Object.keys(grouped)
-              .filter((k) => !CATEGORY_LABEL[k])
-              .map((k) => (
-                <div key={k}>
-                  <div className="mb-2 text-sm font-semibold text-muted-foreground">
-                    {k}（{grouped[k].length}）
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {grouped[k].map((t) => (
-                      <Badge key={t.id} variant="outline">
-                        {t.name}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              ))}
           </div>
         )}
       </Card>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      {/* Batch create dialog */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>新建知识点</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+            {drafts.map((d, idx) => (
+              <div key={idx} className="rounded-md border p-3 space-y-2 relative">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">#{idx + 1}</span>
+                  {drafts.length > 1 ? (
+                    <button
+                      onClick={() => removeDraft(idx)}
+                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive"
+                      aria-label="移除"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>名称</Label>
+                  <Input
+                    value={d.name}
+                    onChange={(e) => updateDraft(idx, { name: e.target.value })}
+                    placeholder="如：勾股定理"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>说明</Label>
+                  <Textarea
+                    rows={2}
+                    value={d.description}
+                    onChange={(e) => updateDraft(idx, { description: e.target.value })}
+                    placeholder="会作为提示给 AI，描述越清晰打标越准"
+                  />
+                </div>
+              </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={addDraft} className="gap-1.5">
+              <Plus className="h-4 w-4" />
+              再加一个
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={saving}>
+              取消
+            </Button>
+            <Button onClick={handleCreateBatch} disabled={saving}>
+              {saving ? "保存中..." : "全部保存"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? "编辑标签" : "新建标签"}</DialogTitle>
+            <DialogTitle>编辑知识点</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>分类</Label>
-              <Select
-                value={form.category}
-                onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORY_OPTIONS.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>
-                      {c.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>标签名</Label>
+              <Label>名称</Label>
               <Input
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="如：勾股定理 / 组合计数 / 中等难度"
+                value={editForm.name}
+                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
               />
             </div>
             <div className="space-y-2">
-              <Label>颜色</Label>
-              <div className="flex flex-wrap gap-2">
-                {PRESET_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setForm((f) => ({ ...f, color: c }))}
-                    className={`h-7 w-7 rounded-full border-2 ${form.color === c ? "border-foreground" : "border-transparent"}`}
-                    style={{ backgroundColor: c }}
-                    aria-label={c}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>说明（可选，会作为提示给 AI）</Label>
+              <Label>说明</Label>
               <Textarea
                 rows={3}
-                value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                placeholder="例如：涉及直角三角形边长关系的题目"
+                value={editForm.description}
+                onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                placeholder="会作为提示给 AI"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
               取消
             </Button>
-            <Button onClick={handleSave}>保存</Button>
+            <Button onClick={handleEditSave}>保存</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
