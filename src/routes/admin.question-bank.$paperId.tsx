@@ -13,7 +13,7 @@ import {
   setQuestionTags,
   autoTagPaper,
 } from "@/lib/math-tags.functions";
-import { extractSolutionsForPaper, saveSolutionImages } from "@/lib/math-solutions.functions";
+import { extractSolutionsForPaper, saveSolutionImages, translateMissingSolutions } from "@/lib/math-solutions.functions";
 import { renderPdfPages, cropCanvasToBlob } from "@/lib/pdf-render";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
