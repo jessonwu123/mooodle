@@ -234,7 +234,118 @@ export const extractSolutionsForPaper = createServerFn({ method: "POST" })
         figureJobs.push({ questionId: q.id, questionNumber: q.question_number, figures: sol.figures });
       }
     }
-    return { ok: true, totalQuestions: questions.length, updated, figureJobs };
+
+    // Pass 2: translate any solutions missing Chinese version
+    const missing = solutions.filter((s) => s.solution_md && !s.solution_md_zh);
+    let translated = 0;
+    if (missing.length > 0) {
+      const zhMap = await translateBatchToZh(
+        apiKey,
+        missing.map((s) => ({ number: s.number, en: s.solution_md })),
+      );
+      for (const q of questions as Array<{ id: string; question_number: number }>) {
+        const zh = zhMap.get(q.question_number);
+        if (!zh) continue;
+        const { error } = await context.supabase
+          .from("math_questions")
+          .update({ solution_md_zh: zh })
+          .eq("id", q.id);
+        if (!error) translated++;
+      }
+    }
+
+    return { ok: true, totalQuestions: questions.length, updated, translated, figureJobs };
+  });
+
+// Batch English -> Chinese translation. Splits into groups so token cap isn't hit.
+async function translateBatchToZh(
+  apiKey: string,
+  items: Array<{ number: number; en: string }>,
+): Promise<Map<number, string>> {
+  const result = new Map<number, string>();
+  const CHUNK = 6;
+  for (let i = 0; i < items.length; i += CHUNK) {
+    const slice = items.slice(i, i + CHUNK);
+    const payload = slice
+      .map((s) => `=== Q${s.number} ===\n${s.en}`)
+      .join("\n\n");
+    const prompt = `请把下面 AMC 8 数学竞赛解析从英文翻译成**中文**。要求：
+- 保留所有 LaTeX 数学（$...$、$$...$$）、Markdown 格式（列表、加粗、分段）、字面美元符号 \\$、占位符 [[FIG:xxx]] **完全不变**
+- 数学符号、变量名、答案字母都保留原样
+- 翻译要准确自然，逐步翻译解题过程
+- 答案行翻译为 "答案：(C)" 风格
+
+输入按 "=== Q<题号> ===" 分隔多道题，请按相同格式返回。严格只返回 JSON：
+{ "translations": [ { "number": 1, "zh": "..." }, ... ] }
+
+${payload}`;
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Lovable-API-Key": apiKey },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+        temperature: 0,
+        max_tokens: 16000,
+      }),
+    });
+    if (!resp.ok) continue; // best-effort
+    const j = await resp.json();
+    const c = j.choices?.[0]?.message?.content;
+    if (!c) continue;
+    let t = String(c).trim().replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim();
+    const a = t.indexOf("{"), b = t.lastIndexOf("}");
+    if (a >= 0 && b > a) t = t.slice(a, b + 1);
+    try {
+      const obj = JSON.parse(t);
+      const arr = obj?.translations;
+      if (Array.isArray(arr)) {
+        for (const it of arr) {
+          const n = Number(it?.number);
+          const zh = typeof it?.zh === "string" ? it.zh.trim() : "";
+          if (Number.isInteger(n) && zh) result.set(n, zh);
+        }
+      }
+    } catch {
+      // ignore chunk
+    }
+  }
+  return result;
+}
+
+const TranslateInput = z.object({ paperId: z.string().uuid() });
+export const translateMissingSolutions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => TranslateInput.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
+    const { data: rows, error } = await context.supabase
+      .from("math_questions")
+      .select("id, question_number, solution_md, solution_md_zh")
+      .eq("paper_id", data.paperId);
+    if (error) throw new Error(error.message);
+    const need = (rows ?? []).filter(
+      (r: any) => r.solution_md && !(r.solution_md_zh && r.solution_md_zh.trim()),
+    );
+    if (need.length === 0) return { ok: true, translated: 0, missing: 0 };
+    const zhMap = await translateBatchToZh(
+      apiKey,
+      need.map((r: any) => ({ number: r.question_number, en: r.solution_md })),
+    );
+    let translated = 0;
+    for (const r of need as any[]) {
+      const zh = zhMap.get(r.question_number);
+      if (!zh) continue;
+      const { error: uErr } = await context.supabase
+        .from("math_questions")
+        .update({ solution_md_zh: zh })
+        .eq("id", r.id);
+      if (!uErr) translated++;
+    }
+    return { ok: true, translated, missing: need.length };
   });
 
 const SaveImagesInput = z.object({
