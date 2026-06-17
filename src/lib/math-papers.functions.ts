@@ -74,7 +74,7 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
 
 务必保证 stem_bbox_2d 与 options_bbox_2d 互不重叠，且都尽量紧凑只圈住对应内容。
 **stem 与各 option 字段必须始终使用 LaTeX 格式**：行内数学用 $...$，独立公式用 $$...$$，文字（包括英文/中文叙述）保持原样不要包进数学环境。
-**货币美元符号必须写成 `\\$`**（例如 "He paid \\$5" 而不是 "He paid $5"），否则会被误识别为数学分隔符。其它需要在正文中显示的字面 `$` 同样要写成 `\\$`。
+**货币美元符号必须写成 \\$**（例如 "He paid \\$5" 而不是 "He paid $5"），否则会被误识别为数学分隔符。其它需要在正文中显示的字面 $ 同样要写成 \\$。
 即使 stem_render_mode 或 options_render_mode 为 "image"，stem 与各 option 字段仍**必须给出 LaTeX 文字备份**（用于搜索和打 tag）。无法用 LaTeX 表达的图形/几何示意图/表格，请用 LaTeX 文本占位代替，例如 $\\text{[几何示意图]}$、$\\text{[函数图像]}$、$\\text{[表格]}$，而不是裸的方括号文字。务必保证所有数学符号（分数、根号、上下标、希腊字母、向量、矩阵等）都使用规范的 LaTeX 命令。
 
 严格只返回如下 JSON：
