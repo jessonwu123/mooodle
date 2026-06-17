@@ -414,6 +414,21 @@ function PaperDetailPage() {
                 </>
               )}
 
+              {/* Solution */}
+              {q.solution_md && (
+                <div className="mt-3 border-t pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => setSolutionOpenFor(q)}
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    查看详细解答
+                  </Button>
+                </div>
+              )}
+
               {/* Tags */}
               <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t pt-2">
                 <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
