@@ -295,22 +295,14 @@ export function FolderPermissionsDialog({ folderId, folderName, trigger }: Props
               </div>
 
               <div className="flex items-center gap-2 border-t pt-3">
-                <Select value={newStudentId} onValueChange={setNewStudentId}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="选择学生..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableStudents.length === 0 ? (
-                      <div className="px-3 py-2 text-xs text-muted-foreground">无可添加学生</div>
-                    ) : (
-                      availableStudents.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>
-                          {s.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={newStudentId}
+                  onChange={setNewStudentId}
+                  options={availableStudents.map((s) => ({ id: s.id, label: s.name }))}
+                  placeholder="选择学生..."
+                  emptyText="未找到匹配学生"
+                  searchPlaceholder="搜索学生姓名..."
+                />
                 <Select
                   value={newStudentLevel}
                   onValueChange={(v) => setNewStudentLevel(v as FolderPermLevel)}
