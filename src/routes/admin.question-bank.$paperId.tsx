@@ -356,6 +356,36 @@ function PaperDetailPage() {
           {extractingSolutions ? extractStage || "提取中..." : "提取详细解析"}
         </Button>
         <Button
+          onClick={async () => {
+            setTranslatingMissing(true);
+            try {
+              const r = await runTranslateMissing({ data: { paperId } });
+              toast.success(`补译完成：${r.translated}/${r.missing} 题已翻译`);
+              const { data: refreshed } = await supabase
+                .from("math_questions")
+                .select("id, solution_md_zh" as any)
+                .eq("paper_id", paperId);
+              if (refreshed) {
+                const map = new Map<string, string | null>();
+                (refreshed as any[]).forEach((r) => map.set(r.id, r.solution_md_zh));
+                setQuestions((prev) =>
+                  prev.map((q) => ({ ...q, solution_md_zh: map.get(q.id) ?? q.solution_md_zh })),
+                );
+              }
+            } catch (e: any) {
+              toast.error(e?.message ?? "补译失败");
+            } finally {
+              setTranslatingMissing(false);
+            }
+          }}
+          disabled={translatingMissing}
+          className="gap-1.5"
+          variant="outline"
+        >
+          {translatingMissing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+          {translatingMissing ? "补译中..." : "补译缺失中文"}
+        </Button>
+        <Button
           onClick={handleAutoTag}
           disabled={autoTagging}
           className="gap-1.5"
