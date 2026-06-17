@@ -57,6 +57,15 @@ function AdminHome() {
   const [summaryText, setSummaryText] = useState("");
   const [summaryLoading, setSummaryLoading] = useState(false);
 
+  // Batch tag creation dialog
+  const [tagOpen, setTagOpen] = useState(false);
+  const [tagDrafts, setTagDrafts] = useState<{ name: string; description: string }[]>([
+    { name: "", description: "" },
+  ]);
+  const [tagBusy, setTagBusy] = useState(false);
+  const createTagFn = useServerFn(createTag);
+
+
   const openSummary = async (s: Student) => {
     setSummaryFor(s);
     setSummaryText("");
