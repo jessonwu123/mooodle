@@ -61,6 +61,7 @@ interface QuestionRow {
   stem_render_mode: "text" | "image";
   options_render_mode: "text" | "image";
   tags: string[];
+  solution_md: string | null;
 }
 
 function PaperDetailPage() {
@@ -69,6 +70,7 @@ function PaperDetailPage() {
   const fetchQuestionTags = useServerFn(listQuestionTags);
   const saveQuestionTags = useServerFn(setQuestionTags);
   const runAutoTag = useServerFn(autoTagPaper);
+  const runExtractSolutions = useServerFn(extractSolutionsForPaper);
 
   const [paper, setPaper] = useState<PaperRow | null>(null);
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
