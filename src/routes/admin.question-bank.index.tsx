@@ -1045,7 +1045,7 @@ function QuestionBankPage() {
           });
           const text = allItems.map((it) => it.str).join(" ");
           // 匹配 "1. D" / "1 . D" / "1: D" / "1) D"
-          const re = /\b(\d{1,2})\s*[\.\):]?\s*([A-Ea-e])\b/g;
+          const re = /\b(\d{1,2})\s*[\.\):]\s*([A-Ea-e])\b/g;
           const found = new Map<number, string>();
           let m: RegExpExecArray | null;
           while ((m = re.exec(text)) !== null) {
