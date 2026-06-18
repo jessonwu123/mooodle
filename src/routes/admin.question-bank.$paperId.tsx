@@ -322,6 +322,18 @@ function PaperDetailPage() {
     }
   };
 
+  const handleImageUpdated = (
+    questionId: string,
+    field: "image_path" | "options_image_path",
+    newPath: string,
+    newUrl: string,
+  ) => {
+    setQuestions((prev) =>
+      prev.map((q) => (q.id === questionId ? { ...q, [field]: newPath } : q)),
+    );
+    setImageUrls((m) => ({ ...m, [newPath]: newUrl }));
+  };
+
   if (loading) {
     return <div className="rounded-xl border bg-card p-8 text-center text-sm text-muted-foreground">加载中...</div>;
   }
