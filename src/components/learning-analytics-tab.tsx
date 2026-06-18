@@ -1,7 +1,18 @@
 import { useEffect, useState, type ReactElement } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Sparkles, RefreshCw, BarChart3, Send, Save, Pencil, Eye } from "lucide-react";
+import {
+  Loader2,
+  Sparkles,
+  RefreshCw,
+  BarChart3,
+  Send,
+  Save,
+  Pencil,
+  Eye,
+  Trash2,
+  FileText,
+} from "lucide-react";
 import {
   LineChart,
   Line,
@@ -23,6 +34,7 @@ import {
   generateLearningAnalytics,
   updateLearningAnalyticsContent,
   publishLearningAnalytics,
+  deleteLearningAnalyticsArchive,
 } from "@/lib/learning-analytics.functions";
 
 type ChartData = {
@@ -49,6 +61,13 @@ type ChartData = {
     correctCount: number;
     accuracyPct: number;
   };
+};
+
+type Archive = {
+  id: string;
+  content: string;
+  chartData: ChartData;
+  publishedAt: string;
 };
 
 function renderMarkdown(md: string) {
@@ -103,18 +122,28 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
 }
 
+function fmtDateTime(d: string) {
+  return new Date(d).toLocaleString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function LearningAnalyticsTab({
   studentId,
   isOwnerView = false,
 }: {
   studentId: string;
-  /** 当前是否是学生本人在查看（true=学生端，false=教师/管理员视角） */
   isOwnerView?: boolean;
 }) {
   const getFn = useServerFn(getLearningAnalytics);
   const genFn = useServerFn(generateLearningAnalytics);
   const saveFn = useServerFn(updateLearningAnalyticsContent);
   const publishFn = useServerFn(publishLearningAnalytics);
+  const deleteFn = useServerFn(deleteLearningAnalyticsArchive);
 
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -124,33 +153,40 @@ export function LearningAnalyticsTab({
   const [role, setRole] = useState<"student" | "teacher">("student");
   const [content, setContent] = useState("");
   const [draft, setDraft] = useState("");
-  const [chartData, setChartData] = useState<ChartData>({});
+  const [draftChart, setDraftChart] = useState<ChartData>({});
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
-  const [isPublished, setIsPublished] = useState(false);
-  const [publishedAt, setPublishedAt] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
+  const [archives, setArchives] = useState<Archive[]>([]);
+  // null = 显示草稿（仅教师端），string = 选中归档 id
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const isTeacherView = !isOwnerView;
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await getFn({ data: { studentId } });
-        setRole(res.role);
-        setContent(res.content);
-        setDraft(res.content);
-        setChartData(res.chartData ?? {});
-        setGeneratedAt(res.generatedAt);
-        setIsPublished(res.isPublished);
-        setPublishedAt(res.publishedAt);
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "加载失败");
-      } finally {
-        setLoading(false);
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await getFn({ data: { studentId } });
+      setRole(res.role);
+      setContent(res.content);
+      setDraft(res.content);
+      setDraftChart(res.chartData ?? {});
+      setGeneratedAt(res.generatedAt);
+      setArchives(res.archives ?? []);
+      // 学生端默认选中最新归档；教师端默认显示草稿
+      if (isOwnerView) {
+        setSelectedId((res.archives && res.archives[0]?.id) ?? null);
       }
-    })();
-  }, [studentId, getFn]);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "加载失败");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentId]);
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -158,8 +194,9 @@ export function LearningAnalyticsTab({
       const res = await genFn({ data: { studentId } });
       setContent(res.content);
       setDraft(res.content);
-      setChartData(res.chartData ?? {});
+      setDraftChart(res.chartData ?? {});
       setGeneratedAt(res.generatedAt);
+      setSelectedId(null);
       toast.success("AI 分析已生成，请检查后发送给学生");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "生成失败");
@@ -193,14 +230,25 @@ export function LearningAnalyticsTab({
     }
     setPublishing(true);
     try {
-      const res = await publishFn({ data: { studentId } });
-      setIsPublished(true);
-      setPublishedAt(res.publishedAt);
-      toast.success("已发送给学生");
+      await publishFn({ data: { studentId } });
+      toast.success("已发送给学生，已存档");
+      await load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "发送失败");
     } finally {
       setPublishing(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("确定删除这次发送的存档吗？学生将无法再看到该次分析。")) return;
+    try {
+      await deleteFn({ data: { studentId, archiveId: id } });
+      toast.success("已删除");
+      if (selectedId === id) setSelectedId(null);
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "删除失败");
     }
   };
 
@@ -212,13 +260,8 @@ export function LearningAnalyticsTab({
     );
   }
 
-  const trend = chartData.lessonsTrend ?? [];
-  const tagPerf = chartData.tagPerformance ?? [];
-  const summary = chartData.summary;
-  const hasData = isTeacherView ? !!generatedAt || !!content : isPublished;
-
-  // 学生端：未发送的话给一个友好提示
-  if (isOwnerView && role === "student" && !isPublished) {
+  // 学生端：没有任何已发送的存档
+  if (isOwnerView && archives.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center text-sm text-muted-foreground">
         老师尚未发送学习情况分析报告，请稍后再来查看。
@@ -226,90 +269,177 @@ export function LearningAnalyticsTab({
     );
   }
 
+  const showingDraft = isTeacherView && selectedId === null;
+  const selectedArchive = selectedId ? archives.find((a) => a.id === selectedId) : null;
+  const displayContent = showingDraft ? content : (selectedArchive?.content ?? "");
+  const displayChart: ChartData = showingDraft ? draftChart : (selectedArchive?.chartData ?? {});
+
+  const trend = displayChart.lessonsTrend ?? [];
+  const tagPerf = displayChart.tagPerformance ?? [];
+  const summary = displayChart.summary;
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
-        <div className="flex items-center gap-2">
-          <BarChart3 className="h-5 w-5 text-primary" />
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="text-base font-semibold text-foreground">AI 学习情况分析</div>
-              {isTeacherView &&
-                (isPublished ? (
-                  <Badge variant="secondary" className="text-xs">
-                    已发送
+      {/* 顶部操作栏（仅教师端） */}
+      {isTeacherView && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-primary" />
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="text-base font-semibold text-foreground">AI 学习情况分析</div>
+                {showingDraft ? (
+                  <Badge variant="outline" className="text-xs">
+                    当前：草稿
                   </Badge>
                 ) : (
-                  <Badge variant="outline" className="text-xs">
-                    草稿
+                  <Badge variant="secondary" className="text-xs">
+                    当前：历史存档
                   </Badge>
-                ))}
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {showingDraft
+                  ? generatedAt
+                    ? `草稿更新于 ${fmtDateTime(generatedAt)}`
+                    : "尚未生成分析"
+                  : selectedArchive
+                    ? `存档于 ${fmtDateTime(selectedArchive.publishedAt)}`
+                    : ""}
+                {archives.length > 0 && (
+                  <span className="ml-2">· 共 {archives.length} 次发送</span>
+                )}
+              </div>
             </div>
-            <div className="text-xs text-muted-foreground">
-              {isTeacherView
-                ? generatedAt
-                  ? `草稿更新于 ${new Date(generatedAt).toLocaleString("zh-CN")}` +
-                    (publishedAt
-                      ? ` · 最近发送 ${new Date(publishedAt).toLocaleString("zh-CN")}`
-                      : "")
-                  : "尚未生成分析"
-                : publishedAt
-                  ? `老师于 ${new Date(publishedAt).toLocaleString("zh-CN")} 发送`
-                  : ""}
-            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {!showingDraft && (
+              <Button onClick={() => setSelectedId(null)} size="sm" variant="outline">
+                返回草稿
+              </Button>
+            )}
+            {showingDraft && (
+              <>
+                <Button onClick={handleGenerate} disabled={generating} size="sm" variant="outline">
+                  {generating ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : generatedAt ? (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  ) : (
+                    <Sparkles className="mr-2 h-4 w-4" />
+                  )}
+                  {generatedAt ? "重新生成" : "AI 生成"}
+                </Button>
+                {content && (
+                  <Button
+                    onClick={() => {
+                      setEditMode((v) => !v);
+                      if (!editMode) setDraft(content);
+                    }}
+                    size="sm"
+                    variant="outline"
+                  >
+                    {editMode ? (
+                      <>
+                        <Eye className="mr-2 h-4 w-4" /> 预览
+                      </>
+                    ) : (
+                      <>
+                        <Pencil className="mr-2 h-4 w-4" /> 编辑
+                      </>
+                    )}
+                  </Button>
+                )}
+                {editMode && (
+                  <Button
+                    onClick={handleSave}
+                    disabled={saving || draft === content}
+                    size="sm"
+                    variant="outline"
+                  >
+                    {saving ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    保存
+                  </Button>
+                )}
+                <Button onClick={handlePublish} disabled={publishing || !content} size="sm">
+                  {publishing ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="mr-2 h-4 w-4" />
+                  )}
+                  发送给学生
+                </Button>
+              </>
+            )}
           </div>
         </div>
-        {isTeacherView && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={handleGenerate} disabled={generating} size="sm" variant="outline">
-              {generating ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : generatedAt ? (
-                <RefreshCw className="mr-2 h-4 w-4" />
-              ) : (
-                <Sparkles className="mr-2 h-4 w-4" />
-              )}
-              {generatedAt ? "重新生成" : "AI 生成"}
-            </Button>
-            {content && (
-              <Button
-                onClick={() => {
-                  setEditMode((v) => !v);
-                  if (!editMode) setDraft(content);
-                }}
-                size="sm"
-                variant="outline"
-              >
-                {editMode ? (
-                  <>
-                    <Eye className="mr-2 h-4 w-4" /> 预览
-                  </>
-                ) : (
-                  <>
-                    <Pencil className="mr-2 h-4 w-4" /> 编辑
-                  </>
-                )}
-              </Button>
-            )}
-            {editMode && (
-              <Button onClick={handleSave} disabled={saving || draft === content} size="sm" variant="outline">
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                保存
-              </Button>
-            )}
-            <Button onClick={handlePublish} disabled={publishing || !content} size="sm">
-              {publishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-              {isPublished ? "重新发送" : "发送给学生"}
-            </Button>
-          </div>
-        )}
-      </div>
+      )}
 
-      {!hasData ? (
+      {/* 历史发送记录列表 */}
+      {archives.length > 0 && (
+        <section className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
+          <div className="mb-3 flex items-center gap-2">
+            <FileText className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">
+              {isTeacherView ? "历史发送存档" : "学习分析报告（历史发送）"}
+            </h3>
+          </div>
+          <div className="space-y-2">
+            {archives.map((a) => {
+              const active = selectedId === a.id;
+              return (
+                <div
+                  key={a.id}
+                  className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 transition ${
+                    active
+                      ? "border-primary bg-primary/5"
+                      : "border-border bg-background hover:bg-muted/50"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(a.id)}
+                    className="flex-1 text-left"
+                  >
+                    <div className="text-sm font-medium text-foreground">
+                      {fmtDateTime(a.publishedAt)}
+                    </div>
+                    <div className="line-clamp-1 text-xs text-muted-foreground">
+                      {a.content.replace(/[#*\->]/g, "").slice(0, 80)}
+                    </div>
+                  </button>
+                  {active && (
+                    <Badge variant="secondary" className="text-xs">
+                      查看中
+                    </Badge>
+                  )}
+                  {isTeacherView && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleDelete(a.id)}
+                      title="删除该次存档"
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* 内容主体 */}
+      {!displayContent ? (
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center text-sm text-muted-foreground">
           {isTeacherView
-            ? '点击"AI 生成"按钮，AI 将基于课堂记录、综合素质评估与习题表现生成分析草稿；老师确认或修改后点击"发送给学生"，学生才能在自己的统计数据栏中看到。'
-            : "暂无内容"}
+            ? '点击"AI 生成"按钮，AI 将基于课堂记录、综合素质评估与习题表现生成分析草稿；老师确认或修改后点击"发送给学生"，每次发送都会自动存档。'
+            : "请在上方选择一次发送记录查看。"}
         </div>
       ) : (
         <>
@@ -381,10 +511,14 @@ export function LearningAnalyticsTab({
             <div className="mb-3 flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-primary" />
               <h3 className="text-sm font-semibold text-foreground">
-                {isTeacherView ? (editMode ? "编辑分析报告（Markdown）" : "分析报告草稿") : "AI 分析报告"}
+                {showingDraft
+                  ? editMode
+                    ? "编辑分析报告（Markdown）"
+                    : "分析报告草稿"
+                  : "AI 分析报告"}
               </h3>
             </div>
-            {isTeacherView && editMode ? (
+            {showingDraft && editMode ? (
               <Textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
@@ -393,7 +527,7 @@ export function LearningAnalyticsTab({
                 placeholder="可使用 Markdown 语法，## 为章节标题，- 为列表项"
               />
             ) : (
-              <div>{renderMarkdown(content)}</div>
+              <div>{renderMarkdown(displayContent)}</div>
             )}
           </section>
         </>
