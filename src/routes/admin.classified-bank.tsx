@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, BookOpen, Plus, Tags, Trash2, Pencil, X, Settings2, Search } from "lucide-react";
+import { ArrowLeft, BookOpen, Plus, Tags, Trash2, Pencil, X, Settings2, Search, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { listTags, createTag, updateTag, deleteTag } from "@/lib/math-tags.functions";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { listTags, createTag, updateTag, deleteTag, setQuestionTags, autoTagByTags } from "@/lib/math-tags.functions";
 
 export const Route = createFileRoute("/admin/classified-bank")({
   component: ClassifiedBankPage,
@@ -58,6 +59,8 @@ function ClassifiedBankPage() {
   const createTagFn = useServerFn(createTag);
   const updateTagFn = useServerFn(updateTag);
   const deleteTagFn = useServerFn(deleteTag);
+  const setQuestionTagsFn = useServerFn(setQuestionTags);
+  const autoTagByTagsFn = useServerFn(autoTagByTags);
 
   const [tags, setTags] = useState<TagRow[]>([]);
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
@@ -82,6 +85,18 @@ function ClassifiedBankPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState<TagRow | null>(null);
   const [editForm, setEditForm] = useState({ name: "", description: "" });
+
+  // Per-question tag popover
+  const [openTagPopoverFor, setOpenTagPopoverFor] = useState<string | null>(null);
+  const [popoverSearch, setPopoverSearch] = useState("");
+  const [savingTagsFor, setSavingTagsFor] = useState<string | null>(null);
+
+  // AI update dialog
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiTagIds, setAiTagIds] = useState<Set<string>>(new Set());
+  const [aiScope, setAiScope] = useState<"all" | "missing">("missing");
+  const [aiSearch, setAiSearch] = useState("");
+  const [aiRunning, setAiRunning] = useState(false);
 
   const refreshTags = async () => {
     const r = await fetchTags();
@@ -270,6 +285,74 @@ function ClassifiedBankPage() {
     }
   };
 
+  const toggleQuestionTag = async (questionId: string, tagId: string) => {
+    const current = qTagMap[questionId] ?? [];
+    const next = current.includes(tagId)
+      ? current.filter((t) => t !== tagId)
+      : [...current, tagId];
+    // optimistic update
+    setQTagMap((m) => ({ ...m, [questionId]: next }));
+    setSavingTagsFor(questionId);
+    try {
+      await setQuestionTagsFn({ data: { questionId, tagIds: next } });
+    } catch (e: any) {
+      toast.error(e?.message ?? "保存失败");
+      setQTagMap((m) => ({ ...m, [questionId]: current }));
+    } finally {
+      setSavingTagsFor(null);
+    }
+  };
+
+  const removeQuestionTag = async (questionId: string, tagId: string) => {
+    const current = qTagMap[questionId] ?? [];
+    const next = current.filter((t) => t !== tagId);
+    setQTagMap((m) => ({ ...m, [questionId]: next }));
+    try {
+      await setQuestionTagsFn({ data: { questionId, tagIds: next } });
+    } catch (e: any) {
+      toast.error(e?.message ?? "移除失败");
+      setQTagMap((m) => ({ ...m, [questionId]: current }));
+    }
+  };
+
+  const openAi = () => {
+    setAiTagIds(new Set(selectedTags));
+    setAiSearch("");
+    setAiScope("missing");
+    setAiOpen(true);
+  };
+
+  const runAiUpdate = async () => {
+    if (aiTagIds.size === 0) {
+      toast.error("请至少选择一个标签");
+      return;
+    }
+    setAiRunning(true);
+    try {
+      const res = await autoTagByTagsFn({
+        data: { tagIds: Array.from(aiTagIds), scope: aiScope },
+      });
+      toast.success(
+        `AI 扫描完成：共扫描 ${res.scanned ?? res.totalQuestions} 题，新增 ${res.inserted} 条标签`,
+      );
+      setAiOpen(false);
+      // refresh links
+      const { data: linksRes } = await supabase
+        .from("math_question_tags")
+        .select("question_id, tag_id");
+      const map: Record<string, string[]> = {};
+      (linksRes ?? []).forEach((l: any) => {
+        (map[l.question_id] ??= []).push(l.tag_id);
+      });
+      setQTagMap(map);
+    } catch (e: any) {
+      toast.error(e?.message ?? "AI 打标签失败");
+    } finally {
+      setAiRunning(false);
+    }
+  };
+
+
   return (
     <div className="mx-auto max-w-7xl">
       <div className="mb-6 flex items-center gap-3">
@@ -286,6 +369,10 @@ function ClassifiedBankPage() {
           </div>
           <h1 className="mt-1 text-2xl font-bold text-foreground">按知识点浏览题目</h1>
         </div>
+        <Button variant="outline" onClick={openAi} className="gap-1.5">
+          <Sparkles className="h-4 w-4" />
+          AI 更新标签
+        </Button>
         <Button variant="outline" onClick={() => setManageOpen(true)} className="gap-1.5">
           <Settings2 className="h-4 w-4" />
           管理知识点
@@ -470,28 +557,100 @@ function ClassifiedBankPage() {
                       </div>
                     )}
                     <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t pt-2">
-                      {tids.length === 0 ? (
+                      {tids.length === 0 && (
                         <span className="text-[11px] text-muted-foreground">未打标签</span>
-                      ) : (
-                        tids.map((tid) => {
-                          const t = tagById[tid];
-                          if (!t) return null;
-                          return (
-                            <span
-                              key={tid}
-                              className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px]"
-                              style={
-                                t.color
-                                  ? { borderColor: t.color, backgroundColor: t.color + "1a" }
-                                  : undefined
-                              }
-                              title={t.description ?? undefined}
-                            >
-                              {t.name}
-                            </span>
-                          );
-                        })
                       )}
+                      {tids.map((tid) => {
+                        const t = tagById[tid];
+                        if (!t) return null;
+                        return (
+                          <span
+                            key={tid}
+                            className="group inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px]"
+                            style={
+                              t.color
+                                ? { borderColor: t.color, backgroundColor: t.color + "1a" }
+                                : undefined
+                            }
+                            title={t.description ?? undefined}
+                          >
+                            {t.name}
+                            <button
+                              onClick={() => removeQuestionTag(q.id, tid)}
+                              className="rounded-full p-0.5 text-muted-foreground hover:bg-background hover:text-destructive"
+                              aria-label="移除"
+                            >
+                              <X className="h-2.5 w-2.5" />
+                            </button>
+                          </span>
+                        );
+                      })}
+                      <Popover
+                        open={openTagPopoverFor === q.id}
+                        onOpenChange={(o) => {
+                          setOpenTagPopoverFor(o ? q.id : null);
+                          if (o) setPopoverSearch("");
+                        }}
+                      >
+                        <PopoverTrigger asChild>
+                          <button
+                            className="inline-flex items-center gap-1 rounded-full border border-dashed px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                            disabled={savingTagsFor === q.id}
+                          >
+                            {savingTagsFor === q.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Plus className="h-3 w-3" />
+                            )}
+                            添加标签
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-2" align="start">
+                          <div className="relative mb-2">
+                            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              value={popoverSearch}
+                              onChange={(e) => setPopoverSearch(e.target.value)}
+                              placeholder="搜索..."
+                              className="h-7 pl-7 text-xs"
+                              autoFocus
+                            />
+                          </div>
+                          <div className="max-h-64 space-y-0.5 overflow-y-auto">
+                            {tags
+                              .filter((t) => {
+                                const kw = popoverSearch.trim().toLowerCase();
+                                if (!kw) return true;
+                                return (
+                                  t.name.toLowerCase().includes(kw) ||
+                                  (t.description ?? "").toLowerCase().includes(kw)
+                                );
+                              })
+                              .map((t) => {
+                                const checked = tids.includes(t.id);
+                                return (
+                                  <label
+                                    key={t.id}
+                                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-xs hover:bg-muted"
+                                  >
+                                    <Checkbox
+                                      checked={checked}
+                                      onCheckedChange={() => toggleQuestionTag(q.id, t.id)}
+                                    />
+                                    <span className="flex-1 truncate" title={t.description ?? undefined}>
+                                      {t.name}
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            {tags.length === 0 && (
+                              <div className="px-2 py-3 text-center text-xs text-muted-foreground">
+                                还没有知识点
+                              </div>
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </div>
                 );
@@ -644,6 +803,123 @@ function ClassifiedBankPage() {
               取消
             </Button>
             <Button onClick={handleEditSave}>保存</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI auto-tag by selected tags */}
+      <Dialog open={aiOpen} onOpenChange={(o) => !aiRunning && setAiOpen(o)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              AI 更新标签
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              选择若干标签，AI 会扫描题库并为符合条件的题目自动加上对应标签（不会移除已有的其他标签）。
+            </p>
+            <div className="space-y-2">
+              <Label>处理范围</Label>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant={aiScope === "missing" ? "default" : "outline"}
+                  onClick={() => setAiScope("missing")}
+                >
+                  仅处理尚未打这些标签的题
+                </Button>
+                <Button
+                  size="sm"
+                  variant={aiScope === "all" ? "default" : "outline"}
+                  onClick={() => setAiScope("all")}
+                >
+                  全部题目
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>选择标签 ({aiTagIds.size})</Label>
+                {aiTagIds.size > 0 && (
+                  <button
+                    onClick={() => setAiTagIds(new Set())}
+                    className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                  >
+                    清空
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={aiSearch}
+                  onChange={(e) => setAiSearch(e.target.value)}
+                  placeholder="搜索标签..."
+                  className="h-8 pl-7 text-sm"
+                />
+              </div>
+              <div className="max-h-72 overflow-y-auto rounded-md border divide-y">
+                {tags
+                  .filter((t) => {
+                    const kw = aiSearch.trim().toLowerCase();
+                    if (!kw) return true;
+                    return (
+                      t.name.toLowerCase().includes(kw) ||
+                      (t.description ?? "").toLowerCase().includes(kw)
+                    );
+                  })
+                  .map((t) => {
+                    const checked = aiTagIds.has(t.id);
+                    return (
+                      <label
+                        key={t.id}
+                        className="flex cursor-pointer items-start gap-2 px-3 py-2 text-sm hover:bg-muted"
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={() => {
+                            setAiTagIds((prev) => {
+                              const n = new Set(prev);
+                              if (n.has(t.id)) n.delete(t.id);
+                              else n.add(t.id);
+                              return n;
+                            });
+                          }}
+                          className="mt-0.5"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium">{t.name}</div>
+                          {t.description && (
+                            <div className="mt-0.5 text-xs text-muted-foreground">
+                              {t.description}
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAiOpen(false)} disabled={aiRunning}>
+              取消
+            </Button>
+            <Button onClick={runAiUpdate} disabled={aiRunning || aiTagIds.size === 0} className="gap-1.5">
+              {aiRunning ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  扫描中...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  开始扫描
+                </>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
