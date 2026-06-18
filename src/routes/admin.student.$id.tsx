@@ -245,10 +245,11 @@ function ManageStudent() {
       </div>
 
       <Tabs defaultValue="lessons" className="w-full">
-        <TabsList className="mb-6 grid w-full max-w-xl grid-cols-3">
+        <TabsList className="mb-6 grid w-full max-w-xl grid-cols-4">
           <TabsTrigger value="lessons">课堂记录</TabsTrigger>
           <TabsTrigger value="comprehensive">综合素质</TabsTrigger>
           <TabsTrigger value="course">课程信息</TabsTrigger>
+          <TabsTrigger value="analytics">学习分析</TabsTrigger>
         </TabsList>
 
         <TabsContent value="lessons">
@@ -552,10 +553,11 @@ function ManageStudent() {
         </TabsContent>
 
         <TabsContent value="course">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-start">
-            <CourseInfoPanel studentId={id} />
-            <LearningAnalyticsTab studentId={id} isOwnerView={false} />
-          </div>
+          <CourseInfoPanel studentId={id} />
+        </TabsContent>
+
+        <TabsContent value="analytics">
+          <LearningAnalyticsTab studentId={id} isOwnerView={false} />
         </TabsContent>
       </Tabs>
     </div>
