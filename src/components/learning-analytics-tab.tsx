@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactElement } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Sparkles, RefreshCw, BarChart3 } from "lucide-react";
+import { Loader2, Sparkles, RefreshCw, BarChart3, Send, Save, Pencil, Eye } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -16,9 +16,13 @@ import {
   Cell,
 } from "recharts";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import {
   getLearningAnalytics,
   generateLearningAnalytics,
+  updateLearningAnalyticsContent,
+  publishLearningAnalytics,
 } from "@/lib/learning-analytics.functions";
 
 type ChartData = {
@@ -48,7 +52,6 @@ type ChartData = {
 };
 
 function renderMarkdown(md: string) {
-  // light-weight: split into lines, render ##/### headings, paragraphs, list items
   const lines = md.split("\n");
   const out: ReactElement[] = [];
   let listBuf: string[] = [];
@@ -100,23 +103,47 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
 }
 
-export function LearningAnalyticsTab({ studentId }: { studentId: string }) {
+export function LearningAnalyticsTab({
+  studentId,
+  isOwnerView = false,
+}: {
+  studentId: string;
+  /** 当前是否是学生本人在查看（true=学生端，false=教师/管理员视角） */
+  isOwnerView?: boolean;
+}) {
   const getFn = useServerFn(getLearningAnalytics);
   const genFn = useServerFn(generateLearningAnalytics);
+  const saveFn = useServerFn(updateLearningAnalyticsContent);
+  const publishFn = useServerFn(publishLearningAnalytics);
+
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+
+  const [role, setRole] = useState<"student" | "teacher">("student");
   const [content, setContent] = useState("");
+  const [draft, setDraft] = useState("");
   const [chartData, setChartData] = useState<ChartData>({});
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+  const [isPublished, setIsPublished] = useState(false);
+  const [publishedAt, setPublishedAt] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
+
+  const isTeacherView = !isOwnerView;
 
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
         const res = await getFn({ data: { studentId } });
+        setRole(res.role);
         setContent(res.content);
+        setDraft(res.content);
         setChartData(res.chartData ?? {});
         setGeneratedAt(res.generatedAt);
+        setIsPublished(res.isPublished);
+        setPublishedAt(res.publishedAt);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "加载失败");
       } finally {
@@ -130,13 +157,50 @@ export function LearningAnalyticsTab({ studentId }: { studentId: string }) {
     try {
       const res = await genFn({ data: { studentId } });
       setContent(res.content);
+      setDraft(res.content);
       setChartData(res.chartData ?? {});
       setGeneratedAt(res.generatedAt);
-      toast.success("分析已更新");
+      toast.success("AI 分析已生成，请检查后发送给学生");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "生成失败");
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await saveFn({ data: { studentId, content: draft } });
+      setContent(draft);
+      setEditMode(false);
+      toast.success("已保存修改");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "保存失败");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (draft !== content) {
+      toast.error("请先保存修改再发送");
+      return;
+    }
+    if (!content) {
+      toast.error("尚无内容可发送");
+      return;
+    }
+    setPublishing(true);
+    try {
+      const res = await publishFn({ data: { studentId } });
+      setIsPublished(true);
+      setPublishedAt(res.publishedAt);
+      toast.success("已发送给学生");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "发送失败");
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -151,7 +215,16 @@ export function LearningAnalyticsTab({ studentId }: { studentId: string }) {
   const trend = chartData.lessonsTrend ?? [];
   const tagPerf = chartData.tagPerformance ?? [];
   const summary = chartData.summary;
-  const hasData = !!generatedAt;
+  const hasData = isTeacherView ? !!generatedAt || !!content : isPublished;
+
+  // 学生端：未发送的话给一个友好提示
+  if (isOwnerView && role === "student" && !isPublished) {
+    return (
+      <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center text-sm text-muted-foreground">
+        老师尚未发送学习情况分析报告，请稍后再来查看。
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -159,29 +232,84 @@ export function LearningAnalyticsTab({ studentId }: { studentId: string }) {
         <div className="flex items-center gap-2">
           <BarChart3 className="h-5 w-5 text-primary" />
           <div>
-            <div className="text-base font-semibold text-foreground">AI 学习情况分析</div>
+            <div className="flex items-center gap-2">
+              <div className="text-base font-semibold text-foreground">AI 学习情况分析</div>
+              {isTeacherView &&
+                (isPublished ? (
+                  <Badge variant="secondary" className="text-xs">
+                    已发送
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs">
+                    草稿
+                  </Badge>
+                ))}
+            </div>
             <div className="text-xs text-muted-foreground">
-              {generatedAt
-                ? `最近更新于 ${new Date(generatedAt).toLocaleString("zh-CN")}`
-                : "尚未生成分析"}
+              {isTeacherView
+                ? generatedAt
+                  ? `草稿更新于 ${new Date(generatedAt).toLocaleString("zh-CN")}` +
+                    (publishedAt
+                      ? ` · 最近发送 ${new Date(publishedAt).toLocaleString("zh-CN")}`
+                      : "")
+                  : "尚未生成分析"
+                : publishedAt
+                  ? `老师于 ${new Date(publishedAt).toLocaleString("zh-CN")} 发送`
+                  : ""}
             </div>
           </div>
         </div>
-        <Button onClick={handleGenerate} disabled={generating} size="sm">
-          {generating ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : hasData ? (
-            <RefreshCw className="mr-2 h-4 w-4" />
-          ) : (
-            <Sparkles className="mr-2 h-4 w-4" />
-          )}
-          {hasData ? "重新生成分析" : "生成分析"}
-        </Button>
+        {isTeacherView && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={handleGenerate} disabled={generating} size="sm" variant="outline">
+              {generating ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : generatedAt ? (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              ) : (
+                <Sparkles className="mr-2 h-4 w-4" />
+              )}
+              {generatedAt ? "重新生成" : "AI 生成"}
+            </Button>
+            {content && (
+              <Button
+                onClick={() => {
+                  setEditMode((v) => !v);
+                  if (!editMode) setDraft(content);
+                }}
+                size="sm"
+                variant="outline"
+              >
+                {editMode ? (
+                  <>
+                    <Eye className="mr-2 h-4 w-4" /> 预览
+                  </>
+                ) : (
+                  <>
+                    <Pencil className="mr-2 h-4 w-4" /> 编辑
+                  </>
+                )}
+              </Button>
+            )}
+            {editMode && (
+              <Button onClick={handleSave} disabled={saving || draft === content} size="sm" variant="outline">
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                保存
+              </Button>
+            )}
+            <Button onClick={handlePublish} disabled={publishing || !content} size="sm">
+              {publishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+              {isPublished ? "重新发送" : "发送给学生"}
+            </Button>
+          </div>
+        )}
       </div>
 
       {!hasData ? (
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center text-sm text-muted-foreground">
-          点击"生成分析"按钮，AI 将基于课堂记录、综合素质评估与习题表现，为该学生生成多维度学习分析。
+          {isTeacherView
+            ? '点击"AI 生成"按钮，AI 将基于课堂记录、综合素质评估与习题表现生成分析草稿；老师确认或修改后点击"发送给学生"，学生才能在自己的统计数据栏中看到。'
+            : "暂无内容"}
         </div>
       ) : (
         <>
@@ -224,18 +352,9 @@ export function LearningAnalyticsTab({ studentId }: { studentId: string }) {
               <p className="mb-4 text-xs text-muted-foreground">按答题次数排序，柱状颜色反映正确率</p>
               <div className="h-72 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={tagPerf}
-                    margin={{ top: 5, right: 10, bottom: 40, left: -10 }}
-                  >
+                  <BarChart data={tagPerf} margin={{ top: 5, right: 10, bottom: 40, left: -10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis
-                      dataKey="tag"
-                      tick={{ fontSize: 10 }}
-                      angle={-30}
-                      textAnchor="end"
-                      interval={0}
-                    />
+                    <XAxis dataKey="tag" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" interval={0} />
                     <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} unit="%" />
                     <Tooltip
                       formatter={(v: any, n: any, p: any) =>
@@ -258,15 +377,25 @@ export function LearningAnalyticsTab({ studentId }: { studentId: string }) {
             </section>
           )}
 
-          {content && (
-            <section className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]">
-              <div className="mb-2 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                <h3 className="text-sm font-semibold text-foreground">AI 分析报告</h3>
-              </div>
+          <section className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]">
+            <div className="mb-3 flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold text-foreground">
+                {isTeacherView ? (editMode ? "编辑分析报告（Markdown）" : "分析报告草稿") : "AI 分析报告"}
+              </h3>
+            </div>
+            {isTeacherView && editMode ? (
+              <Textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                rows={20}
+                className="font-mono text-sm"
+                placeholder="可使用 Markdown 语法，## 为章节标题，- 为列表项"
+              />
+            ) : (
               <div>{renderMarkdown(content)}</div>
-            </section>
-          )}
+            )}
+          </section>
         </>
       )}
     </div>

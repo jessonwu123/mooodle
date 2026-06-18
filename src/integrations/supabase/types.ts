@@ -598,6 +598,10 @@ export type Database = {
           chart_data: Json
           content: string
           generated_at: string
+          is_published: boolean
+          published_at: string | null
+          published_chart_data: Json | null
+          published_content: string | null
           student_id: string
           updated_by: string | null
         }
@@ -605,6 +609,10 @@ export type Database = {
           chart_data?: Json
           content?: string
           generated_at?: string
+          is_published?: boolean
+          published_at?: string | null
+          published_chart_data?: Json | null
+          published_content?: string | null
           student_id: string
           updated_by?: string | null
         }
@@ -612,6 +620,10 @@ export type Database = {
           chart_data?: Json
           content?: string
           generated_at?: string
+          is_published?: boolean
+          published_at?: string | null
+          published_chart_data?: Json | null
+          published_content?: string | null
           student_id?: string
           updated_by?: string | null
         }
