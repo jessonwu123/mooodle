@@ -183,7 +183,9 @@ export const getStudentLibrary = createServerFn({ method: "POST" })
       question_count: number;
     }> = [];
     if (currentLevel !== "none" && data.folderId !== null) {
-      const { data: ps, error: e2 } = await supabase
+      // math_papers RLS doesn't grant student SELECT; use admin client since
+      // we've already verified folder-level access above.
+      const { data: ps, error: e2 } = await supabaseAdmin
         .from("math_papers")
         .select("id, year, name, kind, created_at, question_count")
         .eq("folder_id", data.folderId)
@@ -221,7 +223,7 @@ export const getStudentPaperUrl = createServerFn({ method: "POST" })
       (supabase as any).rpc("has_role", { _user_id: userId, _role: "admin" }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any).rpc("has_role", { _user_id: userId, _role: "teacher" }),
-      supabase
+      supabaseAdmin
         .from("math_papers")
         .select("id, name, pdf_path, folder_id, kind")
         .eq("id", data.paperId)
@@ -263,7 +265,7 @@ export const getStudentPaperUrl = createServerFn({ method: "POST" })
       }
     }
 
-    const { data: signed, error } = await supabase.storage
+    const { data: signed, error } = await supabaseAdmin.storage
       .from("math-papers")
       .createSignedUrl(paper.pdf_path, 60 * 30);
     if (error || !signed?.signedUrl) throw new Error(error?.message ?? "生成下载链接失败");

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Sparkles, BookOpen, Target, CheckCircle2, XCircle, Lock } from "lucide-react";
+import { Loader2, Sparkles, BookOpen, Target, CheckCircle2, XCircle, Lock, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MathText } from "@/components/math-text";
 import {
   listPracticePapers,
@@ -66,6 +67,9 @@ function QuestionCard({
   const stemImg = q.stem_render_mode === "image" && q.image_url;
   const optsImg = q.options_render_mode === "image" && q.options_image_url;
 
+  const [showOriginal, setShowOriginal] = useState(false);
+  const originalUrl = q.image_url || q.options_image_url || null;
+
   return (
     <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
       <div className="mb-3 flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -73,6 +77,15 @@ function QuestionCard({
           第 {index + 1} 题
         </span>
         {q.year != null && <span className="text-xs">{q.year}</span>}
+        {originalUrl && (
+          <button
+            type="button"
+            onClick={() => setShowOriginal(true)}
+            className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent"
+          >
+            <ImageIcon className="h-3 w-3" />查看原题
+          </button>
+        )}
         {graded &&
           (graded.is_correct ? (
             <span className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
@@ -84,6 +97,15 @@ function QuestionCard({
             </span>
           ))}
       </div>
+
+      <Dialog open={showOriginal} onOpenChange={setShowOriginal}>
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>第 {index + 1} 题 · 原题截图</DialogTitle>
+          </DialogHeader>
+          {originalUrl && <img src={originalUrl} alt="原题" className="w-full rounded-md border" />}
+        </DialogContent>
+      </Dialog>
 
       <div className="mb-3">
         {stemImg ? (
@@ -216,7 +238,6 @@ function PracticeRunner({
             <div className="text-xs text-muted-foreground">本次成绩</div>
             <div className="text-2xl font-bold text-primary">
               {score.correct}/{score.total}
-              <span className="ml-2 text-sm font-medium text-muted-foreground">({score.score} 分)</span>
             </div>
           </div>
         ) : (
