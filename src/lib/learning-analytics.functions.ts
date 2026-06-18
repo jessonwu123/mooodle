@@ -9,7 +9,13 @@ async function getAdmin() {
   return supabaseAdmin;
 }
 
-async function authorize(ctx: SupaCtx, studentId: string) {
+type AuthorizeResult = {
+  student: { id: string; name: string; auth_user_id: string | null };
+  isOwner: boolean;
+  isStaff: boolean;
+};
+
+async function authorize(ctx: SupaCtx, studentId: string): Promise<AuthorizeResult> {
   const admin = await getAdmin();
   const { data: student } = await admin
     .from("students")
@@ -17,7 +23,9 @@ async function authorize(ctx: SupaCtx, studentId: string) {
     .eq("id", studentId)
     .maybeSingle();
   if (!student) throw new Error("学生不存在");
-  if (student.auth_user_id !== ctx.userId) {
+  const isOwner = student.auth_user_id === ctx.userId;
+  let isStaff = false;
+  if (!isOwner) {
     const { data: isAdmin } = await ctx.supabase.rpc("has_role", {
       _user_id: ctx.userId,
       _role: "admin",
@@ -26,26 +34,67 @@ async function authorize(ctx: SupaCtx, studentId: string) {
       _user_id: ctx.userId,
       _role: "teacher",
     });
-    if (!isAdmin && !isTeacher) throw new Error("无权访问");
+    isStaff = !!(isAdmin || isTeacher);
+    if (!isStaff) throw new Error("无权访问");
+  } else {
+    // owner accessing their own profile
+    const { data: isAdmin } = await ctx.supabase.rpc("has_role", {
+      _user_id: ctx.userId,
+      _role: "admin",
+    });
+    const { data: isTeacher } = await ctx.supabase.rpc("has_role", {
+      _user_id: ctx.userId,
+      _role: "teacher",
+    });
+    isStaff = !!(isAdmin || isTeacher);
   }
-  return student as { id: string; name: string; auth_user_id: string | null };
+  return { student: student as any, isOwner, isStaff };
 }
 
 export const getLearningAnalytics = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ studentId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    await authorize(context, data.studentId);
+    const { isOwner, isStaff } = await authorize(context, data.studentId);
     const admin = await getAdmin();
     const { data: row } = await admin
       .from("student_learning_analytics")
-      .select("content, chart_data, generated_at")
+      .select(
+        "content, chart_data, generated_at, is_published, published_at, published_content, published_chart_data",
+      )
       .eq("student_id", data.studentId)
       .maybeSingle();
+
+    // 学生端：只能看到已发送的版本
+    if (isOwner && !isStaff) {
+      if (!row || !row.is_published) {
+        return {
+          role: "student" as const,
+          content: "",
+          chartData: {} as any,
+          generatedAt: null as string | null,
+          isPublished: false,
+          publishedAt: null as string | null,
+        };
+      }
+      return {
+        role: "student" as const,
+        content: row.published_content ?? "",
+        chartData: (row.published_chart_data ?? {}) as any,
+        generatedAt: row.published_at,
+        isPublished: true,
+        publishedAt: row.published_at,
+      };
+    }
+
+    // 教师端：返回草稿（当前编辑中的版本）
     return {
+      role: "teacher" as const,
       content: row?.content ?? "",
       chartData: (row?.chart_data ?? {}) as any,
       generatedAt: row?.generated_at ?? null,
+      isPublished: row?.is_published ?? false,
+      publishedAt: row?.published_at ?? null,
     };
   });
 
@@ -53,7 +102,8 @@ export const generateLearningAnalytics = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ studentId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const student = await authorize(context, data.studentId);
+    const { student, isStaff } = await authorize(context, data.studentId);
+    if (!isStaff) throw new Error("仅教师可以生成分析");
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
     const admin = await getAdmin();
@@ -88,7 +138,6 @@ export const generateLearningAnalytics = createServerFn({ method: "POST" })
         : Promise.resolve({ data: [] as any[] }),
     ]);
 
-    // 2. Compute chart data programmatically
     const lessonsTrend = (ratings ?? []).map((r: any) => ({
       date: r.lesson_date,
       lesson: r.lesson_name ?? "",
@@ -140,7 +189,6 @@ export const generateLearningAnalytics = createServerFn({ method: "POST" })
       },
     };
 
-    // 3. Build prompt for Gemini
     const compact = {
       student_name: student.name,
       window_days: 90,
@@ -214,4 +262,54 @@ ${JSON.stringify(compact, null, 2)}
     if (upErr) throw new Error(upErr.message);
 
     return { content, chartData, generatedAt };
+  });
+
+export const updateLearningAnalyticsContent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ studentId: z.string().uuid(), content: z.string() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { isStaff } = await authorize(context, data.studentId);
+    if (!isStaff) throw new Error("仅教师可以编辑");
+    const admin = await getAdmin();
+    const { error } = await admin
+      .from("student_learning_analytics")
+      .upsert(
+        {
+          student_id: data.studentId,
+          content: data.content,
+          updated_by: context.userId,
+        },
+        { onConflict: "student_id" },
+      );
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const publishLearningAnalytics = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ studentId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { isStaff } = await authorize(context, data.studentId);
+    if (!isStaff) throw new Error("仅教师可以发送");
+    const admin = await getAdmin();
+    const { data: row } = await admin
+      .from("student_learning_analytics")
+      .select("content, chart_data")
+      .eq("student_id", data.studentId)
+      .maybeSingle();
+    if (!row || !row.content) throw new Error("尚无分析内容可发送");
+    const publishedAt = new Date().toISOString();
+    const { error } = await admin
+      .from("student_learning_analytics")
+      .update({
+        is_published: true,
+        published_at: publishedAt,
+        published_content: row.content,
+        published_chart_data: row.chart_data,
+      })
+      .eq("student_id", data.studentId);
+    if (error) throw new Error(error.message);
+    return { publishedAt };
   });
