@@ -209,9 +209,10 @@ export const getStudentPaperUrl = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // 鉴权
     const [studentRes, adminRes, teacherRes, paperRes] = await Promise.all([
-      supabase
+      supabaseAdmin
         .from("students")
         .select("id, auth_user_id")
         .eq("id", data.studentId)
@@ -226,6 +227,7 @@ export const getStudentPaperUrl = createServerFn({ method: "POST" })
         .eq("id", data.paperId)
         .maybeSingle(),
     ]);
+
     const student = studentRes.data as { id: string; auth_user_id: string | null } | null;
     const paper = paperRes.data as {
       id: string;
