@@ -260,3 +260,155 @@ ${JSON.stringify(qPayload)}
 
     return { ok: true, inserted: rows.length, totalQuestions: questions.length };
   });
+
+// ---- AI scan: apply a chosen set of tags across the whole question bank ----
+export const autoTagByTags = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        tagIds: z.array(z.string().uuid()).min(1).max(20),
+        scope: z.enum(["all", "missing"]).default("all"),
+        // missing = only consider questions that don't already have any of the chosen tags
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
+
+    const { supabase } = context;
+
+    const { data: tags, error: e0 } = await supabase
+      .from("math_tags")
+      .select("id, name, category, description")
+      .in("id", data.tagIds);
+    if (e0) throw new Error(e0.message);
+    if (!tags || tags.length === 0) throw new Error("所选标签不存在");
+
+    let qQuery = supabase
+      .from("math_questions")
+      .select("id, question_number, stem, option_a, option_b, option_c, option_d, option_e, correct_answer");
+
+    const { data: allQuestions, error: e1 } = await qQuery;
+    if (e1) throw new Error(e1.message);
+    if (!allQuestions || allQuestions.length === 0) throw new Error("题库为空");
+
+    let questions = allQuestions;
+    if (data.scope === "missing") {
+      const { data: existing, error: eL } = await supabase
+        .from("math_question_tags")
+        .select("question_id, tag_id")
+        .in("tag_id", data.tagIds);
+      if (eL) throw new Error(eL.message);
+      const taggedSet = new Set((existing ?? []).map((r: any) => `${r.question_id}:${r.tag_id}`));
+      // Filter: keep a question if it's missing at least one of the chosen tags
+      const tagIdSet = new Set(data.tagIds);
+      questions = allQuestions.filter((q: any) => {
+        for (const tid of tagIdSet) {
+          if (!taggedSet.has(`${q.id}:${tid}`)) return true;
+        }
+        return false;
+      });
+    }
+
+    if (questions.length === 0) return { ok: true, inserted: 0, totalQuestions: 0, scanned: 0 };
+
+    const tagCatalog = tags
+      .map(
+        (t: any) =>
+          `- ${t.name} (id=${t.id})${t.description ? ` — ${t.description}` : ""}`,
+      )
+      .join("\n");
+
+    // Batch to keep prompts manageable
+    const BATCH = 30;
+    const validTagIds = new Set(tags.map((t: any) => t.id));
+    const rows: Array<{ question_id: string; tag_id: string; assigned_by_ai: boolean }> = [];
+    let scanned = 0;
+
+    for (let i = 0; i < questions.length; i += BATCH) {
+      const slice = questions.slice(i, i + BATCH);
+      const validQuestionIds = new Set(slice.map((q: any) => q.id));
+      const qPayload = slice.map((q: any) => ({
+        id: q.id,
+        number: q.question_number,
+        stem: q.stem,
+        options: {
+          A: q.option_a,
+          B: q.option_b,
+          C: q.option_c,
+          D: q.option_d,
+          E: q.option_e,
+        },
+        answer: q.correct_answer,
+      }));
+
+      const prompt = `你是一名 AMC 8 数学竞赛资深教练。下面给出一批题目，请基于题干、选项与答案，判断每道题是否适合给定的若干知识点标签。
+
+【候选标签】
+${tagCatalog}
+
+【判定规则】
+- 只在某个标签真正与题目核心知识点相关时才把该标签的 id 加入该题。
+- 一道题可以同时匹配多个候选标签，也可以一个都不匹配（此时 tag_ids 为 []）。
+- 只能使用上方候选标签里出现的 id，禁止编造。
+
+【题目列表（JSON）】
+${JSON.stringify(qPayload)}
+
+请只返回严格 JSON：
+{ "assignments": [ { "question_id": "<uuid>", "tag_ids": ["<uuid>", ...] }, ... ] }`;
+
+      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Lovable-API-Key": apiKey,
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [{ role: "user", content: prompt }],
+          response_format: { type: "json_object" },
+          temperature: 0,
+          max_tokens: 16000,
+        }),
+      });
+      if (!resp.ok) {
+        const t = await resp.text();
+        if (resp.status === 429) throw new Error("AI 调用过于频繁，请稍后再试");
+        if (resp.status === 402) throw new Error("AI 额度不足，请到工作区设置补充额度");
+        throw new Error(`AI 打标签失败 ${resp.status}: ${t.slice(0, 200)}`);
+      }
+      const json = await resp.json();
+      const content = json.choices?.[0]?.message?.content;
+      if (!content) continue;
+      let text = String(content).trim().replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim();
+      let parsed: any;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        continue;
+      }
+      const assignments: Array<{ question_id: string; tag_ids: string[] }> = parsed?.assignments ?? [];
+      for (const a of assignments) {
+        if (!validQuestionIds.has(a.question_id)) continue;
+        for (const tid of a.tag_ids ?? []) {
+          if (validTagIds.has(tid)) {
+            rows.push({ question_id: a.question_id, tag_id: tid, assigned_by_ai: true });
+          }
+        }
+      }
+      scanned += slice.length;
+    }
+
+    if (rows.length > 0) {
+      const { error } = await supabase
+        .from("math_question_tags")
+        .upsert(rows, { onConflict: "question_id,tag_id", ignoreDuplicates: true });
+      if (error) throw new Error(error.message);
+    }
+
+    return { ok: true, inserted: rows.length, totalQuestions: questions.length, scanned };
+  });
