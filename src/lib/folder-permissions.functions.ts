@@ -265,7 +265,7 @@ export const getStudentPaperUrl = createServerFn({ method: "POST" })
       }
     }
 
-    const { data: signed, error } = await supabase.storage
+    const { data: signed, error } = await supabaseAdmin.storage
       .from("math-papers")
       .createSignedUrl(paper.pdf_path, 60 * 30);
     if (error || !signed?.signedUrl) throw new Error(error?.message ?? "生成下载链接失败");
