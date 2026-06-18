@@ -123,6 +123,38 @@ export type Database = {
         }
         Relationships: []
       }
+      math_paper_folder_default_permissions: {
+        Row: {
+          created_at: string
+          folder_id: string
+          level: Database["public"]["Enums"]["folder_permission_level"]
+          subject_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          folder_id: string
+          level: Database["public"]["Enums"]["folder_permission_level"]
+          subject_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          folder_id?: string
+          level?: Database["public"]["Enums"]["folder_permission_level"]
+          subject_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "math_paper_folder_default_permissions_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: true
+            referencedRelation: "math_paper_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       math_paper_folder_permissions: {
         Row: {
           created_at: string
