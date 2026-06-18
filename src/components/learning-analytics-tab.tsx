@@ -599,26 +599,10 @@ export function LearningAnalyticsTab({
             <div className="mb-3 flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-primary" />
               <h3 className="text-sm font-semibold text-foreground">
-                {showingDraft
-                  ? editMode
-                    ? "编辑分析报告（Markdown）"
-                    : "分析报告草稿"
-                  : isTeacherView
-                    ? "AI 分析报告"
-                    : "学习分析报告"}
+                {isTeacherView ? "AI 分析报告" : "学习分析报告"}
               </h3>
             </div>
-            {showingDraft && editMode ? (
-              <Textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                rows={20}
-                className="font-mono text-sm"
-                placeholder="可使用 Markdown 语法，## 为章节标题，- 为列表项"
-              />
-            ) : (
-              <div>{renderMarkdown(displayContent)}</div>
-            )}
+            <div>{renderMarkdown(displayContent)}</div>
           </section>
         </>
       ) : null}
