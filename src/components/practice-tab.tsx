@@ -559,7 +559,7 @@ export function PracticeTab({ studentId }: { studentId: string }) {
       {stats && (
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-border bg-card p-4">
-            <div className="text-xs text-muted-foreground">已做题数</div>
+            <div className="text-xs text-muted-foreground">已刷题数</div>
             <div className="mt-1 text-2xl font-bold text-foreground">{stats.doneCount}</div>
           </div>
           <div className="rounded-2xl border border-border bg-card p-4">
