@@ -57,44 +57,42 @@ export const getLearningAnalytics = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { isOwner, isStaff } = await authorize(context, data.studentId);
     const admin = await getAdmin();
-    const { data: row } = await admin
-      .from("student_learning_analytics")
-      .select(
-        "content, chart_data, generated_at, is_published, published_at, published_content, published_chart_data",
-      )
-      .eq("student_id", data.studentId)
-      .maybeSingle();
+    const [{ data: row }, { data: archives }] = await Promise.all([
+      admin
+        .from("student_learning_analytics")
+        .select("content, chart_data, generated_at")
+        .eq("student_id", data.studentId)
+        .maybeSingle(),
+      admin
+        .from("student_learning_analytics_archives")
+        .select("id, content, chart_data, published_at")
+        .eq("student_id", data.studentId)
+        .order("published_at", { ascending: false }),
+    ]);
 
-    // 学生端：只能看到已发送的版本
+    const archiveList = (archives ?? []).map((a: any) => ({
+      id: a.id as string,
+      content: a.content as string,
+      chartData: (a.chart_data ?? {}) as any,
+      publishedAt: a.published_at as string,
+    }));
+
     if (isOwner && !isStaff) {
-      if (!row || !row.is_published) {
-        return {
-          role: "student" as const,
-          content: "",
-          chartData: {} as any,
-          generatedAt: null as string | null,
-          isPublished: false,
-          publishedAt: null as string | null,
-        };
-      }
       return {
         role: "student" as const,
-        content: row.published_content ?? "",
-        chartData: (row.published_chart_data ?? {}) as any,
-        generatedAt: row.published_at,
-        isPublished: true,
-        publishedAt: row.published_at,
+        content: "",
+        chartData: {} as any,
+        generatedAt: null as string | null,
+        archives: archiveList,
       };
     }
 
-    // 教师端：返回草稿（当前编辑中的版本）
     return {
       role: "teacher" as const,
       content: row?.content ?? "",
       chartData: (row?.chart_data ?? {}) as any,
       generatedAt: row?.generated_at ?? null,
-      isPublished: row?.is_published ?? false,
-      publishedAt: row?.published_at ?? null,
+      archives: archiveList,
     };
   });
 
