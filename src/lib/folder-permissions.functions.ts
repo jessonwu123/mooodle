@@ -114,9 +114,10 @@ export const getStudentLibrary = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    // 鉴权：学生本人 / 管理员 / 教师 都可访问
+    // 学生表已收紧 RLS：用 admin client 读取学生身份信息以做归属校验
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const [studentRes, adminRes, teacherRes] = await Promise.all([
-      supabase
+      supabaseAdmin
         .from("students")
         .select("id, auth_user_id, name")
         .eq("id", data.studentId)
@@ -132,6 +133,7 @@ export const getStudentLibrary = createServerFn({ method: "POST" })
     const isAdmin = !!adminRes.data;
     const isTeacher = !!teacherRes.data;
     if (!isOwner && !isAdmin && !isTeacher) throw new Error("无权访问");
+
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: accessible, error } = await (supabase as any).rpc(
