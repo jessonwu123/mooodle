@@ -637,6 +637,44 @@ export type Database = {
           },
         ]
       }
+      student_learning_analytics_archives: {
+        Row: {
+          chart_data: Json
+          content: string
+          created_at: string
+          id: string
+          published_at: string
+          published_by: string | null
+          student_id: string
+        }
+        Insert: {
+          chart_data?: Json
+          content: string
+          created_at?: string
+          id?: string
+          published_at?: string
+          published_by?: string | null
+          student_id: string
+        }
+        Update: {
+          chart_data?: Json
+          content?: string
+          created_at?: string
+          id?: string
+          published_at?: string
+          published_by?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_learning_analytics_archives_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_practice_sessions: {
         Row: {
           completed_at: string | null
