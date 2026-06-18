@@ -28,6 +28,29 @@ export const Route = createFileRoute("/admin/teachers/")({
   component: TeachersPage,
 });
 
+function actionLabel(action: string | null): string {
+  switch (action) {
+    case "login":
+      return "登录";
+    case "logout":
+      return "登出";
+    case "token_refreshed":
+      return "刷新会话";
+    case "user_signedup":
+      return "注册";
+    case "user_recovery_requested":
+      return "申请重置密码";
+    case "user_modified":
+      return "账号变更";
+    case "user_repeated_signup":
+      return "重复注册尝试";
+    default:
+      return action ?? "—";
+  }
+}
+
+const _routeShim = null;
+
 interface Teacher {
   user_id: string;
   email: string;
@@ -393,6 +416,56 @@ function TeachersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={!!historyFor}
+        onOpenChange={(o) => {
+          if (!o) {
+            setHistoryFor(null);
+            setHistoryRows([]);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl w-[95vw] max-h-[85vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>
+              登录日志 · {historyFor?.email}
+            </DialogTitle>
+          </DialogHeader>
+          {historyLoading ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">加载中...</div>
+          ) : historyRows.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">暂无登录记录</div>
+          ) : (
+            <div className="overflow-hidden rounded-md border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 text-xs text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium">时间</th>
+                    <th className="px-3 py-2 text-left font-medium">事件</th>
+                    <th className="px-3 py-2 text-left font-medium">IP</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyRows.map((r, i) => (
+                    <tr key={i} className="border-t">
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {new Date(r.occurred_at).toLocaleString("zh-CN")}
+                      </td>
+                      <td className="px-3 py-2">
+                        {actionLabel(r.action)}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {r.ip_address ?? "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
