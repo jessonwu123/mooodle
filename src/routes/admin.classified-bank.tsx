@@ -285,6 +285,74 @@ function ClassifiedBankPage() {
     }
   };
 
+  const toggleQuestionTag = async (questionId: string, tagId: string) => {
+    const current = qTagMap[questionId] ?? [];
+    const next = current.includes(tagId)
+      ? current.filter((t) => t !== tagId)
+      : [...current, tagId];
+    // optimistic update
+    setQTagMap((m) => ({ ...m, [questionId]: next }));
+    setSavingTagsFor(questionId);
+    try {
+      await setQuestionTagsFn({ data: { questionId, tagIds: next } });
+    } catch (e: any) {
+      toast.error(e?.message ?? "保存失败");
+      setQTagMap((m) => ({ ...m, [questionId]: current }));
+    } finally {
+      setSavingTagsFor(null);
+    }
+  };
+
+  const removeQuestionTag = async (questionId: string, tagId: string) => {
+    const current = qTagMap[questionId] ?? [];
+    const next = current.filter((t) => t !== tagId);
+    setQTagMap((m) => ({ ...m, [questionId]: next }));
+    try {
+      await setQuestionTagsFn({ data: { questionId, tagIds: next } });
+    } catch (e: any) {
+      toast.error(e?.message ?? "移除失败");
+      setQTagMap((m) => ({ ...m, [questionId]: current }));
+    }
+  };
+
+  const openAi = () => {
+    setAiTagIds(new Set(selectedTags));
+    setAiSearch("");
+    setAiScope("missing");
+    setAiOpen(true);
+  };
+
+  const runAiUpdate = async () => {
+    if (aiTagIds.size === 0) {
+      toast.error("请至少选择一个标签");
+      return;
+    }
+    setAiRunning(true);
+    try {
+      const res = await autoTagByTagsFn({
+        data: { tagIds: Array.from(aiTagIds), scope: aiScope },
+      });
+      toast.success(
+        `AI 扫描完成：共扫描 ${res.scanned ?? res.totalQuestions} 题，新增 ${res.inserted} 条标签`,
+      );
+      setAiOpen(false);
+      // refresh links
+      const { data: linksRes } = await supabase
+        .from("math_question_tags")
+        .select("question_id, tag_id");
+      const map: Record<string, string[]> = {};
+      (linksRes ?? []).forEach((l: any) => {
+        (map[l.question_id] ??= []).push(l.tag_id);
+      });
+      setQTagMap(map);
+    } catch (e: any) {
+      toast.error(e?.message ?? "AI 打标签失败");
+    } finally {
+      setAiRunning(false);
+    }
+  };
+
+
   return (
     <div className="mx-auto max-w-7xl">
       <div className="mb-6 flex items-center gap-3">
