@@ -115,7 +115,7 @@ export const generateLearningAnalytics = createServerFn({ method: "POST" })
       admin
         .from("ratings")
         .select(
-          "lesson_date, lesson_name, summary, overall_assessment, focus, interaction, discipline, accuracy, overall_progress",
+          "lesson_date, lesson_name, summary, overall_assessment, focus, interaction, discipline, accuracy, overall_progress, progress_items(item_name, percentage, sort_order)",
         )
         .eq("student_id", data.studentId)
         .gte("lesson_date", sinceISO)
