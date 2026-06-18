@@ -12,6 +12,7 @@ import {
   Eye,
   Trash2,
   FileText,
+  ChevronDown,
 } from "lucide-react";
 import {
   LineChart,
@@ -159,6 +160,7 @@ export function LearningAnalyticsTab({
   const [archives, setArchives] = useState<Archive[]>([]);
   // null = 显示草稿（仅教师端），string = 选中归档 id
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const isTeacherView = !isOwnerView;
 
@@ -172,9 +174,12 @@ export function LearningAnalyticsTab({
       setDraftChart(res.chartData ?? {});
       setGeneratedAt(res.generatedAt);
       setArchives(res.archives ?? []);
-      // 学生端默认选中最新归档；教师端默认显示草稿
+      // 教师端默认显示草稿；学生端默认全部折叠
       if (isOwnerView) {
-        setSelectedId((res.archives && res.archives[0]?.id) ?? null);
+        setSelectedId(null);
+        setExpandedId(null);
+      } else {
+        setSelectedId(null);
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "加载失败");
