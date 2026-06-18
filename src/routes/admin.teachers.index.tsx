@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeft, UserPlus, ShieldCheck, ChevronRight, Users, Shield } from "lucide-react";
+import { ArrowLeft, UserPlus, ShieldCheck, ChevronRight, Users, Shield, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/teachers/")({
@@ -26,9 +32,16 @@ interface Teacher {
   user_id: string;
   email: string;
   created_at: string;
+  last_sign_in_at: string | null;
   is_admin: boolean;
   is_teacher: boolean;
   student_count: number;
+}
+
+interface LoginEvent {
+  occurred_at: string;
+  action: string | null;
+  ip_address: string | null;
 }
 
 function TeachersPage() {
