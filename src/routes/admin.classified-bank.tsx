@@ -570,6 +570,25 @@ function ClassifiedBankPage() {
                           题干图片模式
                         </span>
                       )}
+                      {(q.image_path || q.options_image_path) && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOriginalDialog({
+                              open: true,
+                              title: `${paper ? paper.name + " · " : ""}第 ${q.question_number} 题 · 原题`,
+                              stemUrl: q.image_path ? imageUrls[q.image_path] ?? null : null,
+                              optionsUrl: q.options_image_path
+                                ? imageUrls[q.options_image_path] ?? null
+                                : null,
+                            })
+                          }
+                          className="ml-auto inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                        >
+                          <ImageIcon className="h-3 w-3" />
+                          查看原题
+                        </button>
+                      )}
                     </div>
                     <MathText
                       block
