@@ -577,24 +577,7 @@ export function PracticeTab({ studentId }: { studentId: string }) {
 
   return (
     <div className="space-y-5">
-      {stats && (
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-border bg-card p-4">
-            <div className="text-xs text-muted-foreground">已刷题数</div>
-            <div className="mt-1 text-2xl font-bold text-foreground">{stats.doneCount}</div>
-          </div>
-          <div className="rounded-2xl border border-border bg-card p-4">
-            <div className="text-xs text-muted-foreground">累计错题次数</div>
-            <div className="mt-1 text-2xl font-bold text-rose-600">{stats.totalWrong}</div>
-          </div>
-          <div className="rounded-2xl border border-border bg-card p-4">
-            <div className="text-xs text-muted-foreground">AI 刷题</div>
-            <div className="mt-1 text-sm font-semibold">
-              {stats.aiUnlocked ? <span className="text-emerald-600">已解锁</span> : `还差 ${stats.aiThreshold - stats.doneCount} 题`}
-            </div>
-          </div>
-        </div>
-      )}
+
 
       <Tabs defaultValue="paper" className="w-full">
         <TabsList className="grid w-full max-w-xl grid-cols-3">
