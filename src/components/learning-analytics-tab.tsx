@@ -543,13 +543,11 @@ export function LearningAnalyticsTab({
       )}
 
       {/* 内容主体 */}
-      {!displayContent ? (
+      {isTeacherView && !displayContent ? (
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center text-sm text-muted-foreground">
-          {isTeacherView
-            ? '点击"AI 生成"按钮，AI 将基于课堂记录、综合素质评估与习题表现生成分析草稿；老师确认或修改后点击"发送给学生"，每次发送都会自动存档。'
-            : "请在上方选择一次发送记录查看。"}
+          点击"AI 生成"按钮，AI 将基于课堂记录、综合素质评估与习题表现生成分析草稿；老师确认或修改后点击"发送给学生"，每次发送都会自动存档。
         </div>
-      ) : (
+      ) : isTeacherView ? (
         <>
           {summary && (
             <div className="grid gap-3 sm:grid-cols-4">
@@ -641,7 +639,7 @@ export function LearningAnalyticsTab({
             )}
           </section>
         </>
-      )}
+      ) : null}
     </div>
   );
 }
