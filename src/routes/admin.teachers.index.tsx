@@ -49,7 +49,7 @@ function actionLabel(action: string | null): string {
   }
 }
 
-const _routeShim = null;
+
 
 interface Teacher {
   user_id: string;
