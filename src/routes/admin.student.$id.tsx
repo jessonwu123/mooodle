@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ComprehensiveAssessment } from "@/components/comprehensive-assessment";
 import { CourseInfoPanel } from "@/components/course-info-panel";
+import { LearningAnalyticsTab } from "@/components/learning-analytics-tab";
 import type { AssessmentTimestamps } from "@/lib/assessment-updates";
 
 export const Route = createFileRoute("/admin/student/$id")({
