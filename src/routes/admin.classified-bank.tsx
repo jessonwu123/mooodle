@@ -976,6 +976,39 @@ function ClassifiedBankPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Original image dialog */}
+      <Dialog
+        open={originalDialog.open}
+        onOpenChange={(o) => setOriginalDialog((d) => ({ ...d, open: o }))}
+      >
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>{originalDialog.title}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {originalDialog.stemUrl && (
+              <img
+                src={originalDialog.stemUrl}
+                alt="原题题干"
+                className="w-full rounded-md border"
+              />
+            )}
+            {originalDialog.optionsUrl && (
+              <img
+                src={originalDialog.optionsUrl}
+                alt="原题选项"
+                className="w-full rounded-md border"
+              />
+            )}
+            {!originalDialog.stemUrl && !originalDialog.optionsUrl && (
+              <div className="p-6 text-center text-sm text-muted-foreground">
+                原题图片暂未加载
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
