@@ -79,13 +79,19 @@ function StudentProfile() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data: s } = await supabase
+      let { data: s } = await supabase
         .from("students")
         .select(
           "name, username, auth_user_id, knowledge_updated_at, thinking_updated_at, learning_quality_updated_at",
         )
         .eq("id", id)
         .maybeSingle();
+      if (!s) {
+        // Student self-access path: RLS hides the row, fetch via safe RPC.
+        const { data: rpcRows } = await supabase.rpc("get_my_student_profile");
+        const mine = Array.isArray(rpcRows) ? rpcRows.find((r: any) => r.id === id) : null;
+        if (mine) s = mine as any;
+      }
       if (!s) {
         setNotFound(true);
         setLoading(false);

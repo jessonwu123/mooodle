@@ -33,14 +33,10 @@ function Index() {
   // 已登录的学生：跳到自己的档案
   useEffect(() => {
     if (!loading && session && !isTeacher) {
-      supabase
-        .from("students")
-        .select("id")
-        .eq("auth_user_id", session.user.id)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (data) navigate({ to: "/student/$id", params: { id: data.id } });
-        });
+      supabase.rpc("get_my_student_profile").then(({ data }) => {
+        const row = Array.isArray(data) ? data[0] : null;
+        if (row?.id) navigate({ to: "/student/$id", params: { id: row.id } });
+      });
     }
   }, [session, isTeacher, loading, navigate]);
 
