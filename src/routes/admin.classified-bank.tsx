@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, BookOpen, Plus, Tags, Trash2, Pencil, X, Settings2, Search } from "lucide-react";
+import { ArrowLeft, BookOpen, Plus, Tags, Trash2, Pencil, X, Settings2, Search, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { listTags, createTag, updateTag, deleteTag } from "@/lib/math-tags.functions";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { listTags, createTag, updateTag, deleteTag, setQuestionTags, autoTagByTags } from "@/lib/math-tags.functions";
 
 export const Route = createFileRoute("/admin/classified-bank")({
   component: ClassifiedBankPage,
