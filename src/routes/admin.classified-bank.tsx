@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, BookOpen, Plus, Tags, Trash2, Pencil, X, Settings2, Search, Sparkles, Loader2 } from "lucide-react";
+import { ArrowLeft, BookOpen, Plus, Tags, Trash2, Pencil, X, Settings2, Search, Sparkles, Loader2, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,8 @@ type QuestionRow = {
   correct_answer: string | null;
   stem_render_mode: "text" | "image";
   options_render_mode: "text" | "image";
+  image_path: string | null;
+  options_image_path: string | null;
 };
 
 type PaperRow = { id: string; year: number; name: string };
@@ -103,6 +105,14 @@ function ClassifiedBankPage() {
     setTags(r.tags as TagRow[]);
   };
 
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+  const [originalDialog, setOriginalDialog] = useState<{
+    open: boolean;
+    title: string;
+    stemUrl: string | null;
+    optionsUrl: string | null;
+  }>({ open: false, title: "", stemUrl: null, optionsUrl: null });
+
   const loadAll = async () => {
     setLoading(true);
     try {
@@ -111,7 +121,7 @@ function ClassifiedBankPage() {
         supabase
           .from("math_questions")
           .select(
-            "id, paper_id, question_number, stem, option_a, option_b, option_c, option_d, option_e, correct_answer, stem_render_mode, options_render_mode",
+            "id, paper_id, question_number, stem, option_a, option_b, option_c, option_d, option_e, correct_answer, stem_render_mode, options_render_mode, image_path, options_image_path",
           )
           .order("question_number"),
         supabase.from("math_papers").select("id, year, name"),
@@ -128,6 +138,30 @@ function ClassifiedBankPage() {
         (map[l.question_id] ??= []).push(l.tag_id);
       });
       setQTagMap(map);
+
+      // Sign URLs for original images
+      const paths = Array.from(
+        new Set(
+          qs
+            .flatMap((q) => [q.image_path, q.options_image_path])
+            .filter(Boolean) as string[],
+        ),
+      );
+      if (paths.length) {
+        const urlMap: Record<string, string> = {};
+        // chunk to avoid request size limits
+        const CHUNK = 100;
+        for (let i = 0; i < paths.length; i += CHUNK) {
+          const slice = paths.slice(i, i + CHUNK);
+          const { data: signed } = await supabase.storage
+            .from("math-question-images")
+            .createSignedUrls(slice, 3600);
+          signed?.forEach((s) => {
+            if (s.path && s.signedUrl) urlMap[s.path] = s.signedUrl;
+          });
+        }
+        setImageUrls(urlMap);
+      }
     } catch (e: any) {
       toast.error(e?.message ?? "加载失败");
     } finally {
@@ -536,6 +570,25 @@ function ClassifiedBankPage() {
                           题干图片模式
                         </span>
                       )}
+                      {(q.image_path || q.options_image_path) && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOriginalDialog({
+                              open: true,
+                              title: `${paper ? paper.name + " · " : ""}第 ${q.question_number} 题 · 原题`,
+                              stemUrl: q.image_path ? imageUrls[q.image_path] ?? null : null,
+                              optionsUrl: q.options_image_path
+                                ? imageUrls[q.options_image_path] ?? null
+                                : null,
+                            })
+                          }
+                          className="ml-auto inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                        >
+                          <ImageIcon className="h-3 w-3" />
+                          查看原题
+                        </button>
+                      )}
                     </div>
                     <MathText
                       block
@@ -921,6 +974,39 @@ function ClassifiedBankPage() {
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Original image dialog */}
+      <Dialog
+        open={originalDialog.open}
+        onOpenChange={(o) => setOriginalDialog((d) => ({ ...d, open: o }))}
+      >
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>{originalDialog.title}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {originalDialog.stemUrl && (
+              <img
+                src={originalDialog.stemUrl}
+                alt="原题题干"
+                className="w-full rounded-md border"
+              />
+            )}
+            {originalDialog.optionsUrl && (
+              <img
+                src={originalDialog.optionsUrl}
+                alt="原题选项"
+                className="w-full rounded-md border"
+              />
+            )}
+            {!originalDialog.stemUrl && !originalDialog.optionsUrl && (
+              <div className="p-6 text-center text-sm text-muted-foreground">
+                原题图片暂未加载
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
