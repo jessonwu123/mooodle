@@ -154,7 +154,7 @@ function StatCard({
 
 function AnalysisDraftPage() {
   const { id } = Route.useParams();
-  const search = useSearch({ from: "/admin/student/$id/analysis" });
+  const search = useSearch({ from: "/admin/analysis/$id" });
   const navigate = useNavigate();
 
   const getFn = useServerFn(getLearningAnalytics);
