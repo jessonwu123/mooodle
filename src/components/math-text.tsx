@@ -43,7 +43,12 @@ export function MathText({
     while ((m = re.exec(src))) {
       if (m.index > lastIndex) pushText(src.slice(lastIndex, m.index));
       if (m[1] != null) parts.push({ type: "block", value: restore(m[1]) });
-      else if (m[2] != null) parts.push({ type: "inline", value: restore(m[2]) });
+      else if (m[2] != null) {
+        const inlineVal = restore(m[2]);
+        // array/matrix/tabular 等块级环境在行内 $...$ 中通常需要 displayMode
+        const hasBlockEnv = /\\begin\{(array|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|cases|align|aligned|gather|gathered|split|tabular)\}/.test(inlineVal);
+        parts.push({ type: hasBlockEnv ? "block" : "inline", value: inlineVal });
+      }
       lastIndex = m.index + m[0].length;
     }
     if (lastIndex < src.length) pushText(src.slice(lastIndex));
