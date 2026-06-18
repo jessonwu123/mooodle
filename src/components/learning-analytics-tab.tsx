@@ -270,12 +270,11 @@ export function LearningAnalyticsTab({
     );
   }
 
-  const showingDraft = isTeacherView && selectedId === 'draft';
-  const selectedArchive = selectedId && selectedId !== 'draft' && selectedId !== 'none'
+  const selectedArchive = selectedId && selectedId !== 'none'
     ? archives.find((a) => a.id === selectedId)
     : null;
-  const displayContent = showingDraft ? content : (selectedArchive?.content ?? "");
-  const displayChart: ChartData = showingDraft ? draftChart : (selectedArchive?.chartData ?? {});
+  const displayContent = selectedArchive?.content ?? "";
+  const displayChart: ChartData = selectedArchive?.chartData ?? {};
 
   const trend = displayChart.lessonsTrend ?? [];
   const tagPerf = displayChart.tagPerformance ?? [];
