@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactElement } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -197,8 +198,7 @@ export function LearningAnalyticsTab({
       setDraft(res.content);
       setDraftChart(res.chartData ?? {});
       setGeneratedAt(res.generatedAt);
-      setSelectedId('draft');
-      toast.success("AI 分析已生成，请检查后发送给学生");
+      toast.success("AI 分析已生成，点击下方草稿条目查看");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "生成失败");
     } finally {
@@ -270,12 +270,11 @@ export function LearningAnalyticsTab({
     );
   }
 
-  const showingDraft = isTeacherView && selectedId === 'draft';
-  const selectedArchive = selectedId && selectedId !== 'draft' && selectedId !== 'none'
+  const selectedArchive = selectedId && selectedId !== 'none'
     ? archives.find((a) => a.id === selectedId)
     : null;
-  const displayContent = showingDraft ? content : (selectedArchive?.content ?? "");
-  const displayChart: ChartData = showingDraft ? draftChart : (selectedArchive?.chartData ?? {});
+  const displayContent = selectedArchive?.content ?? "";
+  const displayChart: ChartData = selectedArchive?.chartData ?? {};
 
   const trend = displayChart.lessonsTrend ?? [];
   const tagPerf = displayChart.tagPerformance ?? [];
@@ -291,24 +290,18 @@ export function LearningAnalyticsTab({
             <div>
               <div className="flex items-center gap-2">
                 <div className="text-base font-semibold text-foreground">AI 学习情况分析</div>
-                {showingDraft ? (
-                  <Badge variant="outline" className="text-xs">
-                    当前：草稿
-                  </Badge>
-                ) : selectedArchive ? (
+                {selectedArchive ? (
                   <Badge variant="secondary" className="text-xs">
                     当前：历史存档
                   </Badge>
                 ) : null}
               </div>
               <div className="text-xs text-muted-foreground">
-                {showingDraft
-                  ? generatedAt
-                    ? `草稿更新于 ${fmtDateTime(generatedAt)}`
-                    : "尚未生成分析"
-                  : selectedArchive
-                    ? `存档于 ${fmtDateTime(selectedArchive.publishedAt)}`
-                    : "点击下方条目查看分析报告"}
+                {selectedArchive
+                  ? `存档于 ${fmtDateTime(selectedArchive.publishedAt)}`
+                  : generatedAt
+                    ? `草稿更新于 ${fmtDateTime(generatedAt)}（点击下方"当前草稿"全屏查看）`
+                    : "尚未生成分析"}
                 {archives.length > 0 && (
                   <span className="ml-2">· 共 {archives.length} 次发送</span>
                 )}
@@ -316,11 +309,11 @@ export function LearningAnalyticsTab({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {!showingDraft && (
-              <Button onClick={() => setSelectedId('draft')} size="sm" variant="outline">
-                查看草稿
+            <Link to="/admin/student/$id/analysis" params={{ id: studentId }}>
+              <Button size="sm" variant="outline">
+                打开草稿
               </Button>
-            )}
+            </Link>
             <Button onClick={handleGenerate} disabled={generating} size="sm" variant="outline">
               {generating ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -332,40 +325,15 @@ export function LearningAnalyticsTab({
               {generatedAt ? "重新生成" : "AI 生成"}
             </Button>
             {content && (
-              <Button
-                onClick={() => {
-                  setEditMode((v) => !v);
-                  if (!editMode) setDraft(content);
-                  setSelectedId('draft');
-                }}
-                size="sm"
-                variant="outline"
+              <Link
+                to="/admin/student/$id/analysis"
+                params={{ id: studentId }}
+                search={{ edit: true }}
               >
-                {editMode ? (
-                  <>
-                    <Eye className="mr-2 h-4 w-4" /> 预览
-                  </>
-                ) : (
-                  <>
-                    <Pencil className="mr-2 h-4 w-4" /> 编辑
-                  </>
-                )}
-              </Button>
-            )}
-            {editMode && (
-              <Button
-                onClick={handleSave}
-                disabled={saving || draft === content}
-                size="sm"
-                variant="outline"
-              >
-                {saving ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="mr-2 h-4 w-4" />
-                )}
-                保存
-              </Button>
+                <Button size="sm" variant="outline">
+                  <Pencil className="mr-2 h-4 w-4" /> 编辑
+                </Button>
+              </Link>
             )}
             <Button onClick={handlePublish} disabled={publishing || !content} size="sm">
               {publishing ? (
@@ -389,36 +357,24 @@ export function LearningAnalyticsTab({
             </h3>
           </div>
           <div className="space-y-2">
-            {/* 草稿条目（仅教师端） */}
+            {/* 草稿条目（仅教师端）— 点击跳转到全屏 */}
             {isTeacherView && content && (
-              <div
-                className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 transition ${
-                  selectedId === 'draft'
-                    ? "border-primary bg-primary/5"
-                    : "border-border bg-background hover:bg-muted/50"
-                }`}
+              <Link
+                to="/admin/student/$id/analysis"
+                params={{ id: studentId }}
+                className="block rounded-xl border border-border bg-background px-3 py-2 transition hover:bg-muted/50"
               >
-                <button
-                  type="button"
-                  onClick={() => setSelectedId('draft')}
-                  className="flex-1 text-left"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="text-sm font-medium text-foreground">
-                      {generatedAt ? `草稿（${fmtDateTime(generatedAt)}）` : "当前草稿"}
-                    </div>
-                    <Badge variant="outline" className="text-xs">草稿</Badge>
+                <div className="flex items-center gap-2">
+                  <div className="text-sm font-medium text-foreground">
+                    {generatedAt ? `草稿（${fmtDateTime(generatedAt)}）` : "当前草稿"}
                   </div>
-                  <div className="line-clamp-1 text-xs text-muted-foreground">
-                    {draft.replace(/[#*\->]/g, "").slice(0, 80) || "暂无内容"}
-                  </div>
-                </button>
-                {selectedId === 'draft' && (
-                  <Badge variant="secondary" className="text-xs">
-                    查看中
-                  </Badge>
-                )}
-              </div>
+                  <Badge variant="outline" className="text-xs">草稿</Badge>
+                  <span className="ml-auto text-xs text-muted-foreground">点击全屏查看 →</span>
+                </div>
+                <div className="line-clamp-1 text-xs text-muted-foreground">
+                  {draft.replace(/[#*\->]/g, "").slice(0, 80) || "暂无内容"}
+                </div>
+              </Link>
             )}
             {archives.map((a) => {
               const active = selectedId === a.id;
@@ -643,26 +599,10 @@ export function LearningAnalyticsTab({
             <div className="mb-3 flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-primary" />
               <h3 className="text-sm font-semibold text-foreground">
-                {showingDraft
-                  ? editMode
-                    ? "编辑分析报告（Markdown）"
-                    : "分析报告草稿"
-                  : isTeacherView
-                    ? "AI 分析报告"
-                    : "学习分析报告"}
+                {isTeacherView ? "AI 分析报告" : "学习分析报告"}
               </h3>
             </div>
-            {showingDraft && editMode ? (
-              <Textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                rows={20}
-                className="font-mono text-sm"
-                placeholder="可使用 Markdown 语法，## 为章节标题，- 为列表项"
-              />
-            ) : (
-              <div>{renderMarkdown(displayContent)}</div>
-            )}
+            <div>{renderMarkdown(displayContent)}</div>
           </section>
         </>
       ) : null}
