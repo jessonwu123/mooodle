@@ -48,6 +48,8 @@ type QuestionRow = {
   correct_answer: string | null;
   stem_render_mode: "text" | "image";
   options_render_mode: "text" | "image";
+  image_path: string | null;
+  options_image_path: string | null;
 };
 
 type PaperRow = { id: string; year: number; name: string };
