@@ -264,9 +264,29 @@ function TeachersPage() {
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      创建学生 {t.student_count} 人 · 注册时间：
-                      {new Date(t.created_at).toLocaleString("zh-CN")}
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                      <span>创建学生 {t.student_count} 人</span>
+                      <span>·</span>
+                      <span>注册：{new Date(t.created_at).toLocaleString("zh-CN")}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          openHistory(t);
+                        }}
+                        className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                        title="查看登录日志"
+                      >
+                        <History className="h-3 w-3" />
+                        登录日志
+                      </button>
+                      <span className="text-[11px]">
+                        最近登录：
+                        {t.last_sign_in_at
+                          ? new Date(t.last_sign_in_at).toLocaleString("zh-CN")
+                          : "—"}
+                      </span>
                     </div>
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
