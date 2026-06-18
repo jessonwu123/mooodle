@@ -174,13 +174,9 @@ export function LearningAnalyticsTab({
       setDraftChart(res.chartData ?? {});
       setGeneratedAt(res.generatedAt);
       setArchives(res.archives ?? []);
-      // 教师端默认显示草稿；学生端默认全部折叠
-      if (isOwnerView) {
-        setSelectedId(null);
-        setExpandedId(null);
-      } else {
-        setSelectedId(null);
-      }
+      // 默认全部折叠
+      setSelectedId(isOwnerView ? null : 'none');
+      setExpandedId(null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "加载失败");
     } finally {
@@ -201,7 +197,7 @@ export function LearningAnalyticsTab({
       setDraft(res.content);
       setDraftChart(res.chartData ?? {});
       setGeneratedAt(res.generatedAt);
-      setSelectedId(null);
+      setSelectedId('draft');
       toast.success("AI 分析已生成，请检查后发送给学生");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "生成失败");
@@ -250,7 +246,7 @@ export function LearningAnalyticsTab({
     try {
       await deleteFn({ data: { studentId, archiveId: id } });
       toast.success("已删除");
-      if (selectedId === id) setSelectedId(null);
+      if (selectedId === id) setSelectedId('none');
       await load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "删除失败");
@@ -274,8 +270,10 @@ export function LearningAnalyticsTab({
     );
   }
 
-  const showingDraft = isTeacherView && selectedId === null;
-  const selectedArchive = selectedId ? archives.find((a) => a.id === selectedId) : null;
+  const showingDraft = isTeacherView && selectedId === 'draft';
+  const selectedArchive = selectedId && selectedId !== 'draft' && selectedId !== 'none'
+    ? archives.find((a) => a.id === selectedId)
+    : null;
   const displayContent = showingDraft ? content : (selectedArchive?.content ?? "");
   const displayChart: ChartData = showingDraft ? draftChart : (selectedArchive?.chartData ?? {});
 
@@ -297,11 +295,11 @@ export function LearningAnalyticsTab({
                   <Badge variant="outline" className="text-xs">
                     当前：草稿
                   </Badge>
-                ) : (
+                ) : selectedArchive ? (
                   <Badge variant="secondary" className="text-xs">
                     当前：历史存档
                   </Badge>
-                )}
+                ) : null}
               </div>
               <div className="text-xs text-muted-foreground">
                 {showingDraft
@@ -310,7 +308,7 @@ export function LearningAnalyticsTab({
                     : "尚未生成分析"
                   : selectedArchive
                     ? `存档于 ${fmtDateTime(selectedArchive.publishedAt)}`
-                    : ""}
+                    : "点击下方条目查看分析报告"}
                 {archives.length > 0 && (
                   <span className="ml-2">· 共 {archives.length} 次发送</span>
                 )}
@@ -319,81 +317,109 @@ export function LearningAnalyticsTab({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {!showingDraft && (
-              <Button onClick={() => setSelectedId(null)} size="sm" variant="outline">
-                返回草稿
+              <Button onClick={() => setSelectedId('draft')} size="sm" variant="outline">
+                查看草稿
               </Button>
             )}
-            {showingDraft && (
-              <>
-                <Button onClick={handleGenerate} disabled={generating} size="sm" variant="outline">
-                  {generating ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : generatedAt ? (
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                  ) : (
-                    <Sparkles className="mr-2 h-4 w-4" />
-                  )}
-                  {generatedAt ? "重新生成" : "AI 生成"}
-                </Button>
-                {content && (
-                  <Button
-                    onClick={() => {
-                      setEditMode((v) => !v);
-                      if (!editMode) setDraft(content);
-                    }}
-                    size="sm"
-                    variant="outline"
-                  >
-                    {editMode ? (
-                      <>
-                        <Eye className="mr-2 h-4 w-4" /> 预览
-                      </>
-                    ) : (
-                      <>
-                        <Pencil className="mr-2 h-4 w-4" /> 编辑
-                      </>
-                    )}
-                  </Button>
+            <Button onClick={handleGenerate} disabled={generating} size="sm" variant="outline">
+              {generating ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : generatedAt ? (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              ) : (
+                <Sparkles className="mr-2 h-4 w-4" />
+              )}
+              {generatedAt ? "重新生成" : "AI 生成"}
+            </Button>
+            {content && (
+              <Button
+                onClick={() => {
+                  setEditMode((v) => !v);
+                  if (!editMode) setDraft(content);
+                  setSelectedId('draft');
+                }}
+                size="sm"
+                variant="outline"
+              >
+                {editMode ? (
+                  <>
+                    <Eye className="mr-2 h-4 w-4" /> 预览
+                  </>
+                ) : (
+                  <>
+                    <Pencil className="mr-2 h-4 w-4" /> 编辑
+                  </>
                 )}
-                {editMode && (
-                  <Button
-                    onClick={handleSave}
-                    disabled={saving || draft === content}
-                    size="sm"
-                    variant="outline"
-                  >
-                    {saving ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="mr-2 h-4 w-4" />
-                    )}
-                    保存
-                  </Button>
-                )}
-                <Button onClick={handlePublish} disabled={publishing || !content} size="sm">
-                  {publishing ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="mr-2 h-4 w-4" />
-                  )}
-                  发送给学生
-                </Button>
-              </>
+              </Button>
             )}
+            {editMode && (
+              <Button
+                onClick={handleSave}
+                disabled={saving || draft === content}
+                size="sm"
+                variant="outline"
+              >
+                {saving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                保存
+              </Button>
+            )}
+            <Button onClick={handlePublish} disabled={publishing || !content} size="sm">
+              {publishing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-2 h-4 w-4" />
+              )}
+              发送给学生
+            </Button>
           </div>
         </div>
       )}
 
       {/* 历史发送记录列表 */}
-      {archives.length > 0 && (
+      {(archives.length > 0 || (isTeacherView && content)) && (
         <section className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
           <div className="mb-3 flex items-center gap-2">
             <FileText className="h-4 w-4 text-primary" />
             <h3 className="text-sm font-semibold text-foreground">
-              {isTeacherView ? "历史发送存档" : "学习分析报告（历史发送）"}
+              {isTeacherView ? "分析报告存档" : "学习分析报告（历史发送）"}
             </h3>
           </div>
           <div className="space-y-2">
+            {/* 草稿条目（仅教师端） */}
+            {isTeacherView && content && (
+              <div
+                className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 transition ${
+                  selectedId === 'draft'
+                    ? "border-primary bg-primary/5"
+                    : "border-border bg-background hover:bg-muted/50"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setSelectedId('draft')}
+                  className="flex-1 text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm font-medium text-foreground">
+                      {generatedAt ? `草稿（${fmtDateTime(generatedAt)}）` : "当前草稿"}
+                    </div>
+                    <Badge variant="outline" className="text-xs">草稿</Badge>
+                  </div>
+                  <div className="line-clamp-1 text-xs text-muted-foreground">
+                    {draft.replace(/[#*\->]/g, "").slice(0, 80) || "暂无内容"}
+                  </div>
+                </button>
+                {selectedId === 'draft' && (
+                  <Badge variant="secondary" className="text-xs">
+                    查看中
+                  </Badge>
+                )}
+              </div>
+            )}
             {archives.map((a) => {
               const active = selectedId === a.id;
               const isExpanded = expandedId === a.id;
@@ -545,7 +571,7 @@ export function LearningAnalyticsTab({
       {/* 内容主体 */}
       {isTeacherView && !displayContent ? (
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center text-sm text-muted-foreground">
-          点击"AI 生成"按钮，AI 将基于课堂记录、综合素质评估与习题表现生成分析草稿；老师确认或修改后点击"发送给学生"，每次发送都会自动存档。
+          {content ? "请点击下方草稿或历史存档条目查看分析报告" : '点击"AI 生成"按钮，AI 将基于课堂记录、综合素质评估与习题表现生成分析草稿；老师确认或修改后点击"发送给学生"，每次发送都会自动存档。'}
         </div>
       ) : isTeacherView ? (
         <>
