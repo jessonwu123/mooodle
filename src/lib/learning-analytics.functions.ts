@@ -145,6 +145,11 @@ export const generateLearningAnalytics = createServerFn({ method: "POST" })
       accuracy: r.accuracy,
       overall: r.overall_assessment,
       progress: r.overall_progress,
+      teacher_summary: r.summary ?? "",
+      progress_items: ((r.progress_items ?? []) as any[])
+        .slice()
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+        .map((p) => ({ item: p.item_name, percentage: p.percentage })),
     }));
 
     const tagStats = new Map<string, { tag: string; category: string; total: number; correct: number }>();
