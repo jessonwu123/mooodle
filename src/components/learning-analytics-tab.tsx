@@ -50,7 +50,7 @@ type ChartData = {
 function renderMarkdown(md: string) {
   // light-weight: split into lines, render ##/### headings, paragraphs, list items
   const lines = md.split("\n");
-  const out: JSX.Element[] = [];
+  const out: ReactElement[] = [];
   let listBuf: string[] = [];
   const flushList = () => {
     if (listBuf.length === 0) return;
