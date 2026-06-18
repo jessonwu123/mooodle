@@ -59,6 +59,8 @@ function ClassifiedBankPage() {
   const createTagFn = useServerFn(createTag);
   const updateTagFn = useServerFn(updateTag);
   const deleteTagFn = useServerFn(deleteTag);
+  const setQuestionTagsFn = useServerFn(setQuestionTags);
+  const autoTagByTagsFn = useServerFn(autoTagByTags);
 
   const [tags, setTags] = useState<TagRow[]>([]);
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
@@ -83,6 +85,18 @@ function ClassifiedBankPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState<TagRow | null>(null);
   const [editForm, setEditForm] = useState({ name: "", description: "" });
+
+  // Per-question tag popover
+  const [openTagPopoverFor, setOpenTagPopoverFor] = useState<string | null>(null);
+  const [popoverSearch, setPopoverSearch] = useState("");
+  const [savingTagsFor, setSavingTagsFor] = useState<string | null>(null);
+
+  // AI update dialog
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiTagIds, setAiTagIds] = useState<Set<string>>(new Set());
+  const [aiScope, setAiScope] = useState<"all" | "missing">("missing");
+  const [aiSearch, setAiSearch] = useState("");
+  const [aiRunning, setAiRunning] = useState(false);
 
   const refreshTags = async () => {
     const r = await fetchTags();
