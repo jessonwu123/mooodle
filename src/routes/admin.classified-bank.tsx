@@ -369,6 +369,10 @@ function ClassifiedBankPage() {
           </div>
           <h1 className="mt-1 text-2xl font-bold text-foreground">按知识点浏览题目</h1>
         </div>
+        <Button variant="outline" onClick={openAi} className="gap-1.5">
+          <Sparkles className="h-4 w-4" />
+          AI 更新标签
+        </Button>
         <Button variant="outline" onClick={() => setManageOpen(true)} className="gap-1.5">
           <Settings2 className="h-4 w-4" />
           管理知识点
