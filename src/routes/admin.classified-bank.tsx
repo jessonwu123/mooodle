@@ -105,6 +105,14 @@ function ClassifiedBankPage() {
     setTags(r.tags as TagRow[]);
   };
 
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+  const [originalDialog, setOriginalDialog] = useState<{
+    open: boolean;
+    title: string;
+    stemUrl: string | null;
+    optionsUrl: string | null;
+  }>({ open: false, title: "", stemUrl: null, optionsUrl: null });
+
   const loadAll = async () => {
     setLoading(true);
     try {
@@ -113,7 +121,7 @@ function ClassifiedBankPage() {
         supabase
           .from("math_questions")
           .select(
-            "id, paper_id, question_number, stem, option_a, option_b, option_c, option_d, option_e, correct_answer, stem_render_mode, options_render_mode",
+            "id, paper_id, question_number, stem, option_a, option_b, option_c, option_d, option_e, correct_answer, stem_render_mode, options_render_mode, image_path, options_image_path",
           )
           .order("question_number"),
         supabase.from("math_papers").select("id, year, name"),
@@ -130,6 +138,30 @@ function ClassifiedBankPage() {
         (map[l.question_id] ??= []).push(l.tag_id);
       });
       setQTagMap(map);
+
+      // Sign URLs for original images
+      const paths = Array.from(
+        new Set(
+          qs
+            .flatMap((q) => [q.image_path, q.options_image_path])
+            .filter(Boolean) as string[],
+        ),
+      );
+      if (paths.length) {
+        const urlMap: Record<string, string> = {};
+        // chunk to avoid request size limits
+        const CHUNK = 100;
+        for (let i = 0; i < paths.length; i += CHUNK) {
+          const slice = paths.slice(i, i + CHUNK);
+          const { data: signed } = await supabase.storage
+            .from("math-question-images")
+            .createSignedUrls(slice, 3600);
+          signed?.forEach((s) => {
+            if (s.path && s.signedUrl) urlMap[s.path] = s.signedUrl;
+          });
+        }
+        setImageUrls(urlMap);
+      }
     } catch (e: any) {
       toast.error(e?.message ?? "加载失败");
     } finally {
