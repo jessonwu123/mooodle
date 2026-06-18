@@ -198,8 +198,7 @@ export function LearningAnalyticsTab({
       setDraft(res.content);
       setDraftChart(res.chartData ?? {});
       setGeneratedAt(res.generatedAt);
-      setSelectedId('draft');
-      toast.success("AI 分析已生成，请检查后发送给学生");
+      toast.success("AI 分析已生成，点击下方草稿条目查看");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "生成失败");
     } finally {
