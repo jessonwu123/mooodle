@@ -37,9 +37,11 @@ export function EditableQuestionImage({
         .from("math-question-images")
         .upload(path, file, { contentType: file.type || "image/png", upsert: true });
       if (upErr) throw upErr;
+      const patch: Record<string, string> = {};
+      patch[field] = path;
       const { error: dbErr } = await supabase
         .from("math_questions")
-        .update({ [field]: path })
+        .update(patch as never)
         .eq("id", questionId);
       if (dbErr) throw dbErr;
       const { data: signed, error: sErr } = await supabase.storage
