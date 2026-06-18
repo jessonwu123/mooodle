@@ -479,17 +479,27 @@ export const listPracticeHistory = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    // figure out the target user_id (account owner)
+    // figure out the target user_id (account owner) and authorize the caller
     let targetUserId = context.userId;
     if (data.studentId) {
       const { data: student } = await context.supabase
         .from("students")
-        .select("auth_user_id")
+        .select("auth_user_id, created_by")
         .eq("id", data.studentId)
         .maybeSingle();
-      if (student?.auth_user_id) targetUserId = student.auth_user_id as string;
+      if (!student) throw new Error("学生不存在");
+      const isOwner = student.auth_user_id === context.userId;
+      const { data: isAdmin } = await context.supabase.rpc("has_role", {
+        _user_id: context.userId,
+        _role: "admin",
+      });
+      if (!isOwner && !isAdmin) throw new Error("无权访问");
+      if (student.auth_user_id) targetUserId = student.auth_user_id as string;
     }
-    let q = context.supabase
+    // Use admin client so correct_answer column (revoked from authenticated) is readable
+    // for legitimate history review. Authorization is enforced above.
+    const admin = await getAdmin();
+    let q = admin
       .from("student_question_attempt_log")
       .select("id, question_id, session_id, mode, answer, correct_answer, is_correct, attempted_at")
       .eq("user_id", targetUserId)
@@ -500,4 +510,5 @@ export const listPracticeHistory = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { logs: rows ?? [] };
   });
+
 
