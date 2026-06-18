@@ -115,7 +115,7 @@ export const generateLearningAnalytics = createServerFn({ method: "POST" })
       admin
         .from("ratings")
         .select(
-          "lesson_date, lesson_name, summary, overall_assessment, focus, interaction, discipline, accuracy, overall_progress",
+          "lesson_date, lesson_name, summary, overall_assessment, focus, interaction, discipline, accuracy, overall_progress, progress_items(item_name, percentage, sort_order)",
         )
         .eq("student_id", data.studentId)
         .gte("lesson_date", sinceISO)
@@ -145,6 +145,11 @@ export const generateLearningAnalytics = createServerFn({ method: "POST" })
       accuracy: r.accuracy,
       overall: r.overall_assessment,
       progress: r.overall_progress,
+      teacher_summary: r.summary ?? "",
+      progress_items: ((r.progress_items ?? []) as any[])
+        .slice()
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+        .map((p) => ({ item: p.item_name, percentage: p.percentage })),
     }));
 
     const tagStats = new Map<string, { tag: string; category: string; total: number; correct: number }>();
@@ -206,13 +211,16 @@ ${JSON.stringify(compact, null, 2)}
 2-3 句总结学生近期的整体表现与学习状态。
 
 ## 课堂表现趋势
-基于 lessons（按时间排序）分析专注力 / 互动性 / 课堂纪律 / 做题准确率 这四个维度的变化趋势与亮点 / 隐患。
+基于 lessons（按时间排序）分析专注力 / 互动性 / 课堂纪律 / 做题准确率 这四个维度的变化趋势与亮点 / 隐患。请结合每节课的 teacher_summary（老师手写的课堂评价总结）提取关键的课堂表现细节、老师反复提到的问题或亮点。
+
+## 知识点授课进度与吸收情况
+基于 lessons 中的 progress_items（老师填写的每节课讲授的知识点及该知识点的吸收百分比）和 overall_progress（整节课整体吸收程度），分析：哪些知识点反复讲、哪些知识点吸收较好、哪些吸收偏低需要再巩固，并关注吸收百分比的变化趋势。
 
 ## 综合素质分析
-基于 assessment_items 分类（knowledge=知识点、thinking=核心思维、learning_quality=学习品质），点评强项与待提升项。
+基于 assessment_items 分类（knowledge=知识点、thinking=核心思维、learning_quality=学习品质），结合每项的 rating 和老师 comment，点评强项与待提升项。
 
-## 知识点掌握情况
-基于 tag_performance，挑出掌握较好（高准确率）和薄弱（低准确率或样本少）的知识点，给出具体建议。
+## 自主练习知识点掌握情况
+基于 tag_performance（学生自主刷题的标签准确率），挑出掌握较好（高准确率）和薄弱（低准确率或样本少）的知识点，给出具体建议。
 
 ## 后续学习建议
 3-5 条具体、可执行的学习建议，针对该学生的薄弱环节。
