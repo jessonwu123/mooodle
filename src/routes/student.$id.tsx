@@ -292,7 +292,7 @@ function StudentProfile() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="mb-6 grid w-full max-w-2xl grid-cols-4">
+          <TabsList className="mb-6 grid w-full max-w-3xl grid-cols-5">
             <TabsTrigger value="lessons">课堂记录</TabsTrigger>
             <TabsTrigger value="comprehensive" className="relative">
               <span className={hasUnread ? "animate-pulse font-semibold text-red-600" : undefined}>
@@ -306,6 +306,7 @@ function StudentProfile() {
               )}
             </TabsTrigger>
             <TabsTrigger value="library">资料库</TabsTrigger>
+            <TabsTrigger value="practice">习题练习</TabsTrigger>
             <TabsTrigger value="pet">养宠物</TabsTrigger>
           </TabsList>
 
