@@ -11,7 +11,10 @@ async function getAdmin() {
 
 // Verify the caller owns this student account, and return accessible folder ids
 async function resolveAccessibleFolders(ctx: SupaCtx, studentId: string): Promise<string[]> {
-  const { data: student } = await ctx.supabase
+  // Use admin client to read the student row: after recent RLS hardening, students
+  // can no longer SELECT their own row directly via the user-context client.
+  const admin = await getAdmin();
+  const { data: student } = await admin
     .from("students")
     .select("id, auth_user_id")
     .eq("id", studentId)
@@ -23,7 +26,7 @@ async function resolveAccessibleFolders(ctx: SupaCtx, studentId: string): Promis
     const { data: isTeacher } = await ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "teacher" });
     if (!isAdmin && !isTeacher) throw new Error("无权访问");
   }
-  const { data: rows, error } = await ctx.supabase.rpc("list_student_accessible_folders", {
+  const { data: rows, error } = await admin.rpc("list_student_accessible_folders", {
     _student_id: studentId,
   });
   if (error) throw new Error(error.message);
@@ -31,6 +34,7 @@ async function resolveAccessibleFolders(ctx: SupaCtx, studentId: string): Promis
     .filter((r: any) => !r.is_ancestor && r.level !== "none")
     .map((r: any) => r.folder_id as string);
 }
+
 
 async function signImage(path: string | null): Promise<string | null> {
   if (!path) return null;
