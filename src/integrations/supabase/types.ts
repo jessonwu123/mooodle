@@ -561,6 +561,103 @@ export type Database = {
           },
         ]
       }
+      student_practice_sessions: {
+        Row: {
+          completed_at: string | null
+          correct: number
+          created_at: string
+          id: string
+          mode: string
+          paper_id: string | null
+          question_ids: string[]
+          score: number | null
+          tag_ids: string[] | null
+          total: number
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          correct?: number
+          created_at?: string
+          id?: string
+          mode: string
+          paper_id?: string | null
+          question_ids?: string[]
+          score?: number | null
+          tag_ids?: string[] | null
+          total?: number
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          correct?: number
+          created_at?: string
+          id?: string
+          mode?: string
+          paper_id?: string | null
+          question_ids?: string[]
+          score?: number | null
+          tag_ids?: string[] | null
+          total?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_practice_sessions_paper_id_fkey"
+            columns: ["paper_id"]
+            isOneToOne: false
+            referencedRelation: "math_papers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_question_attempts: {
+        Row: {
+          attempts: number
+          created_at: string
+          id: string
+          last_answer: string | null
+          last_attempt_at: string
+          last_is_correct: boolean | null
+          question_id: string
+          updated_at: string
+          user_id: string
+          wrong_count: number
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_answer?: string | null
+          last_attempt_at?: string
+          last_is_correct?: boolean | null
+          question_id: string
+          updated_at?: string
+          user_id: string
+          wrong_count?: number
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_answer?: string | null
+          last_attempt_at?: string
+          last_is_correct?: boolean | null
+          question_id?: string
+          updated_at?: string
+          user_id?: string
+          wrong_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_question_attempts_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "math_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           auth_user_id: string | null
