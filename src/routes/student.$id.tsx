@@ -448,6 +448,10 @@ function StudentProfile() {
             />
           </TabsContent>
 
+          <TabsContent value="analytics">
+            <LearningAnalyticsTab studentId={id} />
+          </TabsContent>
+
           <TabsContent value="library">
             <StudentLibraryTab studentId={id} />
           </TabsContent>
