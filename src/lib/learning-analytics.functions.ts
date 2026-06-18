@@ -299,15 +299,35 @@ export const publishLearningAnalytics = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!row || !row.content) throw new Error("尚无分析内容可发送");
     const publishedAt = new Date().toISOString();
-    const { error } = await admin
-      .from("student_learning_analytics")
-      .update({
-        is_published: true,
+    const { data: inserted, error } = await admin
+      .from("student_learning_analytics_archives")
+      .insert({
+        student_id: data.studentId,
+        content: row.content,
+        chart_data: row.chart_data ?? {},
         published_at: publishedAt,
-        published_content: row.content,
-        published_chart_data: row.chart_data,
+        published_by: context.userId,
       })
+      .select("id, published_at")
+      .single();
+    if (error) throw new Error(error.message);
+    return { id: inserted.id, publishedAt: inserted.published_at };
+  });
+
+export const deleteLearningAnalyticsArchive = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ studentId: z.string().uuid(), archiveId: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { isStaff } = await authorize(context, data.studentId);
+    if (!isStaff) throw new Error("仅教师可以删除");
+    const admin = await getAdmin();
+    const { error } = await admin
+      .from("student_learning_analytics_archives")
+      .delete()
+      .eq("id", data.archiveId)
       .eq("student_id", data.studentId);
     if (error) throw new Error(error.message);
-    return { publishedAt };
+    return { ok: true };
   });
