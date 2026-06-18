@@ -611,6 +611,57 @@ export type Database = {
           },
         ]
       }
+      student_question_attempt_log: {
+        Row: {
+          answer: string | null
+          attempted_at: string
+          correct_answer: string | null
+          id: string
+          is_correct: boolean
+          mode: string
+          question_id: string
+          session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          answer?: string | null
+          attempted_at?: string
+          correct_answer?: string | null
+          id?: string
+          is_correct: boolean
+          mode: string
+          question_id: string
+          session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          answer?: string | null
+          attempted_at?: string
+          correct_answer?: string | null
+          id?: string
+          is_correct?: boolean
+          mode?: string
+          question_id?: string
+          session_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_question_attempt_log_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "math_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_question_attempt_log_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "student_practice_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_question_attempts: {
         Row: {
           attempts: number
