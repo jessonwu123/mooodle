@@ -238,7 +238,6 @@ function PracticeRunner({
             <div className="text-xs text-muted-foreground">本次成绩</div>
             <div className="text-2xl font-bold text-primary">
               {score.correct}/{score.total}
-              <span className="ml-2 text-sm font-medium text-muted-foreground">({score.score} 分)</span>
             </div>
           </div>
         ) : (
