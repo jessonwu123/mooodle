@@ -557,28 +557,100 @@ function ClassifiedBankPage() {
                       </div>
                     )}
                     <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t pt-2">
-                      {tids.length === 0 ? (
+                      {tids.length === 0 && (
                         <span className="text-[11px] text-muted-foreground">未打标签</span>
-                      ) : (
-                        tids.map((tid) => {
-                          const t = tagById[tid];
-                          if (!t) return null;
-                          return (
-                            <span
-                              key={tid}
-                              className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px]"
-                              style={
-                                t.color
-                                  ? { borderColor: t.color, backgroundColor: t.color + "1a" }
-                                  : undefined
-                              }
-                              title={t.description ?? undefined}
-                            >
-                              {t.name}
-                            </span>
-                          );
-                        })
                       )}
+                      {tids.map((tid) => {
+                        const t = tagById[tid];
+                        if (!t) return null;
+                        return (
+                          <span
+                            key={tid}
+                            className="group inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px]"
+                            style={
+                              t.color
+                                ? { borderColor: t.color, backgroundColor: t.color + "1a" }
+                                : undefined
+                            }
+                            title={t.description ?? undefined}
+                          >
+                            {t.name}
+                            <button
+                              onClick={() => removeQuestionTag(q.id, tid)}
+                              className="rounded-full p-0.5 text-muted-foreground hover:bg-background hover:text-destructive"
+                              aria-label="移除"
+                            >
+                              <X className="h-2.5 w-2.5" />
+                            </button>
+                          </span>
+                        );
+                      })}
+                      <Popover
+                        open={openTagPopoverFor === q.id}
+                        onOpenChange={(o) => {
+                          setOpenTagPopoverFor(o ? q.id : null);
+                          if (o) setPopoverSearch("");
+                        }}
+                      >
+                        <PopoverTrigger asChild>
+                          <button
+                            className="inline-flex items-center gap-1 rounded-full border border-dashed px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                            disabled={savingTagsFor === q.id}
+                          >
+                            {savingTagsFor === q.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Plus className="h-3 w-3" />
+                            )}
+                            添加标签
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-2" align="start">
+                          <div className="relative mb-2">
+                            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              value={popoverSearch}
+                              onChange={(e) => setPopoverSearch(e.target.value)}
+                              placeholder="搜索..."
+                              className="h-7 pl-7 text-xs"
+                              autoFocus
+                            />
+                          </div>
+                          <div className="max-h-64 space-y-0.5 overflow-y-auto">
+                            {tags
+                              .filter((t) => {
+                                const kw = popoverSearch.trim().toLowerCase();
+                                if (!kw) return true;
+                                return (
+                                  t.name.toLowerCase().includes(kw) ||
+                                  (t.description ?? "").toLowerCase().includes(kw)
+                                );
+                              })
+                              .map((t) => {
+                                const checked = tids.includes(t.id);
+                                return (
+                                  <label
+                                    key={t.id}
+                                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-xs hover:bg-muted"
+                                  >
+                                    <Checkbox
+                                      checked={checked}
+                                      onCheckedChange={() => toggleQuestionTag(q.id, t.id)}
+                                    />
+                                    <span className="flex-1 truncate" title={t.description ?? undefined}>
+                                      {t.name}
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            {tags.length === 0 && (
+                              <div className="px-2 py-3 text-center text-xs text-muted-foreground">
+                                还没有知识点
+                              </div>
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </div>
                 );
