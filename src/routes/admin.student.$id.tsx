@@ -552,7 +552,10 @@ function ManageStudent() {
         </TabsContent>
 
         <TabsContent value="course">
-          <CourseInfoPanel studentId={id} />
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-start">
+            <CourseInfoPanel studentId={id} />
+            <LearningAnalyticsTab studentId={id} isOwnerView={false} />
+          </div>
         </TabsContent>
       </Tabs>
     </div>

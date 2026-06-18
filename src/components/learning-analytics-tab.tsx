@@ -515,7 +515,9 @@ export function LearningAnalyticsTab({
                   ? editMode
                     ? "编辑分析报告（Markdown）"
                     : "分析报告草稿"
-                  : "AI 分析报告"}
+                  : isTeacherView
+                    ? "AI 分析报告"
+                    : "学习分析报告"}
               </h3>
             </div>
             {showingDraft && editMode ? (
