@@ -806,6 +806,123 @@ function ClassifiedBankPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* AI auto-tag by selected tags */}
+      <Dialog open={aiOpen} onOpenChange={(o) => !aiRunning && setAiOpen(o)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              AI 更新标签
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              选择若干标签，AI 会扫描题库并为符合条件的题目自动加上对应标签（不会移除已有的其他标签）。
+            </p>
+            <div className="space-y-2">
+              <Label>处理范围</Label>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant={aiScope === "missing" ? "default" : "outline"}
+                  onClick={() => setAiScope("missing")}
+                >
+                  仅处理尚未打这些标签的题
+                </Button>
+                <Button
+                  size="sm"
+                  variant={aiScope === "all" ? "default" : "outline"}
+                  onClick={() => setAiScope("all")}
+                >
+                  全部题目
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>选择标签 ({aiTagIds.size})</Label>
+                {aiTagIds.size > 0 && (
+                  <button
+                    onClick={() => setAiTagIds(new Set())}
+                    className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                  >
+                    清空
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={aiSearch}
+                  onChange={(e) => setAiSearch(e.target.value)}
+                  placeholder="搜索标签..."
+                  className="h-8 pl-7 text-sm"
+                />
+              </div>
+              <div className="max-h-72 overflow-y-auto rounded-md border divide-y">
+                {tags
+                  .filter((t) => {
+                    const kw = aiSearch.trim().toLowerCase();
+                    if (!kw) return true;
+                    return (
+                      t.name.toLowerCase().includes(kw) ||
+                      (t.description ?? "").toLowerCase().includes(kw)
+                    );
+                  })
+                  .map((t) => {
+                    const checked = aiTagIds.has(t.id);
+                    return (
+                      <label
+                        key={t.id}
+                        className="flex cursor-pointer items-start gap-2 px-3 py-2 text-sm hover:bg-muted"
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={() => {
+                            setAiTagIds((prev) => {
+                              const n = new Set(prev);
+                              if (n.has(t.id)) n.delete(t.id);
+                              else n.add(t.id);
+                              return n;
+                            });
+                          }}
+                          className="mt-0.5"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium">{t.name}</div>
+                          {t.description && (
+                            <div className="mt-0.5 text-xs text-muted-foreground">
+                              {t.description}
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAiOpen(false)} disabled={aiRunning}>
+              取消
+            </Button>
+            <Button onClick={runAiUpdate} disabled={aiRunning || aiTagIds.size === 0} className="gap-1.5">
+              {aiRunning ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  扫描中...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  开始扫描
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
