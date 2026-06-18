@@ -951,6 +951,7 @@ export type Database = {
           email: string
           is_admin: boolean
           is_teacher: boolean
+          last_sign_in_at: string
           student_count: number
           user_id: string
         }[]
@@ -982,6 +983,14 @@ export type Database = {
           id: string
           name: string
           rating_count: number
+        }[]
+      }
+      list_user_login_history: {
+        Args: { _limit?: number; _user_id: string }
+        Returns: {
+          action: string
+          ip_address: string
+          occurred_at: string
         }[]
       }
       student_login_email: { Args: { _username: string }; Returns: string }

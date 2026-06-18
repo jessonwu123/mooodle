@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { EditableQuestionImage } from "@/components/editable-question-image";
 
 export const Route = createFileRoute("/admin/question-bank/$paperId")({
   component: PaperDetailPage,
@@ -321,6 +322,18 @@ function PaperDetailPage() {
     }
   };
 
+  const handleImageUpdated = (
+    questionId: string,
+    field: "image_path" | "options_image_path",
+    newPath: string,
+    newUrl: string,
+  ) => {
+    setQuestions((prev) =>
+      prev.map((q) => (q.id === questionId ? { ...q, [field]: newPath } : q)),
+    );
+    setImageUrls((m) => ({ ...m, [newPath]: newUrl }));
+  };
+
   if (loading) {
     return <div className="rounded-xl border bg-card p-8 text-center text-sm text-muted-foreground">加载中...</div>;
   }
@@ -424,10 +437,13 @@ function PaperDetailPage() {
 
               {stemAsImage ? (
                 <div className="mt-2">
-                  <img
-                    src={stemImg}
+                  <EditableQuestionImage
+                    questionId={q.id}
+                    field="image_path"
+                    signedUrl={stemImg}
                     alt={`第 ${q.question_number} 题题干`}
                     className="max-h-80 rounded border"
+                    onUpdated={(p, u) => handleImageUpdated(q.id, "image_path", p, u)}
                   />
                   {q.stem && (
                     <div className="mt-1 flex gap-1 text-[10px] text-muted-foreground">
@@ -439,19 +455,22 @@ function PaperDetailPage() {
               ) : (
                 <>
                   <MathText block text={q.stem} className="mt-1 whitespace-pre-wrap text-muted-foreground" />
-                  {stemImg && (
-                    <Collapsible className="mt-2">
+                  {(stemImg || q.image_path === null) && (
+                    <Collapsible className="mt-2" defaultOpen={!stemImg}>
                       <CollapsibleTrigger asChild>
                         <Button variant="outline" size="sm" className="gap-1.5 group">
                           <ChevronDown className="h-3.5 w-3.5 transition-transform group-data-[state=open]:rotate-180" />
-                          查看原题
+                          {stemImg ? "查看 / 替换原题" : "上传原题截图"}
                         </Button>
                       </CollapsibleTrigger>
                       <CollapsibleContent className="mt-2">
-                        <img
-                          src={stemImg}
+                        <EditableQuestionImage
+                          questionId={q.id}
+                          field="image_path"
+                          signedUrl={stemImg}
                           alt={`第 ${q.question_number} 题原题`}
                           className="max-h-[600px] rounded border"
+                          onUpdated={(p, u) => handleImageUpdated(q.id, "image_path", p, u)}
                         />
                       </CollapsibleContent>
                     </Collapsible>
@@ -461,10 +480,13 @@ function PaperDetailPage() {
 
               {optionsAsImage ? (
                 <div className="mt-3">
-                  <img
-                    src={optionsImg}
+                  <EditableQuestionImage
+                    questionId={q.id}
+                    field="options_image_path"
+                    signedUrl={optionsImg}
                     alt={`第 ${q.question_number} 题选项`}
                     className="max-h-64 rounded border"
+                    onUpdated={(p, u) => handleImageUpdated(q.id, "options_image_path", p, u)}
                   />
                 </div>
               ) : (
@@ -482,18 +504,19 @@ function PaperDetailPage() {
                     })}
 
                   </div>
-                  {optionsImg && (
-                    <div className="mt-2">
-                      <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                        选项截图（备份）
-                      </div>
-                      <img
-                        src={optionsImg}
-                        alt={`第 ${q.question_number} 题选项`}
-                        className="max-h-56 rounded border"
-                      />
+                  <div className="mt-2">
+                    <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                      选项截图（备份）
                     </div>
-                  )}
+                    <EditableQuestionImage
+                      questionId={q.id}
+                      field="options_image_path"
+                      signedUrl={optionsImg}
+                      alt={`第 ${q.question_number} 题选项`}
+                      className="max-h-56 rounded border"
+                      onUpdated={(p, u) => handleImageUpdated(q.id, "options_image_path", p, u)}
+                    />
+                  </div>
                 </>
               )}
 

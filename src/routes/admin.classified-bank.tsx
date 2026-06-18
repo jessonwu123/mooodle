@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { listTags, createTag, updateTag, deleteTag, setQuestionTags, autoTagByTags } from "@/lib/math-tags.functions";
+import { EditableQuestionImage } from "@/components/editable-question-image";
 
 export const Route = createFileRoute("/admin/classified-bank")({
   component: ClassifiedBankPage,
@@ -109,9 +110,12 @@ function ClassifiedBankPage() {
   const [originalDialog, setOriginalDialog] = useState<{
     open: boolean;
     title: string;
+    questionId: string | null;
+    stemPath: string | null;
+    optionsPath: string | null;
     stemUrl: string | null;
     optionsUrl: string | null;
-  }>({ open: false, title: "", stemUrl: null, optionsUrl: null });
+  }>({ open: false, title: "", questionId: null, stemPath: null, optionsPath: null, stemUrl: null, optionsUrl: null });
 
   const loadAll = async () => {
     setLoading(true);
@@ -577,6 +581,9 @@ function ClassifiedBankPage() {
                             setOriginalDialog({
                               open: true,
                               title: `${paper ? paper.name + " · " : ""}第 ${q.question_number} 题 · 原题`,
+                              questionId: q.id,
+                              stemPath: q.image_path,
+                              optionsPath: q.options_image_path,
                               stemUrl: q.image_path ? imageUrls[q.image_path] ?? null : null,
                               optionsUrl: q.options_image_path
                                 ? imageUrls[q.options_image_path] ?? null
@@ -986,25 +993,52 @@ function ClassifiedBankPage() {
           <DialogHeader>
             <DialogTitle>{originalDialog.title}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            {originalDialog.stemUrl && (
-              <img
-                src={originalDialog.stemUrl}
-                alt="原题题干"
-                className="w-full rounded-md border"
-              />
-            )}
-            {originalDialog.optionsUrl && (
-              <img
-                src={originalDialog.optionsUrl}
-                alt="原题选项"
-                className="w-full rounded-md border"
-              />
-            )}
-            {!originalDialog.stemUrl && !originalDialog.optionsUrl && (
-              <div className="p-6 text-center text-sm text-muted-foreground">
-                原题图片暂未加载
-              </div>
+          <div className="space-y-4">
+            {originalDialog.questionId && (
+              <>
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">题干截图</div>
+                  <EditableQuestionImage
+                    questionId={originalDialog.questionId}
+                    field="image_path"
+                    signedUrl={originalDialog.stemUrl}
+                    alt="原题题干"
+                    className="w-full rounded-md border"
+                    onUpdated={(path, url) => {
+                      setOriginalDialog((d) => ({ ...d, stemPath: path, stemUrl: url }));
+                      setImageUrls((m) => ({ ...m, [path]: url }));
+                      setQuestions((qs) =>
+                        qs.map((qq) =>
+                          qq.id === originalDialog.questionId
+                            ? { ...qq, image_path: path }
+                            : qq,
+                        ),
+                      );
+                    }}
+                  />
+                </div>
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">选项截图</div>
+                  <EditableQuestionImage
+                    questionId={originalDialog.questionId}
+                    field="options_image_path"
+                    signedUrl={originalDialog.optionsUrl}
+                    alt="原题选项"
+                    className="w-full rounded-md border"
+                    onUpdated={(path, url) => {
+                      setOriginalDialog((d) => ({ ...d, optionsPath: path, optionsUrl: url }));
+                      setImageUrls((m) => ({ ...m, [path]: url }));
+                      setQuestions((qs) =>
+                        qs.map((qq) =>
+                          qq.id === originalDialog.questionId
+                            ? { ...qq, options_image_path: path }
+                            : qq,
+                        ),
+                      );
+                    }}
+                  />
+                </div>
+              </>
             )}
           </div>
         </DialogContent>

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeft, UserPlus, ShieldCheck, ChevronRight, Users, Shield } from "lucide-react";
+import { ArrowLeft, UserPlus, ShieldCheck, ChevronRight, Users, Shield, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -16,19 +16,55 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/teachers/")({
   component: TeachersPage,
 });
 
+function actionLabel(action: string | null): string {
+  switch (action) {
+    case "login":
+      return "登录";
+    case "logout":
+      return "登出";
+    case "token_refreshed":
+      return "刷新会话";
+    case "user_signedup":
+      return "注册";
+    case "user_recovery_requested":
+      return "申请重置密码";
+    case "user_modified":
+      return "账号变更";
+    case "user_repeated_signup":
+      return "重复注册尝试";
+    default:
+      return action ?? "—";
+  }
+}
+
+
+
 interface Teacher {
   user_id: string;
   email: string;
   created_at: string;
+  last_sign_in_at: string | null;
   is_admin: boolean;
   is_teacher: boolean;
   student_count: number;
+}
+
+interface LoginEvent {
+  occurred_at: string;
+  action: string | null;
+  ip_address: string | null;
 }
 
 function TeachersPage() {
@@ -43,6 +79,26 @@ function TeachersPage() {
     desc: string;
     action: () => Promise<void>;
   } | null>(null);
+  const [historyFor, setHistoryFor] = useState<Teacher | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyRows, setHistoryRows] = useState<LoginEvent[]>([]);
+
+  const openHistory = async (t: Teacher) => {
+    setHistoryFor(t);
+    setHistoryRows([]);
+    setHistoryLoading(true);
+    const { data, error } = await (supabase.rpc as any)("list_user_login_history", {
+      _user_id: t.user_id,
+      _limit: 100,
+    });
+    if (error) {
+      toast.error("加载登录日志失败：" + error.message);
+      setHistoryLoading(false);
+      return;
+    }
+    setHistoryRows((data ?? []) as LoginEvent[]);
+    setHistoryLoading(false);
+  };
 
   const load = async () => {
     setLoading(true);
@@ -231,9 +287,29 @@ function TeachersPage() {
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      创建学生 {t.student_count} 人 · 注册时间：
-                      {new Date(t.created_at).toLocaleString("zh-CN")}
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                      <span>创建学生 {t.student_count} 人</span>
+                      <span>·</span>
+                      <span>注册：{new Date(t.created_at).toLocaleString("zh-CN")}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          openHistory(t);
+                        }}
+                        className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                        title="查看登录日志"
+                      >
+                        <History className="h-3 w-3" />
+                        登录日志
+                      </button>
+                      <span className="text-[11px]">
+                        最近登录：
+                        {t.last_sign_in_at
+                          ? new Date(t.last_sign_in_at).toLocaleString("zh-CN")
+                          : "—"}
+                      </span>
                     </div>
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -340,6 +416,56 @@ function TeachersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={!!historyFor}
+        onOpenChange={(o) => {
+          if (!o) {
+            setHistoryFor(null);
+            setHistoryRows([]);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl w-[95vw] max-h-[85vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>
+              登录日志 · {historyFor?.email}
+            </DialogTitle>
+          </DialogHeader>
+          {historyLoading ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">加载中...</div>
+          ) : historyRows.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">暂无登录记录</div>
+          ) : (
+            <div className="overflow-hidden rounded-md border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 text-xs text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium">时间</th>
+                    <th className="px-3 py-2 text-left font-medium">事件</th>
+                    <th className="px-3 py-2 text-left font-medium">IP</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyRows.map((r, i) => (
+                    <tr key={i} className="border-t">
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {new Date(r.occurred_at).toLocaleString("zh-CN")}
+                      </td>
+                      <td className="px-3 py-2">
+                        {actionLabel(r.action)}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {r.ip_address ?? "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
