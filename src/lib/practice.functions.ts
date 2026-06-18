@@ -429,17 +429,75 @@ export const submitPracticeAttempts = createServerFn({ method: "POST" })
     const total = graded.length;
     const correct = graded.filter((g) => g.is_correct).length;
     const score = total > 0 ? Math.round((correct / total) * 1000) / 10 : 0;
-    await context.supabase.from("student_practice_sessions").insert({
+    const nowIso = new Date().toISOString();
+    const { data: sessionRow } = await context.supabase
+      .from("student_practice_sessions")
+      .insert({
+        user_id: context.userId,
+        mode: data.mode,
+        paper_id: data.paperId ?? null,
+        tag_ids: data.tagIds ?? [],
+        question_ids: ids,
+        total,
+        correct,
+        score,
+        completed_at: nowIso,
+      })
+      .select("id")
+      .single();
+    const sessionId = (sessionRow?.id as string | undefined) ?? null;
+
+    // Insert one log row per question (full history of correctness + timestamp)
+    const logRows = graded.map((g) => ({
       user_id: context.userId,
+      question_id: g.question_id,
+      session_id: sessionId,
       mode: data.mode,
-      paper_id: data.paperId ?? null,
-      tag_ids: data.tagIds ?? [],
-      question_ids: ids,
-      total,
-      correct,
-      score,
-      completed_at: new Date().toISOString(),
-    });
+      answer: g.answer || null,
+      correct_answer: g.correct_answer || null,
+      is_correct: g.is_correct,
+      attempted_at: nowIso,
+    }));
+    if (logRows.length > 0) {
+      await context.supabase.from("student_question_attempt_log").insert(logRows);
+    }
 
     return { graded, total, correct, score };
   });
+
+// ---------- read history (account owner or admin) ----------
+
+export const listPracticeHistory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        studentId: z.string().uuid().optional(),
+        questionId: z.string().uuid().optional(),
+        limit: z.number().int().min(1).max(500).default(100),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    // figure out the target user_id (account owner)
+    let targetUserId = context.userId;
+    if (data.studentId) {
+      const { data: student } = await context.supabase
+        .from("students")
+        .select("auth_user_id")
+        .eq("id", data.studentId)
+        .maybeSingle();
+      if (student?.auth_user_id) targetUserId = student.auth_user_id as string;
+    }
+    let q = context.supabase
+      .from("student_question_attempt_log")
+      .select("id, question_id, session_id, mode, answer, correct_answer, is_correct, attempted_at")
+      .eq("user_id", targetUserId)
+      .order("attempted_at", { ascending: false })
+      .limit(data.limit);
+    if (data.questionId) q = q.eq("question_id", data.questionId);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    return { logs: rows ?? [] };
+  });
+
