@@ -309,7 +309,7 @@ export function LearningAnalyticsTab({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Link to="/admin/student/$id/analysis" params={{ id: studentId }}>
+            <Link to="/admin/analysis/$id" params={{ id: studentId }}>
               <Button size="sm" variant="outline">
                 打开草稿
               </Button>
@@ -326,7 +326,7 @@ export function LearningAnalyticsTab({
             </Button>
             {content && (
               <Link
-                to="/admin/student/$id/analysis"
+                to="/admin/analysis/$id"
                 params={{ id: studentId }}
                 search={{ edit: true }}
               >
@@ -360,7 +360,7 @@ export function LearningAnalyticsTab({
             {/* 草稿条目（仅教师端）— 点击跳转到全屏 */}
             {isTeacherView && content && (
               <Link
-                to="/admin/student/$id/analysis"
+                to="/admin/analysis/$id"
                 params={{ id: studentId }}
                 className="block rounded-xl border border-border bg-background px-3 py-2 transition hover:bg-muted/50"
               >

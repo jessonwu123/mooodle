@@ -40,7 +40,7 @@ const searchSchema = z.object({
   edit: z.coerce.boolean().optional(),
 });
 
-export const Route = createFileRoute("/admin/student/$id/analysis")({
+export const Route = createFileRoute("/admin/analysis/$id")({
   component: AnalysisDraftPage,
   validateSearch: (s) => searchSchema.parse(s),
 });
@@ -154,7 +154,7 @@ function StatCard({
 
 function AnalysisDraftPage() {
   const { id } = Route.useParams();
-  const search = useSearch({ from: "/admin/student/$id/analysis" });
+  const search = useSearch({ from: "/admin/analysis/$id" });
   const navigate = useNavigate();
 
   const getFn = useServerFn(getLearningAnalytics);
