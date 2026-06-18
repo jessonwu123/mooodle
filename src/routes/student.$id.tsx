@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ComprehensiveAssessment } from "@/components/comprehensive-assessment";
 import { PetTab } from "@/components/pet-tab";
 import { StudentLibraryTab } from "@/components/student-library-tab";
+import { PracticeTab } from "@/components/practice-tab";
 import { type AssessmentTimestamps, isUnread } from "@/lib/assessment-updates";
 import { updateStudentUsername, updateStudentPassword } from "@/lib/student-account.functions";
 import { toast } from "sonner";
