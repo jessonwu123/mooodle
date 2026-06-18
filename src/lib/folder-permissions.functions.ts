@@ -183,7 +183,9 @@ export const getStudentLibrary = createServerFn({ method: "POST" })
       question_count: number;
     }> = [];
     if (currentLevel !== "none" && data.folderId !== null) {
-      const { data: ps, error: e2 } = await supabase
+      // math_papers RLS doesn't grant student SELECT; use admin client since
+      // we've already verified folder-level access above.
+      const { data: ps, error: e2 } = await supabaseAdmin
         .from("math_papers")
         .select("id, year, name, kind, created_at, question_count")
         .eq("folder_id", data.folderId)
