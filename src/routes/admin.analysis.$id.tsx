@@ -40,7 +40,7 @@ const searchSchema = z.object({
   edit: z.coerce.boolean().optional(),
 });
 
-export const Route = createFileRoute("/admin/student/$id/analysis")({
+export const Route = createFileRoute("/admin/analysis/$id")({
   component: AnalysisDraftPage,
   validateSearch: (s) => searchSchema.parse(s),
 });
