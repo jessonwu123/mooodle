@@ -56,6 +56,26 @@ function TeachersPage() {
     desc: string;
     action: () => Promise<void>;
   } | null>(null);
+  const [historyFor, setHistoryFor] = useState<Teacher | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyRows, setHistoryRows] = useState<LoginEvent[]>([]);
+
+  const openHistory = async (t: Teacher) => {
+    setHistoryFor(t);
+    setHistoryRows([]);
+    setHistoryLoading(true);
+    const { data, error } = await (supabase.rpc as any)("list_user_login_history", {
+      _user_id: t.user_id,
+      _limit: 100,
+    });
+    if (error) {
+      toast.error("加载登录日志失败：" + error.message);
+      setHistoryLoading(false);
+      return;
+    }
+    setHistoryRows((data ?? []) as LoginEvent[]);
+    setHistoryLoading(false);
+  };
 
   const load = async () => {
     setLoading(true);
