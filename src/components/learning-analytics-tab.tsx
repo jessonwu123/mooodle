@@ -396,6 +396,111 @@ export function LearningAnalyticsTab({
           <div className="space-y-2">
             {archives.map((a) => {
               const active = selectedId === a.id;
+              const isExpanded = expandedId === a.id;
+              if (isOwnerView) {
+                return (
+                  <div
+                    key={a.id}
+                    className="overflow-hidden rounded-xl border border-border bg-background transition"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setExpandedId(isExpanded ? null : a.id)}
+                      className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium text-foreground">
+                          {fmtDateTime(a.publishedAt)}
+                        </div>
+                        <div className="line-clamp-1 text-xs text-muted-foreground">
+                          {a.content.replace(/[#*\->]/g, "").slice(0, 80)}
+                        </div>
+                      </div>
+                      <ChevronDown
+                        className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+                          isExpanded ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+                    {isExpanded && (
+                      <div className="border-t border-border px-3 pb-4 pt-3">
+                        {a.chartData?.summary && (
+                          <div className="mb-4 grid gap-3 sm:grid-cols-4">
+                            <StatCard label="课堂节数" value={a.chartData.summary.lessonCount} />
+                            <StatCard label="累计答题" value={a.chartData.summary.attemptCount} />
+                            <StatCard label="答对题数" value={a.chartData.summary.correctCount} tone="positive" />
+                            <StatCard label="整体正确率" value={`${a.chartData.summary.accuracyPct}%`} tone="primary" />
+                          </div>
+                        )}
+
+                        {a.chartData?.lessonsTrend && a.chartData.lessonsTrend.length > 0 && (
+                          <section className="mb-4 rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
+                            <h3 className="mb-4 text-sm font-semibold text-foreground">课堂表现趋势</h3>
+                            <div className="h-72 w-full">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <LineChart
+                                  data={a.chartData.lessonsTrend.map((t) => ({ ...t, date: fmtDate(t.date) }))}
+                                  margin={{ top: 5, right: 10, bottom: 5, left: -10 }}
+                                >
+                                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                                  <YAxis domain={[0, 5]} tick={{ fontSize: 11 }} />
+                                  <Tooltip />
+                                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                                  <Line type="monotone" dataKey="focus" name="专注力" stroke="#3b82f6" strokeWidth={2} />
+                                  <Line type="monotone" dataKey="interaction" name="互动性" stroke="#10b981" strokeWidth={2} />
+                                  <Line type="monotone" dataKey="discipline" name="课堂纪律" stroke="#f59e0b" strokeWidth={2} />
+                                  <Line type="monotone" dataKey="accuracy" name="做题准确率" stroke="#ef4444" strokeWidth={2} />
+                                </LineChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </section>
+                        )}
+
+                        {a.chartData?.tagPerformance && a.chartData.tagPerformance.length > 0 && (
+                          <section className="mb-4 rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
+                            <h3 className="mb-1 text-sm font-semibold text-foreground">知识点掌握情况</h3>
+                            <p className="mb-4 text-xs text-muted-foreground">按答题次数排序，柱状颜色反映正确率</p>
+                            <div className="h-72 w-full">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={a.chartData.tagPerformance} margin={{ top: 5, right: 10, bottom: 40, left: -10 }}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                  <XAxis dataKey="tag" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" interval={0} />
+                                  <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} unit="%" />
+                                  <Tooltip
+                                    formatter={(v: any, n: any, p: any) =>
+                                      n === "accuracy"
+                                        ? [`${v}%（${p.payload.correct}/${p.payload.total}）`, "正确率"]
+                                        : [v, n]
+                                    }
+                                  />
+                                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                                  <Bar dataKey="accuracy" name="正确率">
+                                    {a.chartData.tagPerformance.map((t, i) => (
+                                      <Cell
+                                        key={i}
+                                        fill={t.accuracy >= 75 ? "#10b981" : t.accuracy >= 50 ? "#f59e0b" : "#ef4444"}
+                                      />
+                                    ))}
+                                  </Bar>
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </section>
+                        )}
+
+                        <section className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]">
+                          <div className="mb-3 flex items-center gap-2">
+                            <Sparkles className="h-4 w-4 text-primary" />
+                            <h3 className="text-sm font-semibold text-foreground">学习分析报告</h3>
+                          </div>
+                          <div>{renderMarkdown(a.content)}</div>
+                        </section>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
               return (
                 <div
                   key={a.id}
@@ -422,16 +527,14 @@ export function LearningAnalyticsTab({
                       查看中
                     </Badge>
                   )}
-                  {isTeacherView && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handleDelete(a.id)}
-                      title="删除该次存档"
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  )}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => handleDelete(a.id)}
+                    title="删除该次存档"
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
                 </div>
               );
             })}
