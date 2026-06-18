@@ -1,0 +1,445 @@
+import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { z } from "zod";
+
+type SupaCtx = { supabase: any; userId: string };
+
+async function getAdmin() {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin;
+}
+
+// Verify the caller owns this student account, and return accessible folder ids
+async function resolveAccessibleFolders(ctx: SupaCtx, studentId: string): Promise<string[]> {
+  const { data: student } = await ctx.supabase
+    .from("students")
+    .select("id, auth_user_id")
+    .eq("id", studentId)
+    .maybeSingle();
+  if (!student) throw new Error("学生不存在");
+  if (student.auth_user_id !== ctx.userId) {
+    // allow teachers/admins to preview, but they wouldn't normally call this
+    const { data: isAdmin } = await ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "admin" });
+    const { data: isTeacher } = await ctx.supabase.rpc("has_role", { _user_id: ctx.userId, _role: "teacher" });
+    if (!isAdmin && !isTeacher) throw new Error("无权访问");
+  }
+  const { data: rows, error } = await ctx.supabase.rpc("list_student_accessible_folders", {
+    _student_id: studentId,
+  });
+  if (error) throw new Error(error.message);
+  return (rows ?? [])
+    .filter((r: any) => !r.is_ancestor && r.level !== "none")
+    .map((r: any) => r.folder_id as string);
+}
+
+async function signImage(path: string | null): Promise<string | null> {
+  if (!path) return null;
+  const admin = await getAdmin();
+  const { data } = await admin.storage.from("math-question-images").createSignedUrl(path, 3600);
+  return data?.signedUrl ?? null;
+}
+
+type SafeQuestion = {
+  id: string;
+  paper_id: string;
+  question_number: number;
+  stem: string | null;
+  option_a: string | null;
+  option_b: string | null;
+  option_c: string | null;
+  option_d: string | null;
+  option_e: string | null;
+  answer_type: string | null;
+  stem_render_mode: string | null;
+  options_render_mode: string | null;
+  image_url: string | null;
+  options_image_url: string | null;
+  paper_name?: string;
+  year?: number | null;
+};
+
+async function loadQuestions(questionIds: string[]): Promise<SafeQuestion[]> {
+  if (questionIds.length === 0) return [];
+  const admin = await getAdmin();
+  const { data, error } = await admin
+    .from("math_questions")
+    .select(
+      "id, paper_id, question_number, stem, option_a, option_b, option_c, option_d, option_e, answer_type, stem_render_mode, options_render_mode, image_path, options_image_path, math_papers(name, year)",
+    )
+    .in("id", questionIds);
+  if (error) throw new Error(error.message);
+  const out: SafeQuestion[] = [];
+  for (const q of data ?? []) {
+    out.push({
+      id: q.id,
+      paper_id: q.paper_id,
+      question_number: q.question_number,
+      stem: q.stem,
+      option_a: q.option_a,
+      option_b: q.option_b,
+      option_c: q.option_c,
+      option_d: q.option_d,
+      option_e: q.option_e,
+      answer_type: q.answer_type,
+      stem_render_mode: q.stem_render_mode,
+      options_render_mode: q.options_render_mode,
+      image_url: await signImage(q.image_path),
+      options_image_url: await signImage(q.options_image_path),
+      paper_name: (q as any).math_papers?.name ?? null,
+      year: (q as any).math_papers?.year ?? null,
+    });
+  }
+  // preserve order
+  const order = new Map(questionIds.map((id, i) => [id, i]));
+  out.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  return out;
+}
+
+// ---------- Public server functions ----------
+
+export const listPracticePapers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ studentId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const folderIds = await resolveAccessibleFolders(context, data.studentId);
+    if (folderIds.length === 0) return { papers: [] };
+    const admin = await getAdmin();
+    const { data: rows, error } = await admin
+      .from("math_papers")
+      .select("id, year, name, kind, question_count")
+      .in("folder_id", folderIds)
+      .eq("kind", "paper")
+      .order("year", { ascending: false })
+      .order("name", { ascending: true });
+    if (error) throw new Error(error.message);
+    return { papers: rows ?? [] };
+  });
+
+export const listPracticeTags = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ studentId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const folderIds = await resolveAccessibleFolders(context, data.studentId);
+    const admin = await getAdmin();
+    const { data: tags } = await admin
+      .from("math_tags")
+      .select("id, name, category, color")
+      .order("category", { ascending: true })
+      .order("name", { ascending: true });
+    if (folderIds.length === 0) {
+      return { tags: (tags ?? []).map((t: any) => ({ ...t, count: 0 })) };
+    }
+    // get accessible question ids
+    const { data: papers } = await admin
+      .from("math_papers")
+      .select("id")
+      .in("folder_id", folderIds)
+      .eq("kind", "paper");
+    const paperIds = (papers ?? []).map((p: any) => p.id);
+    if (paperIds.length === 0) {
+      return { tags: (tags ?? []).map((t: any) => ({ ...t, count: 0 })) };
+    }
+    const { data: questions } = await admin
+      .from("math_questions")
+      .select("id")
+      .in("paper_id", paperIds);
+    const qIds = (questions ?? []).map((q: any) => q.id);
+    if (qIds.length === 0) {
+      return { tags: (tags ?? []).map((t: any) => ({ ...t, count: 0 })) };
+    }
+    const counts = new Map<string, number>();
+    // chunk in 1000
+    for (let i = 0; i < qIds.length; i += 1000) {
+      const slice = qIds.slice(i, i + 1000);
+      const { data: rels } = await admin
+        .from("math_question_tags")
+        .select("tag_id, question_id")
+        .in("question_id", slice);
+      for (const r of rels ?? []) {
+        counts.set(r.tag_id, (counts.get(r.tag_id) ?? 0) + 1);
+      }
+    }
+    return {
+      tags: (tags ?? []).map((t: any) => ({ ...t, count: counts.get(t.id) ?? 0 })),
+    };
+  });
+
+export const loadPaperQuestions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ studentId: z.string().uuid(), paperId: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const folderIds = await resolveAccessibleFolders(context, data.studentId);
+    if (folderIds.length === 0) throw new Error("无可练习的试卷");
+    const admin = await getAdmin();
+    const { data: paper } = await admin
+      .from("math_papers")
+      .select("id, name, year, folder_id")
+      .eq("id", data.paperId)
+      .maybeSingle();
+    if (!paper || !folderIds.includes(paper.folder_id ?? "")) throw new Error("无权访问此试卷");
+    const { data: rows } = await admin
+      .from("math_questions")
+      .select("id")
+      .eq("paper_id", data.paperId)
+      .order("question_number", { ascending: true });
+    const ids = (rows ?? []).map((r: any) => r.id);
+    const questions = await loadQuestions(ids);
+    return { paper, questions };
+  });
+
+export const loadTargetedQuestions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        studentId: z.string().uuid(),
+        tagIds: z.array(z.string().uuid()).min(1),
+        limit: z.number().int().min(1).max(50),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const folderIds = await resolveAccessibleFolders(context, data.studentId);
+    if (folderIds.length === 0) throw new Error("没有可访问的题目");
+    const admin = await getAdmin();
+    const { data: papers } = await admin
+      .from("math_papers")
+      .select("id")
+      .in("folder_id", folderIds)
+      .eq("kind", "paper");
+    const paperIds = (papers ?? []).map((p: any) => p.id);
+    if (paperIds.length === 0) throw new Error("没有可访问的题目");
+    const { data: rels } = await admin
+      .from("math_question_tags")
+      .select("question_id, tag_id")
+      .in("tag_id", data.tagIds);
+    const candidateIds = Array.from(new Set((rels ?? []).map((r: any) => r.question_id as string)));
+    if (candidateIds.length === 0) throw new Error("所选知识点暂无题目");
+    // restrict to accessible papers
+    const { data: qrows } = await admin
+      .from("math_questions")
+      .select("id, paper_id")
+      .in("id", candidateIds)
+      .in("paper_id", paperIds);
+    const pool = (qrows ?? []).map((q: any) => q.id as string);
+    if (pool.length === 0) throw new Error("所选知识点在可访问范围内暂无题目");
+    // shuffle
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const chosen = pool.slice(0, data.limit);
+    const questions = await loadQuestions(chosen);
+    return { questions };
+  });
+
+export const getPracticeStats = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ studentId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    // The caller is the student; we use the per-user attempt count
+    const { data: attempts } = await context.supabase
+      .from("student_question_attempts")
+      .select("question_id, attempts, wrong_count")
+      .eq("user_id", context.userId);
+    const doneCount = (attempts ?? []).length;
+    const totalWrong = (attempts ?? []).reduce((s: number, a: any) => s + (a.wrong_count ?? 0), 0);
+    void data;
+    return {
+      doneCount,
+      totalWrong,
+      aiUnlocked: doneCount >= 50,
+      aiThreshold: 50,
+    };
+  });
+
+export const loadAiQuestions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ studentId: z.string().uuid(), limit: z.number().int().min(1).max(20).default(10) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    // gather attempts
+    const { data: attempts } = await context.supabase
+      .from("student_question_attempts")
+      .select("question_id, attempts, wrong_count")
+      .eq("user_id", context.userId);
+    const rows = attempts ?? [];
+    if (rows.length < 50) throw new Error("已做题数不足 50 道，无法解锁 AI 刷题");
+
+    const folderIds = await resolveAccessibleFolders(context, data.studentId);
+    if (folderIds.length === 0) throw new Error("无可练习的题目");
+    const admin = await getAdmin();
+    const { data: papers } = await admin
+      .from("math_papers")
+      .select("id")
+      .in("folder_id", folderIds)
+      .eq("kind", "paper");
+    const paperIds = (papers ?? []).map((p: any) => p.id);
+
+    // compute per-tag weakness (sum wrong_count / sum attempts)
+    const wrongIds = rows.filter((r: any) => (r.wrong_count ?? 0) > 0).map((r: any) => r.question_id);
+    const tagWrong = new Map<string, number>();
+    const tagTotal = new Map<string, number>();
+    const attemptedSet = new Set(rows.map((r: any) => r.question_id));
+    if (wrongIds.length > 0) {
+      const { data: rels } = await admin
+        .from("math_question_tags")
+        .select("question_id, tag_id")
+        .in("question_id", rows.map((r: any) => r.question_id));
+      const wrongById = new Map<string, number>(rows.map((r: any) => [r.question_id, r.wrong_count ?? 0]));
+      const attemptsById = new Map<string, number>(rows.map((r: any) => [r.question_id, r.attempts ?? 0]));
+      for (const r of rels ?? []) {
+        tagWrong.set(r.tag_id, (tagWrong.get(r.tag_id) ?? 0) + (wrongById.get(r.question_id) ?? 0));
+        tagTotal.set(r.tag_id, (tagTotal.get(r.tag_id) ?? 0) + (attemptsById.get(r.question_id) ?? 0));
+      }
+    }
+
+    // weakness score = wrong/(total+1), weighted sampling
+    const tagWeights = Array.from(tagWrong.entries())
+      .map(([tag, wrong]) => ({ tag, w: wrong / ((tagTotal.get(tag) ?? 0) + 1) }))
+      .filter((t) => t.w > 0);
+    if (tagWeights.length === 0) throw new Error("还没有错题数据，再多做一些题目吧");
+
+    // pick candidate questions by tags, weighted random
+    const weakTagIds = tagWeights.map((t) => t.tag);
+    const { data: candRels } = await admin
+      .from("math_question_tags")
+      .select("question_id, tag_id")
+      .in("tag_id", weakTagIds);
+    const candidateScore = new Map<string, number>();
+    const weightByTag = new Map(tagWeights.map((t) => [t.tag, t.w]));
+    for (const r of candRels ?? []) {
+      if (attemptedSet.has(r.question_id)) continue; // prefer new questions
+      candidateScore.set(
+        r.question_id,
+        (candidateScore.get(r.question_id) ?? 0) + (weightByTag.get(r.tag_id) ?? 0),
+      );
+    }
+    // if no new questions, fall back to wrong ones
+    let candidates = Array.from(candidateScore.entries());
+    if (candidates.length === 0) {
+      for (const r of candRels ?? []) {
+        if (!wrongIds.includes(r.question_id)) continue;
+        candidateScore.set(
+          r.question_id,
+          (candidateScore.get(r.question_id) ?? 0) + (weightByTag.get(r.tag_id) ?? 0),
+        );
+      }
+      candidates = Array.from(candidateScore.entries());
+    }
+    if (candidates.length === 0) throw new Error("没有可用的练习题");
+
+    // filter to accessible
+    const { data: qrows } = await admin
+      .from("math_questions")
+      .select("id, paper_id")
+      .in("id", candidates.map(([id]) => id))
+      .in("paper_id", paperIds);
+    const accessibleIds = new Set((qrows ?? []).map((q: any) => q.id));
+    candidates = candidates.filter(([id]) => accessibleIds.has(id));
+    if (candidates.length === 0) throw new Error("可访问范围内没有匹配的练习题");
+
+    // weighted random sampling without replacement
+    const chosen: string[] = [];
+    while (chosen.length < data.limit && candidates.length > 0) {
+      const total = candidates.reduce((s, [, w]) => s + w, 0);
+      let r = Math.random() * total;
+      let idx = 0;
+      for (; idx < candidates.length; idx++) {
+        r -= candidates[idx][1];
+        if (r <= 0) break;
+      }
+      if (idx >= candidates.length) idx = candidates.length - 1;
+      chosen.push(candidates[idx][0]);
+      candidates.splice(idx, 1);
+    }
+    const questions = await loadQuestions(chosen);
+    return { questions, weakTags: weakTagIds.slice(0, 5) };
+  });
+
+export const submitPracticeAttempts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        studentId: z.string().uuid(),
+        mode: z.enum(["paper", "targeted", "ai"]),
+        paperId: z.string().uuid().nullable().optional(),
+        tagIds: z.array(z.string().uuid()).optional().default([]),
+        answers: z
+          .array(
+            z.object({
+              question_id: z.string().uuid(),
+              answer: z.string().nullable(),
+            }),
+          )
+          .min(1),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const admin = await getAdmin();
+    const ids = data.answers.map((a) => a.question_id);
+    const { data: rows } = await admin
+      .from("math_questions")
+      .select("id, correct_answer")
+      .in("id", ids);
+    const correctMap = new Map<string, string | null>(
+      (rows ?? []).map((r: any) => [r.id, (r.correct_answer ?? "").toString().trim().toUpperCase()]),
+    );
+
+    const graded = data.answers.map((a) => {
+      const expected = correctMap.get(a.question_id) ?? "";
+      const given = (a.answer ?? "").trim().toUpperCase();
+      const is_correct = !!expected && given === expected;
+      return { question_id: a.question_id, answer: given, is_correct, correct_answer: expected };
+    });
+
+    // load existing attempts to merge
+    const { data: existing } = await context.supabase
+      .from("student_question_attempts")
+      .select("id, question_id, attempts, wrong_count")
+      .eq("user_id", context.userId)
+      .in("question_id", ids);
+    const existingMap = new Map<string, any>((existing ?? []).map((r: any) => [r.question_id, r]));
+
+    const upserts = graded.map((g) => {
+      const prev = existingMap.get(g.question_id);
+      return {
+        user_id: context.userId,
+        question_id: g.question_id,
+        attempts: (prev?.attempts ?? 0) + 1,
+        wrong_count: (prev?.wrong_count ?? 0) + (g.is_correct ? 0 : 1),
+        last_is_correct: g.is_correct,
+        last_answer: g.answer,
+        last_attempt_at: new Date().toISOString(),
+      };
+    });
+
+    // upsert one by one (small batch ok)
+    for (const row of upserts) {
+      await context.supabase
+        .from("student_question_attempts")
+        .upsert(row, { onConflict: "user_id,question_id" });
+    }
+
+    const total = graded.length;
+    const correct = graded.filter((g) => g.is_correct).length;
+    const score = total > 0 ? Math.round((correct / total) * 1000) / 10 : 0;
+    await context.supabase.from("student_practice_sessions").insert({
+      user_id: context.userId,
+      mode: data.mode,
+      paper_id: data.paperId ?? null,
+      tag_ids: data.tagIds ?? [],
+      question_ids: ids,
+      total,
+      correct,
+      score,
+      completed_at: new Date().toISOString(),
+    });
+
+    return { graded, total, correct, score };
+  });
