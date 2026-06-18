@@ -803,6 +803,18 @@ export type Database = {
         Args: { _folder_id: string; _subject_id: string; _subject_type: string }
         Returns: Database["public"]["Enums"]["folder_permission_level"]
       }
+      get_my_student_profile: {
+        Args: never
+        Returns: {
+          auth_user_id: string
+          id: string
+          knowledge_updated_at: string
+          learning_quality_updated_at: string
+          name: string
+          thinking_updated_at: string
+          username: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
