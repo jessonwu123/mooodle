@@ -449,7 +449,7 @@ function StudentProfile() {
           </TabsContent>
 
           <TabsContent value="analytics">
-            <LearningAnalyticsTab studentId={id} />
+            <LearningAnalyticsTab studentId={id} isOwnerView={isOwner} />
           </TabsContent>
 
           <TabsContent value="library">
