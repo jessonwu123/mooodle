@@ -33,6 +33,7 @@ import { CourseInfoPanel } from "@/components/course-info-panel";
 import { SingleLessonsPanel } from "@/components/single-lessons-panel";
 import { LearningAnalyticsTab } from "@/components/learning-analytics-tab";
 import { AdminStudentScheduleTab } from "@/components/admin-student-schedule-tab";
+import { fetchStudentLessons, type StudentLessonOption } from "@/lib/student-lessons";
 import type { AssessmentTimestamps } from "@/lib/assessment-updates";
 
 export const Route = createFileRoute("/admin/student/$id")({
@@ -87,7 +88,8 @@ function ManageStudent() {
     learning_quality: null,
   });
 
-  const [date, setDate] = useState(today());
+  const [lessonOptions, setLessonOptions] = useState<StudentLessonOption[]>([]);
+  const [date, setDate] = useState("");
   const [lessonName, setLessonName] = useState("");
   const [summary, setSummary] = useState("");
   const [overall, setOverall] = useState(5);
