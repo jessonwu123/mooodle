@@ -11,6 +11,9 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
   component: Index,
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" ? s.next : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "课堂档案 · 登录" },
@@ -19,26 +22,34 @@ export const Route = createFileRoute("/")({
   }),
 });
 
+function safeNext(next: string | undefined): string | null {
+  if (!next) return null;
+  if (!next.startsWith("/") || next.startsWith("//")) return null;
+  return next;
+}
+
 function Index() {
   const navigate = useNavigate();
   const { session, isTeacher, loading } = useAuth();
+  const { next } = Route.useSearch();
+  const nextPath = safeNext(next);
 
-  // 已登录的老师直接进入后台
+  // 已登录：若有 next 则优先跳转 next，否则按角色跳转
   useEffect(() => {
-    if (!loading && session && isTeacher) {
+    if (loading || !session) return;
+    if (nextPath) {
+      window.location.href = nextPath;
+      return;
+    }
+    if (isTeacher) {
       navigate({ to: "/admin" });
+      return;
     }
-  }, [session, isTeacher, loading, navigate]);
-
-  // 已登录的学生：跳到自己的档案
-  useEffect(() => {
-    if (!loading && session && !isTeacher) {
-      supabase.rpc("get_my_student_profile").then(({ data }) => {
-        const row = Array.isArray(data) ? data[0] : null;
-        if (row?.id) navigate({ to: "/student/$id", params: { id: row.id } });
-      });
-    }
-  }, [session, isTeacher, loading, navigate]);
+    supabase.rpc("get_my_student_profile").then(({ data }) => {
+      const row = Array.isArray(data) ? data[0] : null;
+      if (row?.id) navigate({ to: "/student/$id", params: { id: row.id } });
+    });
+  }, [session, isTeacher, loading, navigate, nextPath]);
 
   const [tab, setTab] = useState<"student" | "teacher">("student");
 
