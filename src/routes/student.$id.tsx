@@ -300,25 +300,28 @@ function StudentProfile() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="mb-6 grid w-full max-w-4xl grid-cols-7">
-            <TabsTrigger value="lessons">课堂记录</TabsTrigger>
-            <TabsTrigger value="comprehensive" className="relative">
-              <span className={hasUnread ? "animate-pulse font-semibold text-red-600" : undefined}>
-                综合素质
-              </span>
-              {hasUnread && (
-                <span className="ml-2 flex h-2.5 w-2.5">
-                  <span className="absolute inline-flex h-2.5 w-2.5 animate-ping rounded-full bg-red-500 opacity-75" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+          <div className="mb-6 -mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <TabsList className="inline-flex w-max min-w-full gap-1">
+              <TabsTrigger value="lessons" className="shrink-0 whitespace-nowrap">课堂记录</TabsTrigger>
+              <TabsTrigger value="comprehensive" className="relative shrink-0 whitespace-nowrap">
+                <span className={hasUnread ? "animate-pulse font-semibold text-red-600" : undefined}>
+                  综合素质
                 </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="analytics">统计数据</TabsTrigger>
-            <TabsTrigger value="schedule">课程表</TabsTrigger>
-            <TabsTrigger value="library">资料库</TabsTrigger>
-            <TabsTrigger value="practice">习题练习</TabsTrigger>
-            <TabsTrigger value="pet">养宠物</TabsTrigger>
-          </TabsList>
+                {hasUnread && (
+                  <span className="ml-2 flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-2.5 w-2.5 animate-ping rounded-full bg-red-500 opacity-75" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="shrink-0 whitespace-nowrap">统计数据</TabsTrigger>
+              <TabsTrigger value="schedule" className="shrink-0 whitespace-nowrap">课程表</TabsTrigger>
+              <TabsTrigger value="library" className="shrink-0 whitespace-nowrap">资料库</TabsTrigger>
+              <TabsTrigger value="practice" className="shrink-0 whitespace-nowrap">习题练习</TabsTrigger>
+              <TabsTrigger value="pet" className="shrink-0 whitespace-nowrap">养宠物</TabsTrigger>
+            </TabsList>
+          </div>
+
 
           <TabsContent value="lessons" className="space-y-8">
             {ratings.length > 0 && (
