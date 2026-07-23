@@ -32,6 +32,7 @@ import { ComprehensiveAssessment } from "@/components/comprehensive-assessment";
 import { CourseInfoPanel } from "@/components/course-info-panel";
 import { SingleLessonsPanel } from "@/components/single-lessons-panel";
 import { LearningAnalyticsTab } from "@/components/learning-analytics-tab";
+import { AdminStudentScheduleTab } from "@/components/admin-student-schedule-tab";
 import type { AssessmentTimestamps } from "@/lib/assessment-updates";
 
 export const Route = createFileRoute("/admin/student/$id")({
@@ -246,10 +247,11 @@ function ManageStudent() {
       </div>
 
       <Tabs defaultValue="lessons" className="w-full">
-        <TabsList className="mb-6 grid w-full max-w-xl grid-cols-4">
+        <TabsList className="mb-6 grid w-full max-w-2xl grid-cols-5">
           <TabsTrigger value="lessons">课堂记录</TabsTrigger>
           <TabsTrigger value="comprehensive">综合素质</TabsTrigger>
           <TabsTrigger value="course">课程信息</TabsTrigger>
+          <TabsTrigger value="schedule">课程表</TabsTrigger>
           <TabsTrigger value="analytics">学习分析</TabsTrigger>
         </TabsList>
 
@@ -558,6 +560,10 @@ function ManageStudent() {
             <CourseInfoPanel studentId={id} />
             <SingleLessonsPanel studentId={id} />
           </div>
+        </TabsContent>
+
+        <TabsContent value="schedule">
+          <AdminStudentScheduleTab studentId={id} />
         </TabsContent>
 
         <TabsContent value="analytics">
