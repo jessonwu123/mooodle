@@ -452,14 +452,16 @@ export function StudentScheduleTab({ studentId }: Props) {
                       );
                     }
                     return (
-                      <div
+                      <button
                         key={it.key}
-                        className="block w-full truncate rounded-md bg-primary/10 px-1.5 py-1 text-left text-[11px] text-primary"
+                        type="button"
+                        onClick={() => openDetail(it)}
+                        className="block w-full truncate rounded-md bg-primary/10 px-1.5 py-1 text-left text-[11px] text-primary hover:bg-primary/20"
                         title={`${it.title} ${timeStr}`}
                       >
                         <span className="font-medium">{timeStr}</span>{" "}
                         {it.title}
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
