@@ -629,7 +629,8 @@ function SchedulePage() {
               </div>
             );
           })}
-        </div>
+        </div></div>
+
       )}
 
       {!loading &&
