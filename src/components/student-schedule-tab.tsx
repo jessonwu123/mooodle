@@ -18,9 +18,11 @@ import {
   CalendarPlus,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { LessonRatingDialog } from "@/components/lesson-rating-dialog";
 import {
   type CourseInfo,
   generateLessonOccurrences,
@@ -125,6 +127,8 @@ export function StudentScheduleTab({ studentId }: Props) {
   >(null);
   const [detailNote, setDetailNote] = useState("");
   const [detailSaving, setDetailSaving] = useState(false);
+  const [ratedDates, setRatedDates] = useState<Set<string>>(new Set());
+  const [ratingOpen, setRatingOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -163,6 +167,15 @@ export function StudentScheduleTab({ studentId }: Props) {
       nm[(n as { lesson_ref: string }).lesson_ref] = (n as { note: string }).note ?? "";
     }
     setNotesMap(nm);
+    const { data: rr } = await supabase
+      .from("ratings")
+      .select("lesson_date")
+      .eq("student_id", studentId);
+    const rset = new Set<string>();
+    for (const r of (rr ?? []) as { lesson_date: string }[]) {
+      rset.add(r.lesson_date);
+    }
+    setRatedDates(rset);
     setLoading(false);
   }, [studentId]);
 
@@ -733,20 +746,50 @@ export function StudentScheduleTab({ studentId }: Props) {
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDetailOpen(false)}
-              disabled={detailSaving}
-            >
-              关闭
-            </Button>
-            <Button onClick={saveDetailNote} disabled={detailSaving}>
-              {detailSaving ? "保存中..." : "保存备注"}
-            </Button>
+          <DialogFooter className="sm:justify-between gap-2">
+            {detailItem && ratedDates.has(fmtDateISO(detailItem.date)) ? (
+              <Button
+                variant="secondary"
+                onClick={() => setRatingOpen(true)}
+                disabled={detailSaving}
+                className="gap-1.5"
+              >
+                <ClipboardList className="h-4 w-4" />
+                查看评分
+              </Button>
+            ) : (
+              <span />
+            )}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setDetailOpen(false)}
+                disabled={detailSaving}
+              >
+                关闭
+              </Button>
+              <Button onClick={saveDetailNote} disabled={detailSaving}>
+                {detailSaving ? "保存中..." : "保存备注"}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {detailItem && (
+        <LessonRatingDialog
+          open={ratingOpen}
+          onOpenChange={setRatingOpen}
+          studentId={studentId}
+          lessonDate={fmtDateISO(detailItem.date)}
+          editable={false}
+        />
+      )}
     </div>
   );
+}
+
+function fmtDateISO(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }

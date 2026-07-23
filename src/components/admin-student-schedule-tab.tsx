@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -12,7 +13,9 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
 } from "lucide-react";
+import { LessonRatingDialog } from "@/components/lesson-rating-dialog";
 import {
   type CourseInfo,
   type ScheduleSlot,
@@ -92,6 +95,9 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
   const [view, setView] = useState<"week" | "month">("month");
   const [anchor, setAnchor] = useState(new Date());
   const [detail, setDetail] = useState<CalendarItem | null>(null);
+  const [ratingOpen, setRatingOpen] = useState(false);
+  const [ratingRefresh, setRatingRefresh] = useState(0);
+  const [ratedDates, setRatedDates] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -146,12 +152,23 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
     } else {
       setCreatorEmails({});
     }
+
+    const { data: rr } = await supabase
+      .from("ratings")
+      .select("lesson_date")
+      .eq("student_id", studentId);
+    const rset = new Set<string>();
+    for (const r of (rr ?? []) as { lesson_date: string }[]) {
+      rset.add(r.lesson_date);
+    }
+    setRatedDates(rset);
+
     setLoading(false);
   }, [studentId]);
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, ratingRefresh]);
 
   const ownerTeacherDisplay = useMemo(() => {
     const email = studentOwnerId ? creatorEmails[studentOwnerId] : null;
@@ -421,10 +438,36 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
               )}
             </div>
           )}
+          <DialogFooter>
+            <Button
+              onClick={() => setRatingOpen(true)}
+              disabled={!detail}
+              className="gap-1.5"
+            >
+              <ClipboardList className="h-4 w-4" />
+              {detail && ratedDates.has(fmtDateISO(detail.date)) ? "查看/编辑评分" : "新增课堂评分"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {detail && (
+        <LessonRatingDialog
+          open={ratingOpen}
+          onOpenChange={setRatingOpen}
+          studentId={studentId}
+          lessonDate={fmtDateISO(detail.date)}
+          editable={true}
+          onSaved={() => setRatingRefresh((n) => n + 1)}
+        />
+      )}
     </div>
   );
+}
+
+function fmtDateISO(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 function Row({ label, value }: { label: string; value: string }) {
