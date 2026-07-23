@@ -104,6 +104,8 @@ export function StudentScheduleTab({ studentId }: Props) {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"week" | "month">("month");
   const [anchor, setAnchor] = useState(new Date());
+  const [teacherEmail, setTeacherEmail] = useState<string | null>(null);
+  const [notesMap, setNotesMap] = useState<Record<string, string>>({});
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<SingleRow | null>(null);
@@ -117,20 +119,33 @@ export function StudentScheduleTab({ studentId }: Props) {
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailItem, setDetailItem] = useState<
+    Extract<CalendarItem, { kind: "recurring" | "single-teacher" }> | null
+  >(null);
+  const [detailNote, setDetailNote] = useState("");
+  const [detailSaving, setDetailSaving] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: rpcRows }, { data: sng }, { data: cans }] = await Promise.all([
-      supabase.rpc("get_my_student_profile"),
-      supabase
-        .from("single_lessons")
-        .select("*")
-        .eq("student_id", studentId)
-        .order("lesson_date", { ascending: false }),
-      supabase
-        .from("cancelled_lessons")
-        .select("lesson_at")
-        .eq("student_id", studentId),
-    ]);
+    const [{ data: rpcRows }, { data: sng }, { data: cans }, { data: tinfo }, { data: notesRows }] =
+      await Promise.all([
+        supabase.rpc("get_my_student_profile"),
+        supabase
+          .from("single_lessons")
+          .select("*")
+          .eq("student_id", studentId)
+          .order("lesson_date", { ascending: false }),
+        supabase
+          .from("cancelled_lessons")
+          .select("lesson_at")
+          .eq("student_id", studentId),
+        supabase.rpc("get_my_teacher_info"),
+        supabase
+          .from("student_lesson_notes")
+          .select("lesson_ref, note")
+          .eq("student_id", studentId),
+      ]);
     const mine = Array.isArray(rpcRows)
       ? rpcRows.find((r: { id: string }) => r.id === studentId)
       : null;
@@ -141,6 +156,13 @@ export function StudentScheduleTab({ studentId }: Props) {
       set.add(new Date(c.lesson_at as string).toISOString());
     }
     setCancelled(set);
+    const t = Array.isArray(tinfo) ? tinfo[0] : null;
+    setTeacherEmail((t as { email?: string } | null)?.email ?? null);
+    const nm: Record<string, string> = {};
+    for (const n of notesRows ?? []) {
+      nm[(n as { lesson_ref: string }).lesson_ref] = (n as { note: string }).note ?? "";
+    }
+    setNotesMap(nm);
     setLoading(false);
   }, [studentId]);
 
@@ -149,6 +171,7 @@ export function StudentScheduleTab({ studentId }: Props) {
   }, [load]);
 
   const myUid = session?.user.id ?? "";
+  const teacherDisplay = teacherDisplayName(teacherEmail);
 
   const items: CalendarItem[] = useMemo(() => {
     const out: CalendarItem[] = [];
@@ -163,12 +186,14 @@ export function StudentScheduleTab({ studentId }: Props) {
               return d;
             })()
           : null;
+        const ref = `recurring:${o.date.toISOString()}`;
         out.push({
           kind: "recurring",
           key: `r-${o.date.toISOString()}`,
+          ref,
           date: o.date,
           end,
-          title: "固定课",
+          title: `${teacherDisplay} 老师`,
         });
       }
     }
@@ -179,20 +204,35 @@ export function StudentScheduleTab({ studentId }: Props) {
       const start = new Date(y, m - 1, d, h, mm, 0);
       const end = new Date(y, m - 1, d, eh, em, 0);
       const isSelf = r.created_by === myUid;
-      const title =
-        r.class_name ??
-        (r.teacher_name ? `${r.teacher_name} 老师` : "单次课");
-      out.push({
-        kind: isSelf ? "single-self" : "single-teacher",
-        key: `s-${r.id}`,
-        date: start,
-        end,
-        title,
-        row: r,
-      });
+      if (isSelf) {
+        const title =
+          r.class_name ?? (r.teacher_name ? `${r.teacher_name} 老师` : "单次课");
+        out.push({
+          kind: "single-self",
+          key: `s-${r.id}`,
+          date: start,
+          end,
+          title,
+          row: r,
+        });
+      } else {
+        const title =
+          r.class_name ??
+          (r.teacher_name ? `${r.teacher_name} 老师` : `${teacherDisplay} 老师`);
+        out.push({
+          kind: "single-teacher",
+          key: `s-${r.id}`,
+          ref: `single:${r.id}`,
+          date: start,
+          end,
+          title,
+          row: r,
+        });
+      }
     }
     return out.sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [course, singles, cancelled, myUid]);
+  }, [course, singles, cancelled, myUid, teacherDisplay]);
+
 
   const { rangeStart, rangeEnd, label } = useMemo(() => {
     if (view === "week") {
