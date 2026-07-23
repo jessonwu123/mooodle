@@ -178,6 +178,7 @@ function SchedulePage() {
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [cancelled, setCancelled] = useState<Set<string>>(new Set());
   const [imported, setImported] = useState<ImportedLesson[]>([]);
+  const [singles, setSingles] = useState<SingleLessonRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"week" | "month">("week");
   const [anchor, setAnchor] = useState(new Date());
@@ -189,22 +190,31 @@ function SchedulePage() {
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingLesson, setEditingLesson] = useState<SingleLessonRow | null>(null);
+  const [detailFor, setDetailFor] = useState<AnyOccurrence | null>(null);
+
   const load = useCallback(async () => {
     if (!session?.user.id) return;
     setLoading(true);
-    const [{ data: studs }, { data: cancels }, { data: imps }] = await Promise.all([
-      supabase
-        .from("students")
-        .select(
-          "id, name, total_hours, hours_per_lesson, hourly_rate, schedule_start_date, schedule_slots, schedule_frequency_weeks, schedule_weekday, schedule_start_time, schedule_end_time",
-        )
-        .eq("created_by", session.user.id),
-      supabase.from("cancelled_lessons").select("student_id, lesson_at"),
-      supabase
-        .from("imported_lessons")
-        .select("id, lesson_date, start_time, end_time, class_name")
-        .eq("created_by", session.user.id),
-    ]);
+    const [{ data: studs }, { data: cancels }, { data: imps }, { data: sngs }] =
+      await Promise.all([
+        supabase
+          .from("students")
+          .select(
+            "id, name, total_hours, hours_per_lesson, hourly_rate, schedule_start_date, schedule_slots, schedule_frequency_weeks, schedule_weekday, schedule_start_time, schedule_end_time",
+          )
+          .eq("created_by", session.user.id),
+        supabase.from("cancelled_lessons").select("student_id, lesson_at"),
+        supabase
+          .from("imported_lessons")
+          .select("id, lesson_date, start_time, end_time, class_name")
+          .eq("created_by", session.user.id),
+        supabase
+          .from("single_lessons")
+          .select("*")
+          .eq("created_by", session.user.id),
+      ]);
     setStudents((studs ?? []) as unknown as StudentRow[]);
     const set = new Set<string>();
     for (const c of cancels ?? []) {
@@ -214,6 +224,7 @@ function SchedulePage() {
     }
     setCancelled(set);
     setImported((imps ?? []) as ImportedLesson[]);
+    setSingles((sngs ?? []) as SingleLessonRow[]);
     setLoading(false);
   }, [session?.user.id]);
 
@@ -227,11 +238,31 @@ function SchedulePage() {
       for (const o of generateLessonOccurrences(s)) {
         const key = `${s.id}|${lessonKey(o.date)}`;
         if (cancelled.has(key)) continue;
-        out.push({ date: o.date, slot: o.slot, student: s });
+        out.push({ kind: "recurring", date: o.date, slot: o.slot, student: s });
       }
     }
     return out.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [students, cancelled]);
+
+  const singleOccurrences: SingleOccurrence[] = useMemo(() => {
+    const nameById = new Map(students.map((s) => [s.id, s.name] as const));
+    return singles
+      .map((row) => {
+        const [y, m, d] = row.lesson_date.split("-").map((n) => parseInt(n, 10));
+        const [h, mm] = row.start_time.split(":").map((n) => parseInt(n, 10));
+        const [eh, em] = row.end_time.split(":").map((n) => parseInt(n, 10));
+        const date = new Date(y, (m ?? 1) - 1, d ?? 1, h ?? 0, mm ?? 0);
+        const end = new Date(y, (m ?? 1) - 1, d ?? 1, eh ?? 0, em ?? 0);
+        return {
+          kind: "single" as const,
+          date,
+          end,
+          row,
+          studentName: row.student_id ? nameById.get(row.student_id) ?? null : null,
+        };
+      })
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+  }, [singles, students]);
 
   const importedOccurrences: ImportedOccurrence[] = useMemo(() => {
     return imported
@@ -240,6 +271,7 @@ function SchedulePage() {
         const [h, mm] = row.start_time.split(":").map((n) => parseInt(n, 10));
         const date = new Date(y, (m ?? 1) - 1, d ?? 1, h ?? 0, mm ?? 0);
         return {
+          kind: "imported" as const,
           id: row.id,
           date,
           start: row.start_time.slice(0, 5),
@@ -273,18 +305,22 @@ function SchedulePage() {
   const inRange = occurrences.filter(
     (o) => o.date >= rangeStart && o.date < rangeEnd,
   );
+  const singleInRange = singleOccurrences.filter(
+    (o) => o.date >= rangeStart && o.date < rangeEnd,
+  );
   const importedInRange = importedOccurrences.filter(
     (o) => o.date >= rangeStart && o.date < rangeEnd,
   );
 
   const monthlyIncome = useMemo(() => {
-    return Math.round(
-      inRange.reduce((sum, o) => {
-        const fee = lessonFee(o.student.hours_per_lesson, o.student.hourly_rate);
-        return sum + fee;
-      }, 0) * 100,
-    ) / 100;
-  }, [inRange]);
+    const recurring = inRange.reduce((sum, o) => {
+      return sum + lessonFee(o.student.hours_per_lesson, o.student.hourly_rate);
+    }, 0);
+    const single = singleInRange.reduce((sum, o) => {
+      return sum + lessonFee(o.row.hours_per_lesson, o.row.hourly_rate);
+    }, 0);
+    return Math.round((recurring + single) * 100) / 100;
+  }, [inRange, singleInRange]);
 
   const shift = (dir: -1 | 1) => {
     const d = new Date(anchor);
@@ -293,9 +329,31 @@ function SchedulePage() {
     setAnchor(d);
   };
 
-  const handleCancelLesson = async (o: Occurrence) => {
-    if (!confirm(`确认删除 ${o.student.name} 在 ${o.date.toLocaleString("zh-CN")} 的这节课？`))
+  const handleDeleteSingle = async (row: SingleLessonRow) => {
+    if (!confirm("确认删除此课次？")) return;
+    const { error } = await supabase.from("single_lessons").delete().eq("id", row.id);
+    if (error) {
+      toast.error("删除失败：" + error.message);
       return;
+    }
+    toast.success("已删除");
+    setDetailFor(null);
+    await load();
+  };
+
+  const handleDeleteImported = async (id: string) => {
+    if (!confirm("确认删除此导入课次？")) return;
+    const { error } = await supabase.from("imported_lessons").delete().eq("id", id);
+    if (error) {
+      toast.error("删除失败：" + error.message);
+      return;
+    }
+    toast.success("已删除");
+    setDetailFor(null);
+    await load();
+  };
+
+  const handleCancelLesson = async (o: Occurrence) => {
     const { error } = await supabase.from("cancelled_lessons").insert({
       student_id: o.student.id,
       lesson_at: o.date.toISOString(),
@@ -309,7 +367,9 @@ function SchedulePage() {
     setCancelled((prev) =>
       new Set(prev).add(`${o.student.id}|${lessonKey(o.date)}`),
     );
+    setDetailFor(null);
   };
+
 
   const handleFileChange = async (file: File | null) => {
     setImportFile(file);
