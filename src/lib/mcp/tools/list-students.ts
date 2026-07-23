@@ -14,7 +14,7 @@ export default defineTool({
       return { content: [{ type: "text", text: "未认证" }], isError: true };
     }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const userId = ctx.getUserId();
+    const userId = ctx.getUserId()!;
     const { data: roles } = await supabaseAdmin
       .from("user_roles")
       .select("role")
