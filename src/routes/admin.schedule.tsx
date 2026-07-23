@@ -781,129 +781,113 @@ function SchedulePage() {
         />
       )}
 
-      <Dialog
-        open={detailFor !== null}
-        onOpenChange={(v) => {
-          if (!v) setDetailFor(null);
-        }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>课次详情</DialogTitle>
-          </DialogHeader>
-          {detailFor && (
-            <div className="space-y-3 text-sm">
-              {detailFor.kind === "recurring" && (
-                <>
-                  <div>
-                    <span className="text-muted-foreground">学生：</span>
-                    <span className="font-medium">{detailFor.student.name}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">时间：</span>
-                    {detailFor.date.toLocaleString("zh-CN")}
-                    {detailFor.slot.end_time ? ` - ${detailFor.slot.end_time.slice(0, 5)}` : ""}
-                  </div>
-                  <div className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                    此课次由学生档案中的「固定上课时间」自动生成。修改时间请前往学生档案的课程信息，或删除后在"课次管理"里单独添加一节。
-                  </div>
-                  <DialogFooter>
-                    <Link
-                      to="/admin/student/$id"
-                      params={{ id: detailFor.student.id }}
-                      className="inline-flex h-9 items-center rounded-md border border-input bg-background px-3 text-sm hover:bg-accent"
-                    >
-                      打开学生档案
-                    </Link>
-                    <Button
-                      variant="destructive"
-                      onClick={() => handleCancelLesson(detailFor)}
-                      className="gap-1.5"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      删除本次课
-                    </Button>
-                  </DialogFooter>
-                </>
-              )}
-              {detailFor.kind === "single" && (
-                <>
-                  <div>
-                    <span className="text-muted-foreground">名称：</span>
-                    <span className="font-medium">
-                      {detailFor.studentName ?? detailFor.row.class_name}
-                    </span>
-                    <span className="ml-2 rounded bg-sky-200 px-1.5 py-0.5 text-[10px] text-sky-800">
-                      单次
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">时间：</span>
-                    {detailFor.row.lesson_date} {detailFor.row.start_time.slice(0, 5)}-
-                    {detailFor.row.end_time.slice(0, 5)}
-                  </div>
-                  {detailFor.row.notes && (
-                    <div>
-                      <span className="text-muted-foreground">备注：</span>
-                      {detailFor.row.notes}
-                    </div>
-                  )}
-                  <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setEditingLesson(detailFor.row);
-                        setDetailFor(null);
-                        setEditorOpen(true);
-                      }}
-                      className="gap-1.5"
-                    >
-                      <Pencil className="h-4 w-4" />
-                      编辑
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      onClick={() => handleDeleteSingle(detailFor.row)}
-                      className="gap-1.5"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      删除
-                    </Button>
-                  </DialogFooter>
-                </>
-              )}
-              {detailFor.kind === "imported" && (
-                <>
-                  <div>
-                    <span className="text-muted-foreground">班级：</span>
-                    <span className="font-medium">{detailFor.className}</span>
-                    <span className="ml-2 rounded bg-amber-200 px-1.5 py-0.5 text-[10px] text-amber-800">
-                      导入
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">时间：</span>
-                    {detailFor.date.toLocaleDateString("zh-CN")} {detailFor.start}-{detailFor.end}
-                  </div>
-                  <div className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                    通过 Excel 导入的课次。可以删除，或重新导入 Excel 覆盖整个课表。
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      variant="destructive"
-                      onClick={() => handleDeleteImported(detailFor.id)}
-                      className="gap-1.5"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      删除
-                    </Button>
-                  </DialogFooter>
-                </>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {session?.user.id && detailFor && (() => {
+        const fmtDate = (d: Date) =>
+          `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+        if (detailFor.kind === "single") {
+          return (
+            <LessonEditorDialog
+              open={true}
+              onOpenChange={(v) => {
+                if (!v) setDetailFor(null);
+              }}
+              createdBy={session.user.id}
+              studentOptions={students.map((s) => ({ id: s.id, name: s.name }))}
+              editing={detailFor.row}
+              title="课次详情（可编辑）"
+              onDelete={async () => {
+                await handleDeleteSingle(detailFor.row);
+              }}
+              onSaved={load}
+            />
+          );
+        }
+
+        if (detailFor.kind === "recurring") {
+          const occ = detailFor;
+          return (
+            <LessonEditorDialog
+              open={true}
+              onOpenChange={(v) => {
+                if (!v) setDetailFor(null);
+              }}
+              createdBy={session.user.id}
+              studentOptions={students.map((s) => ({ id: s.id, name: s.name }))}
+              initialValues={{
+                student_id: occ.student.id,
+                class_name: null,
+                lesson_date: fmtDate(occ.date),
+                start_time: occ.slot.start_time,
+                end_time: occ.slot.end_time ?? "16:00:00",
+                hours_per_lesson: occ.student.hours_per_lesson,
+                hourly_rate: occ.student.hourly_rate,
+                notes: null,
+              }}
+              title="课次详情（可编辑，将覆盖本次固定课程）"
+              beforeSave={async () => {
+                // Cancel the original recurring instance so the new single lesson replaces it
+                const { error } = await supabase.from("cancelled_lessons").insert({
+                  student_id: occ.student.id,
+                  lesson_at: occ.date.toISOString(),
+                  created_by: session.user.id,
+                });
+                if (error) {
+                  toast.error("保存失败：" + error.message);
+                  return false;
+                }
+                setCancelled((prev) =>
+                  new Set(prev).add(`${occ.student.id}|${lessonKey(occ.date)}`),
+                );
+                return true;
+              }}
+              onDelete={async () => {
+                await handleCancelLesson(occ);
+              }}
+              onSaved={load}
+            />
+          );
+        }
+
+        // imported
+        const imp = detailFor;
+        return (
+          <LessonEditorDialog
+            open={true}
+            onOpenChange={(v) => {
+              if (!v) setDetailFor(null);
+            }}
+            createdBy={session.user.id}
+            studentOptions={students.map((s) => ({ id: s.id, name: s.name }))}
+            initialValues={{
+              student_id: null,
+              class_name: imp.className,
+              lesson_date: fmtDate(imp.date),
+              start_time: `${imp.start}:00`,
+              end_time: `${imp.end}:00`,
+              hours_per_lesson: null,
+              hourly_rate: null,
+              notes: null,
+            }}
+            title="课次详情（可编辑，将从导入课表移出）"
+            beforeSave={async () => {
+              const { error } = await supabase
+                .from("imported_lessons")
+                .delete()
+                .eq("id", imp.id);
+              if (error) {
+                toast.error("保存失败：" + error.message);
+                return false;
+              }
+              return true;
+            }}
+            onDelete={async () => {
+              await handleDeleteImported(imp.id);
+            }}
+            onSaved={load}
+          />
+        );
+      })()}
     </div>
   );
 }
