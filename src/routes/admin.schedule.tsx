@@ -477,19 +477,8 @@ function SchedulePage() {
           <h1 className="mt-1 text-3xl font-bold tracking-tight text-foreground">
             {label}
           </h1>
-          <div className="mt-1 text-sm text-muted-foreground">
-            本{view === "week" ? "周" : "月"}共 {inRange.length} 节学生课
-            {singleInRange.length > 0 && (
-              <span className="ml-2 text-sky-600">
-                · 单次课 {singleInRange.length} 节
-              </span>
-            )}
-            {importedInRange.length > 0 && (
-              <span className="ml-2 text-amber-600">
-                · 导入课表 {importedInRange.length} 节
-              </span>
-            )}
-          </div>
+          <div className="mt-1 text-sm text-muted-foreground">&nbsp;</div>
+
           <div className="mt-1 flex items-center gap-1.5 text-sm font-medium text-emerald-600">
             <Coins className="h-3.5 w-3.5" />
             预计收入 ¥{monthlyIncome}
@@ -626,82 +615,98 @@ function SchedulePage() {
           <div className="mt-8">
             <h2 className="mb-3 text-base font-semibold text-foreground">课程列表</h2>
             <div className="space-y-2">
-              {inRange.map((o, i) => (
-                <button
-                  key={`r-${i}`}
-                  type="button"
-                  onClick={() => setDetailFor(o)}
-                  className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-left shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-soft)]"
-                >
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-foreground">
-                      {o.student.name}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {o.date.toLocaleDateString("zh-CN", {
-                        month: "long",
-                        day: "numeric",
-                        weekday: "short",
-                      })}{" "}
-                      · {o.slot.start_time?.slice(0, 5)}
-                      {o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}
-                    </div>
-                  </div>
-                </button>
-              ))}
-              {singleInRange.map((o) => (
-                <button
-                  key={`s-${o.row.id}`}
-                  type="button"
-                  onClick={() => setDetailFor(o)}
-                  className="flex w-full items-center justify-between rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-left hover:bg-sky-100"
-                >
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-sky-900">
-                      {o.studentName ?? o.row.class_name}
-                      <span className="ml-2 rounded bg-sky-200 px-1.5 py-0.5 text-[10px] text-sky-800">
-                        单次
-                      </span>
-                    </div>
-                    <div className="text-xs text-sky-700">
-                      {o.date.toLocaleDateString("zh-CN", {
-                        month: "long",
-                        day: "numeric",
-                        weekday: "short",
-                      })}{" "}
-                      · {o.row.start_time.slice(0, 5)}-{o.row.end_time.slice(0, 5)}
-                    </div>
-                  </div>
-                </button>
-              ))}
-              {importedInRange.map((o) => (
-                <button
-                  key={`i-${o.id}`}
-                  type="button"
-                  onClick={() => setDetailFor(o)}
-                  className="flex w-full items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left hover:bg-amber-100"
-                >
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-amber-900">
-                      {o.className}
-                      <span className="ml-2 rounded bg-amber-200 px-1.5 py-0.5 text-[10px] text-amber-800">
-                        导入
-                      </span>
-                    </div>
-                    <div className="text-xs text-amber-700">
-                      {o.date.toLocaleDateString("zh-CN", {
-                        month: "long",
-                        day: "numeric",
-                        weekday: "short",
-                      })}{" "}
-                      · {o.start}-{o.end}
-                    </div>
-                  </div>
-                </button>
-              ))}
+              {([
+                ...inRange.map((o) => ({ t: o.date.getTime(), kind: "r" as const, o })),
+                ...singleInRange.map((o) => ({ t: o.date.getTime(), kind: "s" as const, o })),
+                ...importedInRange.map((o) => ({ t: o.date.getTime(), kind: "i" as const, o })),
+              ])
+                .sort((a, b) => a.t - b.t)
+                .map((item, idx) => {
+                  if (item.kind === "r") {
+                    const o = item.o;
+                    return (
+                      <button
+                        key={`r-${idx}`}
+                        type="button"
+                        onClick={() => setDetailFor(o)}
+                        className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-left shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-soft)]"
+                      >
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-foreground">
+                            {o.student.name}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {o.date.toLocaleDateString("zh-CN", {
+                              month: "long",
+                              day: "numeric",
+                              weekday: "short",
+                            })}{" "}
+                            · {o.slot.start_time?.slice(0, 5)}
+                            {o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  }
+                  if (item.kind === "s") {
+                    const o = item.o;
+                    return (
+                      <button
+                        key={`s-${o.row.id}`}
+                        type="button"
+                        onClick={() => setDetailFor(o)}
+                        className="flex w-full items-center justify-between rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-left hover:bg-sky-100"
+                      >
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-sky-900">
+                            {o.studentName ?? o.row.class_name}
+                            <span className="ml-2 rounded bg-sky-200 px-1.5 py-0.5 text-[10px] text-sky-800">
+                              单次
+                            </span>
+                          </div>
+                          <div className="text-xs text-sky-700">
+                            {o.date.toLocaleDateString("zh-CN", {
+                              month: "long",
+                              day: "numeric",
+                              weekday: "short",
+                            })}{" "}
+                            · {o.row.start_time.slice(0, 5)}-{o.row.end_time.slice(0, 5)}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  }
+                  const o = item.o;
+                  return (
+                    <button
+                      key={`i-${o.id}`}
+                      type="button"
+                      onClick={() => setDetailFor(o)}
+                      className="flex w-full items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left hover:bg-amber-100"
+                    >
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-amber-900">
+                          {o.className}
+                          <span className="ml-2 rounded bg-amber-200 px-1.5 py-0.5 text-[10px] text-amber-800">
+                            导入
+                          </span>
+                        </div>
+                        <div className="text-xs text-amber-700">
+                          {o.date.toLocaleDateString("zh-CN", {
+                            month: "long",
+                            day: "numeric",
+                            weekday: "short",
+                          })}{" "}
+                          · {o.start}-{o.end}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
             </div>
           </div>
         )}
+
 
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
         <DialogContent className="max-w-lg">
