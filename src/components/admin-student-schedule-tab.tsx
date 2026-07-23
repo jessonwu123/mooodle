@@ -124,7 +124,14 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
 
     // Fetch creator emails for single lessons (admin only)
     const rows = (sng ?? []) as SingleRow[];
-    const uids = Array.from(new Set(rows.map((r) => r.created_by).filter(Boolean)));
+    const ownerId = (stu as { created_by?: string } | null)?.created_by ?? null;
+    const uids = Array.from(
+      new Set(
+        [...rows.map((r) => r.created_by), ownerId].filter(
+          (x): x is string => !!x,
+        ),
+      ),
+    );
     if (uids.length > 0) {
       const { data: teachers } = await (supabase.rpc as unknown as (
         fn: string,
