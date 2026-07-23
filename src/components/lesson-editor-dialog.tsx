@@ -288,13 +288,33 @@ export function LessonEditorDialog({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
-            取消
-          </Button>
-          <Button onClick={handleSave} disabled={busy}>
-            {busy ? "保存中..." : "保存"}
-          </Button>
+        <DialogFooter className="sm:justify-between gap-2">
+          {onDelete ? (
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                setDeleting(true);
+                try {
+                  await onDelete();
+                } finally {
+                  setDeleting(false);
+                }
+              }}
+              disabled={busy || deleting}
+            >
+              {deleting ? "删除中..." : "删除"}
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy || deleting}>
+              取消
+            </Button>
+            <Button onClick={handleSave} disabled={busy || deleting}>
+              {busy ? "保存中..." : "保存"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
