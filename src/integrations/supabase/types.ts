@@ -761,6 +761,41 @@ export type Database = {
           },
         ]
       }
+      student_lesson_notes: {
+        Row: {
+          created_at: string
+          id: string
+          lesson_ref: string
+          note: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lesson_ref: string
+          note?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lesson_ref?: string
+          note?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_lesson_notes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_practice_sessions: {
         Row: {
           completed_at: string | null
@@ -1023,6 +1058,13 @@ export type Database = {
           thinking_updated_at: string
           total_hours: number
           username: string
+        }[]
+      }
+      get_my_teacher_info: {
+        Args: never
+        Returns: {
+          email: string
+          teacher_id: string
         }[]
       }
       has_role: {

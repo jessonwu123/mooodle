@@ -50,6 +50,7 @@ type CalendarItem =
   | {
       kind: "recurring";
       key: string;
+      ref: string;
       date: Date;
       end: Date | null;
       title: string;
@@ -57,6 +58,7 @@ type CalendarItem =
   | {
       kind: "single-teacher";
       key: string;
+      ref: string;
       date: Date;
       end: Date;
       title: string;
@@ -70,6 +72,12 @@ type CalendarItem =
       title: string;
       row: SingleRow;
     };
+
+function teacherDisplayName(email: string | null | undefined): string {
+  if (!email) return "老师";
+  const at = email.indexOf("@");
+  return at > 0 ? email.slice(0, at) : email;
+}
 
 function startOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -96,6 +104,8 @@ export function StudentScheduleTab({ studentId }: Props) {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"week" | "month">("month");
   const [anchor, setAnchor] = useState(new Date());
+  const [teacherEmail, setTeacherEmail] = useState<string | null>(null);
+  const [notesMap, setNotesMap] = useState<Record<string, string>>({});
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<SingleRow | null>(null);
@@ -109,20 +119,33 @@ export function StudentScheduleTab({ studentId }: Props) {
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailItem, setDetailItem] = useState<
+    Extract<CalendarItem, { kind: "recurring" | "single-teacher" }> | null
+  >(null);
+  const [detailNote, setDetailNote] = useState("");
+  const [detailSaving, setDetailSaving] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: rpcRows }, { data: sng }, { data: cans }] = await Promise.all([
-      supabase.rpc("get_my_student_profile"),
-      supabase
-        .from("single_lessons")
-        .select("*")
-        .eq("student_id", studentId)
-        .order("lesson_date", { ascending: false }),
-      supabase
-        .from("cancelled_lessons")
-        .select("lesson_at")
-        .eq("student_id", studentId),
-    ]);
+    const [{ data: rpcRows }, { data: sng }, { data: cans }, { data: tinfo }, { data: notesRows }] =
+      await Promise.all([
+        supabase.rpc("get_my_student_profile"),
+        supabase
+          .from("single_lessons")
+          .select("*")
+          .eq("student_id", studentId)
+          .order("lesson_date", { ascending: false }),
+        supabase
+          .from("cancelled_lessons")
+          .select("lesson_at")
+          .eq("student_id", studentId),
+        supabase.rpc("get_my_teacher_info"),
+        supabase
+          .from("student_lesson_notes")
+          .select("lesson_ref, note")
+          .eq("student_id", studentId),
+      ]);
     const mine = Array.isArray(rpcRows)
       ? rpcRows.find((r: { id: string }) => r.id === studentId)
       : null;
@@ -133,6 +156,13 @@ export function StudentScheduleTab({ studentId }: Props) {
       set.add(new Date(c.lesson_at as string).toISOString());
     }
     setCancelled(set);
+    const t = Array.isArray(tinfo) ? tinfo[0] : null;
+    setTeacherEmail((t as { email?: string } | null)?.email ?? null);
+    const nm: Record<string, string> = {};
+    for (const n of notesRows ?? []) {
+      nm[(n as { lesson_ref: string }).lesson_ref] = (n as { note: string }).note ?? "";
+    }
+    setNotesMap(nm);
     setLoading(false);
   }, [studentId]);
 
@@ -141,6 +171,7 @@ export function StudentScheduleTab({ studentId }: Props) {
   }, [load]);
 
   const myUid = session?.user.id ?? "";
+  const teacherDisplay = teacherDisplayName(teacherEmail);
 
   const items: CalendarItem[] = useMemo(() => {
     const out: CalendarItem[] = [];
@@ -155,12 +186,14 @@ export function StudentScheduleTab({ studentId }: Props) {
               return d;
             })()
           : null;
+        const ref = `recurring:${o.date.toISOString()}`;
         out.push({
           kind: "recurring",
           key: `r-${o.date.toISOString()}`,
+          ref,
           date: o.date,
           end,
-          title: "固定课",
+          title: `${teacherDisplay} 老师`,
         });
       }
     }
@@ -171,20 +204,35 @@ export function StudentScheduleTab({ studentId }: Props) {
       const start = new Date(y, m - 1, d, h, mm, 0);
       const end = new Date(y, m - 1, d, eh, em, 0);
       const isSelf = r.created_by === myUid;
-      const title =
-        r.class_name ??
-        (r.teacher_name ? `${r.teacher_name} 老师` : "单次课");
-      out.push({
-        kind: isSelf ? "single-self" : "single-teacher",
-        key: `s-${r.id}`,
-        date: start,
-        end,
-        title,
-        row: r,
-      });
+      if (isSelf) {
+        const title =
+          r.class_name ?? (r.teacher_name ? `${r.teacher_name} 老师` : "单次课");
+        out.push({
+          kind: "single-self",
+          key: `s-${r.id}`,
+          date: start,
+          end,
+          title,
+          row: r,
+        });
+      } else {
+        const title =
+          r.class_name ??
+          (r.teacher_name ? `${r.teacher_name} 老师` : `${teacherDisplay} 老师`);
+        out.push({
+          kind: "single-teacher",
+          key: `s-${r.id}`,
+          ref: `single:${r.id}`,
+          date: start,
+          end,
+          title,
+          row: r,
+        });
+      }
     }
     return out.sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [course, singles, cancelled, myUid]);
+  }, [course, singles, cancelled, myUid, teacherDisplay]);
+
 
   const { rangeStart, rangeEnd, label } = useMemo(() => {
     if (view === "week") {
@@ -258,6 +306,35 @@ export function StudentScheduleTab({ studentId }: Props) {
     setHourlyRate(r.hourly_rate?.toString() ?? "");
     setNotes(r.notes ?? "");
     setDialogOpen(true);
+  };
+
+  const openDetail = (
+    it: Extract<CalendarItem, { kind: "recurring" | "single-teacher" }>,
+  ) => {
+    setDetailItem(it);
+    setDetailNote(notesMap[it.ref] ?? "");
+    setDetailOpen(true);
+  };
+
+  const saveDetailNote = async () => {
+    if (!detailItem) return;
+    setDetailSaving(true);
+    const payload = {
+      student_id: studentId,
+      lesson_ref: detailItem.ref,
+      note: detailNote,
+    };
+    const { error } = await supabase
+      .from("student_lesson_notes")
+      .upsert(payload, { onConflict: "student_id,lesson_ref" });
+    setDetailSaving(false);
+    if (error) {
+      toast.error("保存失败：" + error.message);
+      return;
+    }
+    setNotesMap((m) => ({ ...m, [detailItem.ref]: detailNote }));
+    toast.success("备注已保存");
+    setDetailOpen(false);
   };
 
   const handleSave = async () => {
@@ -404,14 +481,16 @@ export function StudentScheduleTab({ studentId }: Props) {
                       );
                     }
                     return (
-                      <div
+                      <button
                         key={it.key}
-                        className="block w-full truncate rounded-md bg-primary/10 px-1.5 py-1 text-left text-[11px] text-primary"
+                        type="button"
+                        onClick={() => openDetail(it)}
+                        className="block w-full truncate rounded-md bg-primary/10 px-1.5 py-1 text-left text-[11px] text-primary hover:bg-primary/20"
                         title={`${it.title} ${timeStr}`}
                       >
                         <span className="font-medium">{timeStr}</span>{" "}
                         {it.title}
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -457,9 +536,11 @@ export function StudentScheduleTab({ studentId }: Props) {
               }
               const badge = it.kind === "recurring" ? "固定" : "老师安排";
               return (
-                <div
+                <button
                   key={it.key}
-                  className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3"
+                  type="button"
+                  onClick={() => openDetail(it)}
+                  className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-left hover:bg-accent"
                 >
                   <div className="flex-1">
                     <div className="text-sm font-medium text-foreground">
@@ -472,7 +553,7 @@ export function StudentScheduleTab({ studentId }: Props) {
                       {dateLabel} · {timeStr}
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -591,6 +672,78 @@ export function StudentScheduleTab({ studentId }: Props) {
                 {saving ? "保存中..." : "保存"}
               </Button>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>课程详情</DialogTitle>
+            <DialogDescription>
+              老师安排的课次，你可以在这里查看信息并添加备注。
+            </DialogDescription>
+          </DialogHeader>
+          {detailItem && (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
+                <div className="mb-1 font-medium text-foreground">
+                  {detailItem.title}
+                </div>
+                <div className="text-muted-foreground">
+                  {detailItem.date.toLocaleDateString("zh-CN", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                    weekday: "short",
+                  })}
+                </div>
+                <div className="text-muted-foreground">
+                  上课时间：
+                  {detailItem.date.toLocaleTimeString("zh-CN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: false,
+                  })}
+                  {detailItem.end
+                    ? " - " +
+                      detailItem.end.toLocaleTimeString("zh-CN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: false,
+                      })
+                    : ""}
+                </div>
+                <div className="text-muted-foreground">
+                  上课老师：
+                  {detailItem.kind === "single-teacher" && detailItem.row.teacher_name
+                    ? `${detailItem.row.teacher_name} 老师`
+                    : `${teacherDisplay} 老师`}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>我的备注</Label>
+                <textarea
+                  value={detailNote}
+                  onChange={(e) => setDetailNote(e.target.value)}
+                  placeholder="记录一下这节课的重点或问题…"
+                  rows={4}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDetailOpen(false)}
+              disabled={detailSaving}
+            >
+              关闭
+            </Button>
+            <Button onClick={saveDetailNote} disabled={detailSaving}>
+              {detailSaving ? "保存中..." : "保存备注"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
