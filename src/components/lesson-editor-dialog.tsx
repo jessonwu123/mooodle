@@ -41,6 +41,19 @@ interface Props {
   studentOptions?: StudentOption[];
   /** Existing lesson to edit; if null, create new. */
   editing?: SingleLessonRow | null;
+  /** Prefill values when creating a new lesson (e.g. from a recurring/imported occurrence override). */
+  initialValues?: Partial<
+    Pick<
+      SingleLessonRow,
+      "student_id" | "class_name" | "lesson_date" | "start_time" | "end_time" | "hours_per_lesson" | "hourly_rate" | "notes"
+    >
+  >;
+  /** Optional hook that runs after validation, before insert/update. Return false to abort. */
+  beforeSave?: () => Promise<boolean> | boolean;
+  /** Override the dialog title. */
+  title?: string;
+  /** If provided, show a Delete button that calls this. */
+  onDelete?: () => Promise<void> | void;
   onSaved: () => void;
 }
 
@@ -53,6 +66,10 @@ export function LessonEditorDialog({
   lockedStudentId,
   studentOptions,
   editing,
+  initialValues,
+  beforeSave,
+  title,
+  onDelete,
   onSaved,
 }: Props) {
   const [mode, setMode] = useState<"student" | "custom">("student");
@@ -65,21 +82,23 @@ export function LessonEditorDialog({
   const [hourlyRate, setHourlyRate] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    if (editing) {
-      setMode(editing.student_id ? "student" : "custom");
-      setStudentId(editing.student_id ?? "");
-      setClassName(editing.class_name ?? "");
-      setDate(editing.lesson_date);
-      setStartTime(editing.start_time.slice(0, 5));
-      setEndTime(editing.end_time.slice(0, 5));
-      setHoursPerLesson(editing.hours_per_lesson?.toString() ?? "");
-      setHourlyRate(editing.hourly_rate?.toString() ?? "");
-      setNotes(editing.notes ?? "");
+    const src = editing ?? initialValues ?? null;
+    if (src) {
+      setMode(src.student_id ? "student" : src.class_name ? "custom" : "student");
+      setStudentId(src.student_id ?? lockedStudentId ?? "");
+      setClassName(src.class_name ?? "");
+      setDate(src.lesson_date ?? today());
+      setStartTime((src.start_time ?? "14:00:00").slice(0, 5));
+      setEndTime((src.end_time ?? "16:00:00").slice(0, 5));
+      setHoursPerLesson(src.hours_per_lesson?.toString() ?? "");
+      setHourlyRate(src.hourly_rate?.toString() ?? "");
+      setNotes(src.notes ?? "");
     } else {
-      setMode(lockedStudentId ? "student" : "student");
+      setMode("student");
       setStudentId(lockedStudentId ?? studentOptions?.[0]?.id ?? "");
       setClassName("");
       setDate(today());
@@ -89,7 +108,7 @@ export function LessonEditorDialog({
       setHourlyRate("");
       setNotes("");
     }
-  }, [open, editing, lockedStudentId, studentOptions]);
+  }, [open, editing, initialValues, lockedStudentId, studentOptions]);
 
   const handleSave = async () => {
     if (!date || !startTime || !endTime) {
@@ -105,6 +124,13 @@ export function LessonEditorDialog({
       return;
     }
     setBusy(true);
+    if (beforeSave) {
+      const ok = await beforeSave();
+      if (!ok) {
+        setBusy(false);
+        return;
+      }
+    }
     const payload = {
       created_by: createdBy,
       student_id: mode === "student" ? studentId : null,
@@ -141,7 +167,7 @@ export function LessonEditorDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{editing ? "编辑课次" : "新增课次"}</DialogTitle>
+          <DialogTitle>{title ?? (editing ? "编辑课次" : "新增课次")}</DialogTitle>
           <DialogDescription>
             {lockedStudentId
               ? "为该学生添加一次独立课程。"
@@ -262,13 +288,33 @@ export function LessonEditorDialog({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
-            取消
-          </Button>
-          <Button onClick={handleSave} disabled={busy}>
-            {busy ? "保存中..." : "保存"}
-          </Button>
+        <DialogFooter className="sm:justify-between gap-2">
+          {onDelete ? (
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                setDeleting(true);
+                try {
+                  await onDelete();
+                } finally {
+                  setDeleting(false);
+                }
+              }}
+              disabled={busy || deleting}
+            >
+              {deleting ? "删除中..." : "删除"}
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy || deleting}>
+              取消
+            </Button>
+            <Button onClick={handleSave} disabled={busy || deleting}>
+              {busy ? "保存中..." : "保存"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
