@@ -1116,6 +1116,14 @@ export type Database = {
           parent_id: string
         }[]
       }
+      list_teacher_display_info: {
+        Args: { _user_ids: string[] }
+        Returns: {
+          display_name: string
+          email: string
+          user_id: string
+        }[]
+      }
       list_teacher_students: {
         Args: { _teacher_id: string }
         Returns: {

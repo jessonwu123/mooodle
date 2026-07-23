@@ -141,12 +141,17 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
     if (uids.length > 0) {
       const { data: teachers } = await (supabase.rpc as unknown as (
         fn: string,
-      ) => Promise<{ data: { user_id: string; email: string }[] | null }>)(
-        "list_all_teachers",
-      );
+        args: Record<string, unknown>,
+      ) => Promise<{
+        data:
+          | { user_id: string; email: string; display_name: string | null }[]
+          | null;
+      }>)("list_teacher_display_info", { _user_ids: uids });
       const map: Record<string, string> = {};
       for (const t of teachers ?? []) {
-        if (uids.includes(t.user_id)) map[t.user_id] = t.email;
+        if (uids.includes(t.user_id)) {
+          map[t.user_id] = t.display_name?.trim() || t.email;
+        }
       }
       setCreatorEmails(map);
     } else {
@@ -171,10 +176,10 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
   }, [load, ratingRefresh]);
 
   const ownerTeacherDisplay = useMemo(() => {
-    const email = studentOwnerId ? creatorEmails[studentOwnerId] : null;
-    if (!email) return "老师";
-    const at = email.indexOf("@");
-    return at > 0 ? email.slice(0, at) : email;
+    const name = studentOwnerId ? creatorEmails[studentOwnerId] : null;
+    if (!name) return "老师";
+    if (name.includes("@")) return name.slice(0, name.indexOf("@"));
+    return name;
   }, [creatorEmails, studentOwnerId]);
 
   const items: CalendarItem[] = useMemo(() => {
