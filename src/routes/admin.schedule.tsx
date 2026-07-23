@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ChevronLeft,
@@ -7,11 +7,21 @@ import {
   CalendarDays,
   Trash2,
   Coins,
+  Upload,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   type CourseInfo,
   type ScheduleSlot,
@@ -31,10 +41,33 @@ interface StudentRow extends CourseInfo {
   name: string;
 }
 
+interface ImportedLesson {
+  id: string;
+  lesson_date: string;
+  start_time: string;
+  end_time: string;
+  class_name: string;
+}
+
 interface Occurrence {
   date: Date;
   slot: ScheduleSlot;
   student: StudentRow;
+}
+
+interface ImportedOccurrence {
+  date: Date;
+  start: string;
+  end: string;
+  className: string;
+  id: string;
+}
+
+interface ParsedRow {
+  lesson_date: string;
+  start_time: string;
+  end_time: string;
+  class_name: string;
 }
 
 function startOfWeek(d: Date) {
@@ -53,18 +86,92 @@ function sameDay(a: Date, b: Date) {
   );
 }
 
+function toDateString(v: unknown): string | null {
+  if (v == null || v === "") return null;
+  if (v instanceof Date) {
+    const y = v.getFullYear();
+    const m = String(v.getMonth() + 1).padStart(2, "0");
+    const d = String(v.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+  if (typeof v === "number") {
+    // Excel serial date
+    const d = XLSX.SSF.parse_date_code(v);
+    if (!d) return null;
+    return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
+  }
+  const s = String(v).trim();
+  // Support 2026-12-27, 2026/12/27, 2026.12.27
+  const m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (m) return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+  return null;
+}
+
+function parseTimeRange(v: unknown): { start: string; end: string } | null {
+  if (v == null) return null;
+  const s = String(v).trim();
+  const m = s.match(/(\d{1,2}):(\d{2})\s*[-—~至]\s*(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  const pad = (a: string) => a.padStart(2, "0");
+  return {
+    start: `${pad(m[1])}:${m[2]}:00`,
+    end: `${pad(m[3])}:${m[4]}:00`,
+  };
+}
+
+function parseWorkbook(file: File): Promise<ParsedRow[]> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("读取文件失败"));
+    reader.onload = () => {
+      try {
+        const wb = XLSX.read(reader.result, { type: "array", cellDates: true });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(sheet, {
+          defval: "",
+        });
+        const parsed: ParsedRow[] = [];
+        for (const row of rows) {
+          const date = toDateString(row["上课日期"]);
+          const time = parseTimeRange(row["上课时段"]);
+          const cls = String(row["班级名称"] ?? "").trim();
+          if (!date || !time || !cls) continue;
+          parsed.push({
+            lesson_date: date,
+            start_time: time.start,
+            end_time: time.end,
+            class_name: cls,
+          });
+        }
+        resolve(parsed);
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error(String(err)));
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 function SchedulePage() {
   const { session } = useAuth();
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [cancelled, setCancelled] = useState<Set<string>>(new Set());
+  const [imported, setImported] = useState<ImportedLesson[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"week" | "month">("week");
   const [anchor, setAnchor] = useState(new Date());
 
+  const [importOpen, setImportOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<ParsedRow[] | null>(null);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const load = useCallback(async () => {
     if (!session?.user.id) return;
     setLoading(true);
-    const [{ data: studs }, { data: cancels }] = await Promise.all([
+    const [{ data: studs }, { data: cancels }, { data: imps }] = await Promise.all([
       supabase
         .from("students")
         .select(
@@ -72,6 +179,10 @@ function SchedulePage() {
         )
         .eq("created_by", session.user.id),
       supabase.from("cancelled_lessons").select("student_id, lesson_at"),
+      supabase
+        .from("imported_lessons")
+        .select("id, lesson_date, start_time, end_time, class_name")
+        .eq("created_by", session.user.id),
     ]);
     setStudents((studs ?? []) as unknown as StudentRow[]);
     const set = new Set<string>();
@@ -81,6 +192,7 @@ function SchedulePage() {
       );
     }
     setCancelled(set);
+    setImported((imps ?? []) as ImportedLesson[]);
     setLoading(false);
   }, [session?.user.id]);
 
@@ -99,6 +211,23 @@ function SchedulePage() {
     }
     return out.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [students, cancelled]);
+
+  const importedOccurrences: ImportedOccurrence[] = useMemo(() => {
+    return imported
+      .map((row) => {
+        const [y, m, d] = row.lesson_date.split("-").map((n) => parseInt(n, 10));
+        const [h, mm] = row.start_time.split(":").map((n) => parseInt(n, 10));
+        const date = new Date(y, (m ?? 1) - 1, d ?? 1, h ?? 0, mm ?? 0);
+        return {
+          id: row.id,
+          date,
+          start: row.start_time.slice(0, 5),
+          end: row.end_time.slice(0, 5),
+          className: row.class_name,
+        };
+      })
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+  }, [imported]);
 
   const { rangeStart, rangeEnd, label } = useMemo(() => {
     if (view === "week") {
@@ -121,6 +250,9 @@ function SchedulePage() {
   }, [view, anchor]);
 
   const inRange = occurrences.filter(
+    (o) => o.date >= rangeStart && o.date < rangeEnd,
+  );
+  const importedInRange = importedOccurrences.filter(
     (o) => o.date >= rangeStart && o.date < rangeEnd,
   );
 
@@ -156,6 +288,78 @@ function SchedulePage() {
     setCancelled((prev) =>
       new Set(prev).add(`${o.student.id}|${lessonKey(o.date)}`),
     );
+  };
+
+  const handleFileChange = async (file: File | null) => {
+    setImportFile(file);
+    setImportPreview(null);
+    setImportError(null);
+    if (!file) return;
+    try {
+      const rows = await parseWorkbook(file);
+      if (rows.length === 0) {
+        setImportError("未能解析到任何有效课次，请检查 Excel 是否包含 上课日期 / 上课时段 / 班级名称 三列。");
+        return;
+      }
+      setImportPreview(rows);
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!session?.user.id || !importPreview) return;
+    setImportBusy(true);
+    // 先删除该老师之前导入的所有课次
+    const { error: delErr } = await supabase
+      .from("imported_lessons")
+      .delete()
+      .eq("created_by", session.user.id);
+    if (delErr) {
+      setImportBusy(false);
+      toast.error("清理旧课表失败：" + delErr.message);
+      return;
+    }
+    // 分批插入
+    const rows = importPreview.map((r) => ({
+      created_by: session.user.id,
+      lesson_date: r.lesson_date,
+      start_time: r.start_time,
+      end_time: r.end_time,
+      class_name: r.class_name,
+    }));
+    const CHUNK = 500;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK);
+      const { error } = await supabase.from("imported_lessons").insert(chunk);
+      if (error) {
+        setImportBusy(false);
+        toast.error("导入失败：" + error.message);
+        return;
+      }
+    }
+    toast.success(`已导入 ${rows.length} 节课，并已替换旧课表`);
+    setImportOpen(false);
+    setImportFile(null);
+    setImportPreview(null);
+    setImportBusy(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    await load();
+  };
+
+  const handleClearImport = async () => {
+    if (!session?.user.id) return;
+    if (!confirm("确认清空全部通过 Excel 导入的课次？")) return;
+    const { error } = await supabase
+      .from("imported_lessons")
+      .delete()
+      .eq("created_by", session.user.id);
+    if (error) {
+      toast.error("清空失败：" + error.message);
+      return;
+    }
+    toast.success("已清空导入的课表");
+    await load();
   };
 
   const days: Date[] = [];
@@ -195,14 +399,38 @@ function SchedulePage() {
             {label}
           </h1>
           <div className="mt-1 text-sm text-muted-foreground">
-            本{view === "week" ? "周" : "月"}共 {inRange.length} 节课
+            本{view === "week" ? "周" : "月"}共 {inRange.length} 节学生课
+            {importedInRange.length > 0 && (
+              <span className="ml-2 text-amber-600">
+                · 导入课表 {importedInRange.length} 节
+              </span>
+            )}
           </div>
           <div className="mt-1 flex items-center gap-1.5 text-sm font-medium text-emerald-600">
             <Coins className="h-3.5 w-3.5" />
             预计收入 ¥{monthlyIncome}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setImportOpen(true)}
+            className="gap-1.5"
+          >
+            <Upload className="h-4 w-4" />
+            导入课表
+          </Button>
+          {imported.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearImport}
+              className="text-muted-foreground hover:text-destructive"
+            >
+              清空导入
+            </Button>
+          )}
           <Tabs value={view} onValueChange={(v) => setView(v as "week" | "month")}>
             <TabsList>
               <TabsTrigger value="week">周视图</TabsTrigger>
@@ -237,6 +465,7 @@ function SchedulePage() {
           ))}
           {days.map((d, i) => {
             const dayOcc = inRange.filter((o) => sameDay(o.date, d));
+            const dayImp = importedInRange.filter((o) => sameDay(o.date, d));
             const inCurrentRange = d >= rangeStart && d < rangeEnd;
             const isToday = sameDay(d, new Date());
             return (
@@ -252,7 +481,7 @@ function SchedulePage() {
                 <div className="space-y-1">
                   {dayOcc.map((o, j) => (
                     <Link
-                      key={j}
+                      key={`s-${j}`}
                       to="/admin/student/$id"
                       params={{ id: o.student.id }}
                       className="block truncate rounded-md bg-primary/10 px-1.5 py-1 text-[11px] text-primary hover:bg-primary/20"
@@ -264,6 +493,15 @@ function SchedulePage() {
                       {o.student.name}
                     </Link>
                   ))}
+                  {dayImp.map((o) => (
+                    <div
+                      key={`i-${o.id}`}
+                      className="block truncate rounded-md bg-amber-100 px-1.5 py-1 text-[11px] text-amber-800"
+                      title={`${o.className} ${o.start}-${o.end}`}
+                    >
+                      <span className="font-medium">{o.start}</span> {o.className}
+                    </div>
+                  ))}
                 </div>
               </div>
             );
@@ -271,13 +509,13 @@ function SchedulePage() {
         </div>
       )}
 
-      {!loading && inRange.length > 0 && (
+      {!loading && (inRange.length > 0 || importedInRange.length > 0) && (
         <div className="mt-8">
           <h2 className="mb-3 text-base font-semibold text-foreground">课程列表</h2>
           <div className="space-y-2">
             {inRange.map((o, i) => (
               <div
-                key={i}
+                key={`s-${i}`}
                 className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-soft)]"
               >
                 <Link
@@ -309,9 +547,97 @@ function SchedulePage() {
                 </Button>
               </div>
             ))}
+            {importedInRange.map((o) => (
+              <div
+                key={`i-${o.id}`}
+                className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"
+              >
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-amber-900">
+                    {o.className}
+                    <span className="ml-2 rounded bg-amber-200 px-1.5 py-0.5 text-[10px] text-amber-800">
+                      导入
+                    </span>
+                  </div>
+                  <div className="text-xs text-amber-700">
+                    {o.date.toLocaleDateString("zh-CN", {
+                      month: "long",
+                      day: "numeric",
+                      weekday: "short",
+                    })}{" "}
+                    · {o.start}-{o.end}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
+
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>导入课表 (Excel)</DialogTitle>
+            <DialogDescription>
+              上传 .xlsx 文件，系统会读取「上课日期 / 上课时段 / 班级名称」三列。
+              <br />
+              重新上传会替换你之前通过 Excel 导入的全部课次（旧课表中存在而新课表中不存在的会被删除）。
+              这些课次不会出现在学生列表里。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
+              className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
+            />
+            {importError && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {importError}
+              </div>
+            )}
+            {importPreview && (
+              <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
+                <div className="font-medium text-foreground">
+                  已识别 {importPreview.length} 节课
+                </div>
+                <div className="mt-2 max-h-56 space-y-1 overflow-y-auto text-xs text-muted-foreground">
+                  {importPreview.slice(0, 20).map((r, i) => (
+                    <div key={i} className="flex justify-between gap-2">
+                      <span>
+                        {r.lesson_date} {r.start_time.slice(0, 5)}-{r.end_time.slice(0, 5)}
+                      </span>
+                      <span className="truncate text-right">{r.class_name}</span>
+                    </div>
+                  ))}
+                  {importPreview.length > 20 && (
+                    <div className="pt-1 text-center">
+                      ...（仅预览前 20 行）
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setImportOpen(false)}
+              disabled={importBusy}
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleConfirmImport}
+              disabled={!importPreview || importBusy}
+            >
+              {importBusy ? "导入中..." : "确认导入并替换"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

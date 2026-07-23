@@ -123,6 +123,36 @@ export type Database = {
         }
         Relationships: []
       }
+      imported_lessons: {
+        Row: {
+          class_name: string
+          created_at: string
+          created_by: string
+          end_time: string
+          id: string
+          lesson_date: string
+          start_time: string
+        }
+        Insert: {
+          class_name: string
+          created_at?: string
+          created_by: string
+          end_time: string
+          id?: string
+          lesson_date: string
+          start_time: string
+        }
+        Update: {
+          class_name?: string
+          created_at?: string
+          created_by?: string
+          end_time?: string
+          id?: string
+          lesson_date?: string
+          start_time?: string
+        }
+        Relationships: []
+      }
       math_paper_folder_default_permissions: {
         Row: {
           created_at: string
