@@ -186,7 +186,7 @@ export function StudentScheduleTab({ studentId }: Props) {
   }, [load]);
 
   const myUid = session?.user.id ?? "";
-  const teacherDisplay = teacherDisplayName(teacherEmail);
+  const teacherDisplay = teacherDisplayNameFromDb?.trim() || teacherDisplayName(teacherEmail);
 
   const items: CalendarItem[] = useMemo(() => {
     const out: CalendarItem[] = [];
