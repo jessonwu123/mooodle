@@ -100,7 +100,7 @@ function Consent() {
         <div className="rounded-lg border border-border bg-card p-4 text-sm">
           <div className="font-medium">请求的权限</div>
           <ul className="mt-2 list-disc pl-5 text-muted-foreground">
-            {scopes.map((s) => (
+            {scopes.map((s: string) => (
               <li key={s}>{s}</li>
             ))}
           </ul>
