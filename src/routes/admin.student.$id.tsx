@@ -284,12 +284,13 @@ function ManageStudent() {
                 if (!v) resetForm();
               }}
             >
-              <DialogTrigger asChild>
-                <Button className="gap-1.5 bg-green-500 text-primary-foreground shadow-[var(--shadow-soft)] hover:bg-green-600">
-                  <Plus className="h-4 w-4" />
-                  新增课堂评分
-                </Button>
-              </DialogTrigger>
+              <Button
+                onClick={openAddDialog}
+                className="gap-1.5 bg-green-500 text-primary-foreground shadow-[var(--shadow-soft)] hover:bg-green-600"
+              >
+                <Plus className="h-4 w-4" />
+                新增课堂评分
+              </Button>
               <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>新增课堂评分</DialogTitle>
@@ -297,14 +298,41 @@ function ManageStudent() {
                 <form onSubmit={handleSave} className="space-y-5">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label htmlFor="date">上课日期</Label>
-                      <Input
-                        id="date"
-                        type="date"
-                        required
-                        value={date}
-                        onChange={(e) => setDate(e.target.value)}
-                      />
+                      <Label htmlFor="date">选择课次</Label>
+                      {lessonOptions.length > 0 ? (
+                        <select
+                          id="date"
+                          required
+                          value={date}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setDate(v);
+                            const opt = lessonOptions.find((o) => o.date === v);
+                            if (opt?.className && !lessonName) setLessonName(opt.className);
+                          }}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        >
+                          <option value="">请选择课次</option>
+                          {lessonOptions.map((o, i) => (
+                            <option key={`${o.date}-${i}`} value={o.date}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <Input
+                          id="date"
+                          type="date"
+                          required
+                          value={date}
+                          onChange={(e) => setDate(e.target.value)}
+                        />
+                      )}
+                      {lessonOptions.length === 0 && (
+                        <div className="text-xs text-muted-foreground">
+                          该学生课表暂无课次，可手动选择日期
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="lessonName">本节课名称</Label>
@@ -316,6 +344,7 @@ function ManageStudent() {
                       />
                     </div>
                   </div>
+
 
                   {/* 学生表现 */}
                   <section className="space-y-3 rounded-xl border border-border bg-muted/20 p-3">
