@@ -50,6 +50,7 @@ type CalendarItem =
   | {
       kind: "recurring";
       key: string;
+      ref: string;
       date: Date;
       end: Date | null;
       title: string;
@@ -57,6 +58,7 @@ type CalendarItem =
   | {
       kind: "single-teacher";
       key: string;
+      ref: string;
       date: Date;
       end: Date;
       title: string;
@@ -70,6 +72,12 @@ type CalendarItem =
       title: string;
       row: SingleRow;
     };
+
+function teacherDisplayName(email: string | null | undefined): string {
+  if (!email) return "老师";
+  const at = email.indexOf("@");
+  return at > 0 ? email.slice(0, at) : email;
+}
 
 function startOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1);
