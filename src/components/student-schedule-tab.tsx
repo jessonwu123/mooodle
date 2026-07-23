@@ -107,6 +107,7 @@ export function StudentScheduleTab({ studentId }: Props) {
   const [view, setView] = useState<"week" | "month">("month");
   const [anchor, setAnchor] = useState(new Date());
   const [teacherEmail, setTeacherEmail] = useState<string | null>(null);
+  const [teacherDisplayNameFromDb, setTeacherDisplayNameFromDb] = useState<string | null>(null);
   const [notesMap, setNotesMap] = useState<Record<string, string>>({});
 
   const [dialogOpen, setDialogOpen] = useState(false);
