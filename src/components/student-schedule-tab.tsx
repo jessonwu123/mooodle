@@ -18,9 +18,11 @@ import {
   CalendarPlus,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { LessonRatingDialog } from "@/components/lesson-rating-dialog";
 import {
   type CourseInfo,
   generateLessonOccurrences,
@@ -125,6 +127,8 @@ export function StudentScheduleTab({ studentId }: Props) {
   >(null);
   const [detailNote, setDetailNote] = useState("");
   const [detailSaving, setDetailSaving] = useState(false);
+  const [ratedDates, setRatedDates] = useState<Set<string>>(new Set());
+  const [ratingOpen, setRatingOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
