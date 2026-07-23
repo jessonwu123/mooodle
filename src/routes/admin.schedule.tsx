@@ -499,6 +499,17 @@ function SchedulePage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button
+            size="sm"
+            onClick={() => {
+              setEditingLesson(null);
+              setEditorOpen(true);
+            }}
+            className="gap-1.5"
+          >
+            <CalendarPlus className="h-4 w-4" />
+            增加课次
+          </Button>
+          <Button
             variant="outline"
             size="sm"
             onClick={() => setImportOpen(true)}
