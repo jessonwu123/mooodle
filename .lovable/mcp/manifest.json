@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "sdk_version": "0.24.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://elwiaeitctyhmockanld.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "classroom-archive-mcp",
+      "version": "0.1.0",
+      "title": "课堂档案 MCP"
+    },
+    "tools": [
+      {
+        "name": "whoami",
+        "title": "当前用户身份",
+        "description": "返回当前通过 OAuth 认证的用户身份、邮箱以及在本应用中的角色（学生/教师/管理员）。",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_students",
+        "title": "列出学生",
+        "description": "教师专用：列出当前教师账户可查看的所有学生（姓名、ID、创建时间）。",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "description": "最多返回条数，默认 50"
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_student_recent_lessons",
+        "title": "获取学生近期课堂记录",
+        "description": "读取指定学生最近若干节课的课堂评分（专注力、互动性、纪律、准确率、整体评价、老师总结、授课知识点吸收百分比）。仅本人或教师/管理员可调用。",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "student_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "学生 ID (UUID)"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "description": "返回条数，默认 10"
+            }
+          },
+          "required": [
+            "student_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
