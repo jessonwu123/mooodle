@@ -41,6 +41,19 @@ interface Props {
   studentOptions?: StudentOption[];
   /** Existing lesson to edit; if null, create new. */
   editing?: SingleLessonRow | null;
+  /** Prefill values when creating a new lesson (e.g. from a recurring/imported occurrence override). */
+  initialValues?: Partial<
+    Pick<
+      SingleLessonRow,
+      "student_id" | "class_name" | "lesson_date" | "start_time" | "end_time" | "hours_per_lesson" | "hourly_rate" | "notes"
+    >
+  >;
+  /** Optional hook that runs after validation, before insert/update. Return false to abort. */
+  beforeSave?: () => Promise<boolean> | boolean;
+  /** Override the dialog title. */
+  title?: string;
+  /** If provided, show a Delete button that calls this. */
+  onDelete?: () => Promise<void> | void;
   onSaved: () => void;
 }
 
