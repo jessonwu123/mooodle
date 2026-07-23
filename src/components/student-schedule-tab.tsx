@@ -537,10 +537,8 @@ export function StudentScheduleTab({ studentId }: Props) {
                     <div className="flex-1">
                       <div className="text-sm font-medium text-sky-900">
                         {it.title}
-                        <span className="ml-2 rounded bg-sky-200 px-1.5 py-0.5 text-[10px] text-sky-800">
-                          自建
-                        </span>
                       </div>
+
                       <div className="text-xs text-sky-700">
                         {dateLabel} · {timeStr}
                         {it.row.teacher_name ? ` · ${it.row.teacher_name} 老师` : ""}
