@@ -8,6 +8,8 @@ import {
   Trash2,
   Coins,
   Upload,
+  CalendarPlus,
+  Pencil,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +33,10 @@ import {
   lessonFee,
 } from "@/lib/course-schedule";
 import { toast } from "sonner";
+import {
+  LessonEditorDialog,
+  type SingleLessonRow,
+} from "@/components/lesson-editor-dialog";
 
 export const Route = createFileRoute("/admin/schedule")({
   component: SchedulePage,
@@ -49,13 +55,25 @@ interface ImportedLesson {
   class_name: string;
 }
 
+type OccurrenceKind = "recurring" | "single" | "imported";
+
 interface Occurrence {
+  kind: "recurring";
   date: Date;
   slot: ScheduleSlot;
   student: StudentRow;
 }
 
+interface SingleOccurrence {
+  kind: "single";
+  date: Date;
+  end: Date;
+  row: SingleLessonRow;
+  studentName: string | null;
+}
+
 interface ImportedOccurrence {
+  kind: "imported";
   date: Date;
   start: string;
   end: string;
@@ -63,12 +81,15 @@ interface ImportedOccurrence {
   id: string;
 }
 
+type AnyOccurrence = Occurrence | SingleOccurrence | ImportedOccurrence;
+
 interface ParsedRow {
   lesson_date: string;
   start_time: string;
   end_time: string;
   class_name: string;
 }
+
 
 function startOfWeek(d: Date) {
   const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
