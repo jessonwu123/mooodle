@@ -1063,6 +1063,7 @@ export type Database = {
       get_my_teacher_info: {
         Args: never
         Returns: {
+          display_name: string
           email: string
           teacher_id: string
         }[]
@@ -1074,6 +1075,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_my_student_row: { Args: { _student_id: string }; Returns: boolean }
       list_admin_users: {
         Args: never
         Returns: {

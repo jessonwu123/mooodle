@@ -107,6 +107,7 @@ export function StudentScheduleTab({ studentId }: Props) {
   const [view, setView] = useState<"week" | "month">("month");
   const [anchor, setAnchor] = useState(new Date());
   const [teacherEmail, setTeacherEmail] = useState<string | null>(null);
+  const [teacherDisplayNameFromDb, setTeacherDisplayNameFromDb] = useState<string | null>(null);
   const [notesMap, setNotesMap] = useState<Record<string, string>>({});
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -162,6 +163,7 @@ export function StudentScheduleTab({ studentId }: Props) {
     setCancelled(set);
     const t = Array.isArray(tinfo) ? tinfo[0] : null;
     setTeacherEmail((t as { email?: string } | null)?.email ?? null);
+    setTeacherDisplayNameFromDb((t as { display_name?: string | null } | null)?.display_name ?? null);
     const nm: Record<string, string> = {};
     for (const n of notesRows ?? []) {
       nm[(n as { lesson_ref: string }).lesson_ref] = (n as { note: string }).note ?? "";
@@ -184,7 +186,7 @@ export function StudentScheduleTab({ studentId }: Props) {
   }, [load]);
 
   const myUid = session?.user.id ?? "";
-  const teacherDisplay = teacherDisplayName(teacherEmail);
+  const teacherDisplay = teacherDisplayNameFromDb?.trim() || teacherDisplayName(teacherEmail);
 
   const items: CalendarItem[] = useMemo(() => {
     const out: CalendarItem[] = [];
