@@ -167,7 +167,7 @@ export function LessonEditorDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{editing ? "编辑课次" : "新增课次"}</DialogTitle>
+          <DialogTitle>{title ?? (editing ? "编辑课次" : "新增课次")}</DialogTitle>
           <DialogDescription>
             {lockedStudentId
               ? "为该学生添加一次独立课程。"
