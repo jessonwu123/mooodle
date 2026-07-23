@@ -152,12 +152,23 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
     } else {
       setCreatorEmails({});
     }
+
+    const { data: rr } = await supabase
+      .from("ratings")
+      .select("lesson_date")
+      .eq("student_id", studentId);
+    const rset = new Set<string>();
+    for (const r of (rr ?? []) as { lesson_date: string }[]) {
+      rset.add(r.lesson_date);
+    }
+    setRatedDates(rset);
+
     setLoading(false);
   }, [studentId]);
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, ratingRefresh]);
 
   const ownerTeacherDisplay = useMemo(() => {
     const email = studentOwnerId ? creatorEmails[studentOwnerId] : null;
