@@ -5,11 +5,11 @@ import {
   ChevronLeft,
   ChevronRight,
   CalendarDays,
-  Trash2,
   Coins,
   Upload,
   CalendarPlus,
   Pencil,
+  Trash2,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
