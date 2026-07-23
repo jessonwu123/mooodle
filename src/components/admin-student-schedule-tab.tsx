@@ -146,6 +146,13 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
     load();
   }, [load]);
 
+  const ownerTeacherDisplay = useMemo(() => {
+    const email = studentOwnerId ? creatorEmails[studentOwnerId] : null;
+    if (!email) return "老师";
+    const at = email.indexOf("@");
+    return at > 0 ? email.slice(0, at) : email;
+  }, [creatorEmails, studentOwnerId]);
+
   const items: CalendarItem[] = useMemo(() => {
     const out: CalendarItem[] = [];
     if (course) {
@@ -165,7 +172,7 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
           date: o.date,
           slot: o.slot,
           end,
-          title: "固定课程",
+          title: `${ownerTeacherDisplay} 老师`,
         });
       }
     }
@@ -178,7 +185,11 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
       const isSelfCreated = !!studentOwnerId && r.created_by !== studentOwnerId;
       const title =
         r.class_name ??
-        (r.teacher_name ? `${r.teacher_name} 老师` : "单次课");
+        (r.teacher_name
+          ? `${r.teacher_name} 老师`
+          : isSelfCreated
+            ? "学生自建课"
+            : `${ownerTeacherDisplay} 老师`);
       out.push({
         kind: "single",
         key: `s-${r.id}`,
@@ -190,7 +201,7 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
       });
     }
     return out.sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [course, singles, cancelled, studentOwnerId]);
+  }, [course, singles, cancelled, studentOwnerId, ownerTeacherDisplay]);
 
   const { rangeStart, rangeEnd, label } = useMemo(() => {
     if (view === "week") {
