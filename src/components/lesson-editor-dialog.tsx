@@ -66,6 +66,10 @@ export function LessonEditorDialog({
   lockedStudentId,
   studentOptions,
   editing,
+  initialValues,
+  beforeSave,
+  title,
+  onDelete,
   onSaved,
 }: Props) {
   const [mode, setMode] = useState<"student" | "custom">("student");
@@ -78,21 +82,23 @@ export function LessonEditorDialog({
   const [hourlyRate, setHourlyRate] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    if (editing) {
-      setMode(editing.student_id ? "student" : "custom");
-      setStudentId(editing.student_id ?? "");
-      setClassName(editing.class_name ?? "");
-      setDate(editing.lesson_date);
-      setStartTime(editing.start_time.slice(0, 5));
-      setEndTime(editing.end_time.slice(0, 5));
-      setHoursPerLesson(editing.hours_per_lesson?.toString() ?? "");
-      setHourlyRate(editing.hourly_rate?.toString() ?? "");
-      setNotes(editing.notes ?? "");
+    const src = editing ?? initialValues ?? null;
+    if (src) {
+      setMode(src.student_id ? "student" : src.class_name ? "custom" : "student");
+      setStudentId(src.student_id ?? lockedStudentId ?? "");
+      setClassName(src.class_name ?? "");
+      setDate(src.lesson_date ?? today());
+      setStartTime((src.start_time ?? "14:00:00").slice(0, 5));
+      setEndTime((src.end_time ?? "16:00:00").slice(0, 5));
+      setHoursPerLesson(src.hours_per_lesson?.toString() ?? "");
+      setHourlyRate(src.hourly_rate?.toString() ?? "");
+      setNotes(src.notes ?? "");
     } else {
-      setMode(lockedStudentId ? "student" : "student");
+      setMode("student");
       setStudentId(lockedStudentId ?? studentOptions?.[0]?.id ?? "");
       setClassName("");
       setDate(today());
@@ -102,7 +108,7 @@ export function LessonEditorDialog({
       setHourlyRate("");
       setNotes("");
     }
-  }, [open, editing, lockedStudentId, studentOptions]);
+  }, [open, editing, initialValues, lockedStudentId, studentOptions]);
 
   const handleSave = async () => {
     if (!date || !startTime || !endTime) {
@@ -118,6 +124,13 @@ export function LessonEditorDialog({
       return;
     }
     setBusy(true);
+    if (beforeSave) {
+      const ok = await beforeSave();
+      if (!ok) {
+        setBusy(false);
+        return;
+      }
+    }
     const payload = {
       created_by: createdBy,
       student_id: mode === "student" ? studentId : null,
