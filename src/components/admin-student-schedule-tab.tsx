@@ -98,6 +98,9 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
   const [ratingOpen, setRatingOpen] = useState(false);
   const [ratingRefresh, setRatingRefresh] = useState(0);
   const [ratedDates, setRatedDates] = useState<Set<string>>(new Set());
+
+  const load = useCallback(async () => {
+    setLoading(true);
     const [{ data: stu }, { data: sng }, { data: cans }] = await Promise.all([
       supabase
         .from("students")
