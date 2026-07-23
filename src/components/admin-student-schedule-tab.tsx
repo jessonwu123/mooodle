@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -12,7 +13,9 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
 } from "lucide-react";
+import { LessonRatingDialog } from "@/components/lesson-rating-dialog";
 import {
   type CourseInfo,
   type ScheduleSlot,
