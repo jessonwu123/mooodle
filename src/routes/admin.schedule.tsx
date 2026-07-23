@@ -562,6 +562,7 @@ function SchedulePage() {
           ))}
           {days.map((d, i) => {
             const dayOcc = inRange.filter((o) => sameDay(o.date, d));
+            const daySing = singleInRange.filter((o) => sameDay(o.date, d));
             const dayImp = importedInRange.filter((o) => sameDay(o.date, d));
             const inCurrentRange = d >= rangeStart && d < rangeEnd;
             const isToday = sameDay(d, new Date());
@@ -577,27 +578,43 @@ function SchedulePage() {
                 <div className="mb-1 text-xs font-medium">{d.getDate()}</div>
                 <div className="space-y-1">
                   {dayOcc.map((o, j) => (
-                    <Link
-                      key={`s-${j}`}
-                      to="/admin/student/$id"
-                      params={{ id: o.student.id }}
-                      className="block truncate rounded-md bg-primary/10 px-1.5 py-1 text-[11px] text-primary hover:bg-primary/20"
+                    <button
+                      key={`r-${j}`}
+                      type="button"
+                      onClick={() => setDetailFor(o)}
+                      className="block w-full truncate rounded-md bg-primary/10 px-1.5 py-1 text-left text-[11px] text-primary hover:bg-primary/20"
                       title={`${o.student.name} ${o.slot.start_time?.slice(0, 5) ?? ""}${o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}`}
                     >
                       <span className="font-medium">
                         {o.slot.start_time?.slice(0, 5)}
                       </span>{" "}
                       {o.student.name}
-                    </Link>
+                    </button>
+                  ))}
+                  {daySing.map((o) => (
+                    <button
+                      key={`s-${o.row.id}`}
+                      type="button"
+                      onClick={() => setDetailFor(o)}
+                      className="block w-full truncate rounded-md bg-sky-100 px-1.5 py-1 text-left text-[11px] text-sky-800 hover:bg-sky-200"
+                      title={`${o.studentName ?? o.row.class_name ?? ""} ${o.row.start_time.slice(0, 5)}-${o.row.end_time.slice(0, 5)}`}
+                    >
+                      <span className="font-medium">
+                        {o.row.start_time.slice(0, 5)}
+                      </span>{" "}
+                      {o.studentName ?? o.row.class_name}
+                    </button>
                   ))}
                   {dayImp.map((o) => (
-                    <div
+                    <button
                       key={`i-${o.id}`}
-                      className="block truncate rounded-md bg-amber-100 px-1.5 py-1 text-[11px] text-amber-800"
+                      type="button"
+                      onClick={() => setDetailFor(o)}
+                      className="block w-full truncate rounded-md bg-amber-100 px-1.5 py-1 text-left text-[11px] text-amber-800 hover:bg-amber-200"
                       title={`${o.className} ${o.start}-${o.end}`}
                     >
                       <span className="font-medium">{o.start}</span> {o.className}
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -606,70 +623,87 @@ function SchedulePage() {
         </div>
       )}
 
-      {!loading && (inRange.length > 0 || importedInRange.length > 0) && (
-        <div className="mt-8">
-          <h2 className="mb-3 text-base font-semibold text-foreground">课程列表</h2>
-          <div className="space-y-2">
-            {inRange.map((o, i) => (
-              <div
-                key={`s-${i}`}
-                className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-soft)]"
-              >
-                <Link
-                  to="/admin/student/$id"
-                  params={{ id: o.student.id }}
-                  className="flex-1"
+      {!loading &&
+        (inRange.length > 0 || singleInRange.length > 0 || importedInRange.length > 0) && (
+          <div className="mt-8">
+            <h2 className="mb-3 text-base font-semibold text-foreground">课程列表</h2>
+            <div className="space-y-2">
+              {inRange.map((o, i) => (
+                <button
+                  key={`r-${i}`}
+                  type="button"
+                  onClick={() => setDetailFor(o)}
+                  className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-left shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-soft)]"
                 >
-                  <div className="text-sm font-medium text-foreground">
-                    {o.student.name}
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-foreground">
+                      {o.student.name}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {o.date.toLocaleDateString("zh-CN", {
+                        month: "long",
+                        day: "numeric",
+                        weekday: "short",
+                      })}{" "}
+                      · {o.slot.start_time?.slice(0, 5)}
+                      {o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {o.date.toLocaleDateString("zh-CN", {
-                      month: "long",
-                      day: "numeric",
-                      weekday: "short",
-                    })}{" "}
-                    · {o.slot.start_time?.slice(0, 5)}
-                    {o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}
-                  </div>
-                </Link>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleCancelLesson(o)}
-                  className="text-muted-foreground hover:text-destructive"
-                  title="删除该节课"
+                </button>
+              ))}
+              {singleInRange.map((o) => (
+                <button
+                  key={`s-${o.row.id}`}
+                  type="button"
+                  onClick={() => setDetailFor(o)}
+                  className="flex w-full items-center justify-between rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-left hover:bg-sky-100"
                 >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-            {importedInRange.map((o) => (
-              <div
-                key={`i-${o.id}`}
-                className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"
-              >
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-amber-900">
-                    {o.className}
-                    <span className="ml-2 rounded bg-amber-200 px-1.5 py-0.5 text-[10px] text-amber-800">
-                      导入
-                    </span>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-sky-900">
+                      {o.studentName ?? o.row.class_name}
+                      <span className="ml-2 rounded bg-sky-200 px-1.5 py-0.5 text-[10px] text-sky-800">
+                        单次
+                      </span>
+                    </div>
+                    <div className="text-xs text-sky-700">
+                      {o.date.toLocaleDateString("zh-CN", {
+                        month: "long",
+                        day: "numeric",
+                        weekday: "short",
+                      })}{" "}
+                      · {o.row.start_time.slice(0, 5)}-{o.row.end_time.slice(0, 5)}
+                    </div>
                   </div>
-                  <div className="text-xs text-amber-700">
-                    {o.date.toLocaleDateString("zh-CN", {
-                      month: "long",
-                      day: "numeric",
-                      weekday: "short",
-                    })}{" "}
-                    · {o.start}-{o.end}
+                </button>
+              ))}
+              {importedInRange.map((o) => (
+                <button
+                  key={`i-${o.id}`}
+                  type="button"
+                  onClick={() => setDetailFor(o)}
+                  className="flex w-full items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left hover:bg-amber-100"
+                >
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-amber-900">
+                      {o.className}
+                      <span className="ml-2 rounded bg-amber-200 px-1.5 py-0.5 text-[10px] text-amber-800">
+                        导入
+                      </span>
+                    </div>
+                    <div className="text-xs text-amber-700">
+                      {o.date.toLocaleDateString("zh-CN", {
+                        month: "long",
+                        day: "numeric",
+                        weekday: "short",
+                      })}{" "}
+                      · {o.start}-{o.end}
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
         <DialogContent className="max-w-lg">
