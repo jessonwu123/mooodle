@@ -438,10 +438,36 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
               )}
             </div>
           )}
+          <DialogFooter>
+            <Button
+              onClick={() => setRatingOpen(true)}
+              disabled={!detail}
+              className="gap-1.5"
+            >
+              <ClipboardList className="h-4 w-4" />
+              {detail && ratedDates.has(fmtDateISO(detail.date)) ? "查看/编辑评分" : "新增课堂评分"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {detail && (
+        <LessonRatingDialog
+          open={ratingOpen}
+          onOpenChange={setRatingOpen}
+          studentId={studentId}
+          lessonDate={fmtDateISO(detail.date)}
+          editable={true}
+          onSaved={() => setRatingRefresh((n) => n + 1)}
+        />
+      )}
     </div>
   );
+}
+
+function fmtDateISO(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 function Row({ label, value }: { label: string; value: string }) {
