@@ -675,6 +675,78 @@ export function StudentScheduleTab({ studentId }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>课程详情</DialogTitle>
+            <DialogDescription>
+              老师安排的课次，你可以在这里查看信息并添加备注。
+            </DialogDescription>
+          </DialogHeader>
+          {detailItem && (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
+                <div className="mb-1 font-medium text-foreground">
+                  {detailItem.title}
+                </div>
+                <div className="text-muted-foreground">
+                  {detailItem.date.toLocaleDateString("zh-CN", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                    weekday: "short",
+                  })}
+                </div>
+                <div className="text-muted-foreground">
+                  上课时间：
+                  {detailItem.date.toLocaleTimeString("zh-CN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: false,
+                  })}
+                  {detailItem.end
+                    ? " - " +
+                      detailItem.end.toLocaleTimeString("zh-CN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: false,
+                      })
+                    : ""}
+                </div>
+                <div className="text-muted-foreground">
+                  上课老师：
+                  {detailItem.kind === "single-teacher" && detailItem.row.teacher_name
+                    ? `${detailItem.row.teacher_name} 老师`
+                    : `${teacherDisplay} 老师`}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>我的备注</Label>
+                <textarea
+                  value={detailNote}
+                  onChange={(e) => setDetailNote(e.target.value)}
+                  placeholder="记录一下这节课的重点或问题…"
+                  rows={4}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDetailOpen(false)}
+              disabled={detailSaving}
+            >
+              关闭
+            </Button>
+            <Button onClick={saveDetailNote} disabled={detailSaving}>
+              {detailSaving ? "保存中..." : "保存备注"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
