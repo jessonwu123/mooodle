@@ -95,9 +95,9 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
   const [view, setView] = useState<"week" | "month">("month");
   const [anchor, setAnchor] = useState(new Date());
   const [detail, setDetail] = useState<CalendarItem | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
+  const [ratingOpen, setRatingOpen] = useState(false);
+  const [ratingRefresh, setRatingRefresh] = useState(0);
+  const [ratedDates, setRatedDates] = useState<Set<string>>(new Set());
     const [{ data: stu }, { data: sng }, { data: cans }] = await Promise.all([
       supabase
         .from("students")
