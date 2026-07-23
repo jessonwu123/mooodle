@@ -308,6 +308,35 @@ export function StudentScheduleTab({ studentId }: Props) {
     setDialogOpen(true);
   };
 
+  const openDetail = (
+    it: Extract<CalendarItem, { kind: "recurring" | "single-teacher" }>,
+  ) => {
+    setDetailItem(it);
+    setDetailNote(notesMap[it.ref] ?? "");
+    setDetailOpen(true);
+  };
+
+  const saveDetailNote = async () => {
+    if (!detailItem) return;
+    setDetailSaving(true);
+    const payload = {
+      student_id: studentId,
+      lesson_ref: detailItem.ref,
+      note: detailNote,
+    };
+    const { error } = await supabase
+      .from("student_lesson_notes")
+      .upsert(payload, { onConflict: "student_id,lesson_ref" });
+    setDetailSaving(false);
+    if (error) {
+      toast.error("保存失败：" + error.message);
+      return;
+    }
+    setNotesMap((m) => ({ ...m, [detailItem.ref]: detailNote }));
+    toast.success("备注已保存");
+    setDetailOpen(false);
+  };
+
   const handleSave = async () => {
     if (!className.trim()) {
       toast.error("请填写课程名称");
