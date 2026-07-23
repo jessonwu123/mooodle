@@ -623,6 +623,59 @@ export type Database = {
           },
         ]
       }
+      single_lessons: {
+        Row: {
+          class_name: string | null
+          created_at: string
+          created_by: string
+          end_time: string
+          hourly_rate: number | null
+          hours_per_lesson: number | null
+          id: string
+          lesson_date: string
+          notes: string | null
+          start_time: string
+          student_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          class_name?: string | null
+          created_at?: string
+          created_by: string
+          end_time: string
+          hourly_rate?: number | null
+          hours_per_lesson?: number | null
+          id?: string
+          lesson_date: string
+          notes?: string | null
+          start_time: string
+          student_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          class_name?: string | null
+          created_at?: string
+          created_by?: string
+          end_time?: string
+          hourly_rate?: number | null
+          hours_per_lesson?: number | null
+          id?: string
+          lesson_date?: string
+          notes?: string | null
+          start_time?: string
+          student_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "single_lessons_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_learning_analytics: {
         Row: {
           chart_data: Json
