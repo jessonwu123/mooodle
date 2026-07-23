@@ -636,6 +636,7 @@ export type Database = {
           notes: string | null
           start_time: string
           student_id: string | null
+          teacher_name: string | null
           updated_at: string
         }
         Insert: {
@@ -650,6 +651,7 @@ export type Database = {
           notes?: string | null
           start_time: string
           student_id?: string | null
+          teacher_name?: string | null
           updated_at?: string
         }
         Update: {
@@ -664,6 +666,7 @@ export type Database = {
           notes?: string | null
           start_time?: string
           student_id?: string | null
+          teacher_name?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1004,11 +1007,21 @@ export type Database = {
         Args: never
         Returns: {
           auth_user_id: string
+          created_by: string
+          hourly_rate: number
+          hours_per_lesson: number
           id: string
           knowledge_updated_at: string
           learning_quality_updated_at: string
           name: string
+          schedule_end_time: string
+          schedule_frequency_weeks: number
+          schedule_slots: Json
+          schedule_start_date: string
+          schedule_start_time: string
+          schedule_weekday: number
           thinking_updated_at: string
+          total_hours: number
           username: string
         }[]
       }

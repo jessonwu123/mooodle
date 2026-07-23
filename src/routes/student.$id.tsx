@@ -21,6 +21,7 @@ import { PetTab } from "@/components/pet-tab";
 import { StudentLibraryTab } from "@/components/student-library-tab";
 import { PracticeTab } from "@/components/practice-tab";
 import { LearningAnalyticsTab } from "@/components/learning-analytics-tab";
+import { StudentScheduleTab } from "@/components/student-schedule-tab";
 import { type AssessmentTimestamps, isUnread } from "@/lib/assessment-updates";
 import { updateStudentUsername, updateStudentPassword } from "@/lib/student-account.functions";
 import { toast } from "sonner";
@@ -299,7 +300,7 @@ function StudentProfile() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="mb-6 grid w-full max-w-3xl grid-cols-6">
+          <TabsList className="mb-6 grid w-full max-w-4xl grid-cols-7">
             <TabsTrigger value="lessons">课堂记录</TabsTrigger>
             <TabsTrigger value="comprehensive" className="relative">
               <span className={hasUnread ? "animate-pulse font-semibold text-red-600" : undefined}>
@@ -313,6 +314,7 @@ function StudentProfile() {
               )}
             </TabsTrigger>
             <TabsTrigger value="analytics">统计数据</TabsTrigger>
+            <TabsTrigger value="schedule">课程表</TabsTrigger>
             <TabsTrigger value="library">资料库</TabsTrigger>
             <TabsTrigger value="practice">习题练习</TabsTrigger>
             <TabsTrigger value="pet">养宠物</TabsTrigger>
@@ -450,6 +452,10 @@ function StudentProfile() {
 
           <TabsContent value="analytics">
             <LearningAnalyticsTab studentId={id} isOwnerView={isOwner} />
+          </TabsContent>
+
+          <TabsContent value="schedule">
+            <StudentScheduleTab studentId={id} />
           </TabsContent>
 
           <TabsContent value="library">
