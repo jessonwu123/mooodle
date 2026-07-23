@@ -5,9 +5,11 @@ import {
   ChevronLeft,
   ChevronRight,
   CalendarDays,
-  Trash2,
   Coins,
   Upload,
+  CalendarPlus,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +33,10 @@ import {
   lessonFee,
 } from "@/lib/course-schedule";
 import { toast } from "sonner";
+import {
+  LessonEditorDialog,
+  type SingleLessonRow,
+} from "@/components/lesson-editor-dialog";
 
 export const Route = createFileRoute("/admin/schedule")({
   component: SchedulePage,
@@ -49,13 +55,25 @@ interface ImportedLesson {
   class_name: string;
 }
 
+type OccurrenceKind = "recurring" | "single" | "imported";
+
 interface Occurrence {
+  kind: "recurring";
   date: Date;
   slot: ScheduleSlot;
   student: StudentRow;
 }
 
+interface SingleOccurrence {
+  kind: "single";
+  date: Date;
+  end: Date;
+  row: SingleLessonRow;
+  studentName: string | null;
+}
+
 interface ImportedOccurrence {
+  kind: "imported";
   date: Date;
   start: string;
   end: string;
@@ -63,12 +81,15 @@ interface ImportedOccurrence {
   id: string;
 }
 
+type AnyOccurrence = Occurrence | SingleOccurrence | ImportedOccurrence;
+
 interface ParsedRow {
   lesson_date: string;
   start_time: string;
   end_time: string;
   class_name: string;
 }
+
 
 function startOfWeek(d: Date) {
   const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -157,6 +178,7 @@ function SchedulePage() {
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [cancelled, setCancelled] = useState<Set<string>>(new Set());
   const [imported, setImported] = useState<ImportedLesson[]>([]);
+  const [singles, setSingles] = useState<SingleLessonRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"week" | "month">("week");
   const [anchor, setAnchor] = useState(new Date());
@@ -168,22 +190,31 @@ function SchedulePage() {
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingLesson, setEditingLesson] = useState<SingleLessonRow | null>(null);
+  const [detailFor, setDetailFor] = useState<AnyOccurrence | null>(null);
+
   const load = useCallback(async () => {
     if (!session?.user.id) return;
     setLoading(true);
-    const [{ data: studs }, { data: cancels }, { data: imps }] = await Promise.all([
-      supabase
-        .from("students")
-        .select(
-          "id, name, total_hours, hours_per_lesson, hourly_rate, schedule_start_date, schedule_slots, schedule_frequency_weeks, schedule_weekday, schedule_start_time, schedule_end_time",
-        )
-        .eq("created_by", session.user.id),
-      supabase.from("cancelled_lessons").select("student_id, lesson_at"),
-      supabase
-        .from("imported_lessons")
-        .select("id, lesson_date, start_time, end_time, class_name")
-        .eq("created_by", session.user.id),
-    ]);
+    const [{ data: studs }, { data: cancels }, { data: imps }, { data: sngs }] =
+      await Promise.all([
+        supabase
+          .from("students")
+          .select(
+            "id, name, total_hours, hours_per_lesson, hourly_rate, schedule_start_date, schedule_slots, schedule_frequency_weeks, schedule_weekday, schedule_start_time, schedule_end_time",
+          )
+          .eq("created_by", session.user.id),
+        supabase.from("cancelled_lessons").select("student_id, lesson_at"),
+        supabase
+          .from("imported_lessons")
+          .select("id, lesson_date, start_time, end_time, class_name")
+          .eq("created_by", session.user.id),
+        supabase
+          .from("single_lessons")
+          .select("*")
+          .eq("created_by", session.user.id),
+      ]);
     setStudents((studs ?? []) as unknown as StudentRow[]);
     const set = new Set<string>();
     for (const c of cancels ?? []) {
@@ -193,6 +224,7 @@ function SchedulePage() {
     }
     setCancelled(set);
     setImported((imps ?? []) as ImportedLesson[]);
+    setSingles((sngs ?? []) as SingleLessonRow[]);
     setLoading(false);
   }, [session?.user.id]);
 
@@ -206,11 +238,31 @@ function SchedulePage() {
       for (const o of generateLessonOccurrences(s)) {
         const key = `${s.id}|${lessonKey(o.date)}`;
         if (cancelled.has(key)) continue;
-        out.push({ date: o.date, slot: o.slot, student: s });
+        out.push({ kind: "recurring", date: o.date, slot: o.slot, student: s });
       }
     }
     return out.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [students, cancelled]);
+
+  const singleOccurrences: SingleOccurrence[] = useMemo(() => {
+    const nameById = new Map(students.map((s) => [s.id, s.name] as const));
+    return singles
+      .map((row) => {
+        const [y, m, d] = row.lesson_date.split("-").map((n) => parseInt(n, 10));
+        const [h, mm] = row.start_time.split(":").map((n) => parseInt(n, 10));
+        const [eh, em] = row.end_time.split(":").map((n) => parseInt(n, 10));
+        const date = new Date(y, (m ?? 1) - 1, d ?? 1, h ?? 0, mm ?? 0);
+        const end = new Date(y, (m ?? 1) - 1, d ?? 1, eh ?? 0, em ?? 0);
+        return {
+          kind: "single" as const,
+          date,
+          end,
+          row,
+          studentName: row.student_id ? nameById.get(row.student_id) ?? null : null,
+        };
+      })
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+  }, [singles, students]);
 
   const importedOccurrences: ImportedOccurrence[] = useMemo(() => {
     return imported
@@ -219,6 +271,7 @@ function SchedulePage() {
         const [h, mm] = row.start_time.split(":").map((n) => parseInt(n, 10));
         const date = new Date(y, (m ?? 1) - 1, d ?? 1, h ?? 0, mm ?? 0);
         return {
+          kind: "imported" as const,
           id: row.id,
           date,
           start: row.start_time.slice(0, 5),
@@ -252,18 +305,22 @@ function SchedulePage() {
   const inRange = occurrences.filter(
     (o) => o.date >= rangeStart && o.date < rangeEnd,
   );
+  const singleInRange = singleOccurrences.filter(
+    (o) => o.date >= rangeStart && o.date < rangeEnd,
+  );
   const importedInRange = importedOccurrences.filter(
     (o) => o.date >= rangeStart && o.date < rangeEnd,
   );
 
   const monthlyIncome = useMemo(() => {
-    return Math.round(
-      inRange.reduce((sum, o) => {
-        const fee = lessonFee(o.student.hours_per_lesson, o.student.hourly_rate);
-        return sum + fee;
-      }, 0) * 100,
-    ) / 100;
-  }, [inRange]);
+    const recurring = inRange.reduce((sum, o) => {
+      return sum + lessonFee(o.student.hours_per_lesson, o.student.hourly_rate);
+    }, 0);
+    const single = singleInRange.reduce((sum, o) => {
+      return sum + lessonFee(o.row.hours_per_lesson, o.row.hourly_rate);
+    }, 0);
+    return Math.round((recurring + single) * 100) / 100;
+  }, [inRange, singleInRange]);
 
   const shift = (dir: -1 | 1) => {
     const d = new Date(anchor);
@@ -272,9 +329,31 @@ function SchedulePage() {
     setAnchor(d);
   };
 
-  const handleCancelLesson = async (o: Occurrence) => {
-    if (!confirm(`确认删除 ${o.student.name} 在 ${o.date.toLocaleString("zh-CN")} 的这节课？`))
+  const handleDeleteSingle = async (row: SingleLessonRow) => {
+    if (!confirm("确认删除此课次？")) return;
+    const { error } = await supabase.from("single_lessons").delete().eq("id", row.id);
+    if (error) {
+      toast.error("删除失败：" + error.message);
       return;
+    }
+    toast.success("已删除");
+    setDetailFor(null);
+    await load();
+  };
+
+  const handleDeleteImported = async (id: string) => {
+    if (!confirm("确认删除此导入课次？")) return;
+    const { error } = await supabase.from("imported_lessons").delete().eq("id", id);
+    if (error) {
+      toast.error("删除失败：" + error.message);
+      return;
+    }
+    toast.success("已删除");
+    setDetailFor(null);
+    await load();
+  };
+
+  const handleCancelLesson = async (o: Occurrence) => {
     const { error } = await supabase.from("cancelled_lessons").insert({
       student_id: o.student.id,
       lesson_at: o.date.toISOString(),
@@ -288,7 +367,9 @@ function SchedulePage() {
     setCancelled((prev) =>
       new Set(prev).add(`${o.student.id}|${lessonKey(o.date)}`),
     );
+    setDetailFor(null);
   };
+
 
   const handleFileChange = async (file: File | null) => {
     setImportFile(file);
@@ -400,6 +481,11 @@ function SchedulePage() {
           </h1>
           <div className="mt-1 text-sm text-muted-foreground">
             本{view === "week" ? "周" : "月"}共 {inRange.length} 节学生课
+            {singleInRange.length > 0 && (
+              <span className="ml-2 text-sky-600">
+                · 单次课 {singleInRange.length} 节
+              </span>
+            )}
             {importedInRange.length > 0 && (
               <span className="ml-2 text-amber-600">
                 · 导入课表 {importedInRange.length} 节
@@ -412,6 +498,17 @@ function SchedulePage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => {
+              setEditingLesson(null);
+              setEditorOpen(true);
+            }}
+            className="gap-1.5"
+          >
+            <CalendarPlus className="h-4 w-4" />
+            增加课次
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -465,6 +562,7 @@ function SchedulePage() {
           ))}
           {days.map((d, i) => {
             const dayOcc = inRange.filter((o) => sameDay(o.date, d));
+            const daySing = singleInRange.filter((o) => sameDay(o.date, d));
             const dayImp = importedInRange.filter((o) => sameDay(o.date, d));
             const inCurrentRange = d >= rangeStart && d < rangeEnd;
             const isToday = sameDay(d, new Date());
@@ -480,27 +578,43 @@ function SchedulePage() {
                 <div className="mb-1 text-xs font-medium">{d.getDate()}</div>
                 <div className="space-y-1">
                   {dayOcc.map((o, j) => (
-                    <Link
-                      key={`s-${j}`}
-                      to="/admin/student/$id"
-                      params={{ id: o.student.id }}
-                      className="block truncate rounded-md bg-primary/10 px-1.5 py-1 text-[11px] text-primary hover:bg-primary/20"
+                    <button
+                      key={`r-${j}`}
+                      type="button"
+                      onClick={() => setDetailFor(o)}
+                      className="block w-full truncate rounded-md bg-primary/10 px-1.5 py-1 text-left text-[11px] text-primary hover:bg-primary/20"
                       title={`${o.student.name} ${o.slot.start_time?.slice(0, 5) ?? ""}${o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}`}
                     >
                       <span className="font-medium">
                         {o.slot.start_time?.slice(0, 5)}
                       </span>{" "}
                       {o.student.name}
-                    </Link>
+                    </button>
+                  ))}
+                  {daySing.map((o) => (
+                    <button
+                      key={`s-${o.row.id}`}
+                      type="button"
+                      onClick={() => setDetailFor(o)}
+                      className="block w-full truncate rounded-md bg-sky-100 px-1.5 py-1 text-left text-[11px] text-sky-800 hover:bg-sky-200"
+                      title={`${o.studentName ?? o.row.class_name ?? ""} ${o.row.start_time.slice(0, 5)}-${o.row.end_time.slice(0, 5)}`}
+                    >
+                      <span className="font-medium">
+                        {o.row.start_time.slice(0, 5)}
+                      </span>{" "}
+                      {o.studentName ?? o.row.class_name}
+                    </button>
                   ))}
                   {dayImp.map((o) => (
-                    <div
+                    <button
                       key={`i-${o.id}`}
-                      className="block truncate rounded-md bg-amber-100 px-1.5 py-1 text-[11px] text-amber-800"
+                      type="button"
+                      onClick={() => setDetailFor(o)}
+                      className="block w-full truncate rounded-md bg-amber-100 px-1.5 py-1 text-left text-[11px] text-amber-800 hover:bg-amber-200"
                       title={`${o.className} ${o.start}-${o.end}`}
                     >
                       <span className="font-medium">{o.start}</span> {o.className}
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -509,70 +623,87 @@ function SchedulePage() {
         </div>
       )}
 
-      {!loading && (inRange.length > 0 || importedInRange.length > 0) && (
-        <div className="mt-8">
-          <h2 className="mb-3 text-base font-semibold text-foreground">课程列表</h2>
-          <div className="space-y-2">
-            {inRange.map((o, i) => (
-              <div
-                key={`s-${i}`}
-                className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-soft)]"
-              >
-                <Link
-                  to="/admin/student/$id"
-                  params={{ id: o.student.id }}
-                  className="flex-1"
+      {!loading &&
+        (inRange.length > 0 || singleInRange.length > 0 || importedInRange.length > 0) && (
+          <div className="mt-8">
+            <h2 className="mb-3 text-base font-semibold text-foreground">课程列表</h2>
+            <div className="space-y-2">
+              {inRange.map((o, i) => (
+                <button
+                  key={`r-${i}`}
+                  type="button"
+                  onClick={() => setDetailFor(o)}
+                  className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-left shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-soft)]"
                 >
-                  <div className="text-sm font-medium text-foreground">
-                    {o.student.name}
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-foreground">
+                      {o.student.name}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {o.date.toLocaleDateString("zh-CN", {
+                        month: "long",
+                        day: "numeric",
+                        weekday: "short",
+                      })}{" "}
+                      · {o.slot.start_time?.slice(0, 5)}
+                      {o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {o.date.toLocaleDateString("zh-CN", {
-                      month: "long",
-                      day: "numeric",
-                      weekday: "short",
-                    })}{" "}
-                    · {o.slot.start_time?.slice(0, 5)}
-                    {o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}
-                  </div>
-                </Link>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleCancelLesson(o)}
-                  className="text-muted-foreground hover:text-destructive"
-                  title="删除该节课"
+                </button>
+              ))}
+              {singleInRange.map((o) => (
+                <button
+                  key={`s-${o.row.id}`}
+                  type="button"
+                  onClick={() => setDetailFor(o)}
+                  className="flex w-full items-center justify-between rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-left hover:bg-sky-100"
                 >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-            {importedInRange.map((o) => (
-              <div
-                key={`i-${o.id}`}
-                className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"
-              >
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-amber-900">
-                    {o.className}
-                    <span className="ml-2 rounded bg-amber-200 px-1.5 py-0.5 text-[10px] text-amber-800">
-                      导入
-                    </span>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-sky-900">
+                      {o.studentName ?? o.row.class_name}
+                      <span className="ml-2 rounded bg-sky-200 px-1.5 py-0.5 text-[10px] text-sky-800">
+                        单次
+                      </span>
+                    </div>
+                    <div className="text-xs text-sky-700">
+                      {o.date.toLocaleDateString("zh-CN", {
+                        month: "long",
+                        day: "numeric",
+                        weekday: "short",
+                      })}{" "}
+                      · {o.row.start_time.slice(0, 5)}-{o.row.end_time.slice(0, 5)}
+                    </div>
                   </div>
-                  <div className="text-xs text-amber-700">
-                    {o.date.toLocaleDateString("zh-CN", {
-                      month: "long",
-                      day: "numeric",
-                      weekday: "short",
-                    })}{" "}
-                    · {o.start}-{o.end}
+                </button>
+              ))}
+              {importedInRange.map((o) => (
+                <button
+                  key={`i-${o.id}`}
+                  type="button"
+                  onClick={() => setDetailFor(o)}
+                  className="flex w-full items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left hover:bg-amber-100"
+                >
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-amber-900">
+                      {o.className}
+                      <span className="ml-2 rounded bg-amber-200 px-1.5 py-0.5 text-[10px] text-amber-800">
+                        导入
+                      </span>
+                    </div>
+                    <div className="text-xs text-amber-700">
+                      {o.date.toLocaleDateString("zh-CN", {
+                        month: "long",
+                        day: "numeric",
+                        weekday: "short",
+                      })}{" "}
+                      · {o.start}-{o.end}
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
         <DialogContent className="max-w-lg">
@@ -636,6 +767,141 @@ function SchedulePage() {
               {importBusy ? "导入中..." : "确认导入并替换"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {session?.user.id && (
+        <LessonEditorDialog
+          open={editorOpen}
+          onOpenChange={setEditorOpen}
+          createdBy={session.user.id}
+          studentOptions={students.map((s) => ({ id: s.id, name: s.name }))}
+          editing={editingLesson}
+          onSaved={load}
+        />
+      )}
+
+      <Dialog
+        open={detailFor !== null}
+        onOpenChange={(v) => {
+          if (!v) setDetailFor(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>课次详情</DialogTitle>
+          </DialogHeader>
+          {detailFor && (
+            <div className="space-y-3 text-sm">
+              {detailFor.kind === "recurring" && (
+                <>
+                  <div>
+                    <span className="text-muted-foreground">学生：</span>
+                    <span className="font-medium">{detailFor.student.name}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">时间：</span>
+                    {detailFor.date.toLocaleString("zh-CN")}
+                    {detailFor.slot.end_time ? ` - ${detailFor.slot.end_time.slice(0, 5)}` : ""}
+                  </div>
+                  <div className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                    此课次由学生档案中的「固定上课时间」自动生成。修改时间请前往学生档案的课程信息，或删除后在"课次管理"里单独添加一节。
+                  </div>
+                  <DialogFooter>
+                    <Link
+                      to="/admin/student/$id"
+                      params={{ id: detailFor.student.id }}
+                      className="inline-flex h-9 items-center rounded-md border border-input bg-background px-3 text-sm hover:bg-accent"
+                    >
+                      打开学生档案
+                    </Link>
+                    <Button
+                      variant="destructive"
+                      onClick={() => handleCancelLesson(detailFor)}
+                      className="gap-1.5"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      删除本次课
+                    </Button>
+                  </DialogFooter>
+                </>
+              )}
+              {detailFor.kind === "single" && (
+                <>
+                  <div>
+                    <span className="text-muted-foreground">名称：</span>
+                    <span className="font-medium">
+                      {detailFor.studentName ?? detailFor.row.class_name}
+                    </span>
+                    <span className="ml-2 rounded bg-sky-200 px-1.5 py-0.5 text-[10px] text-sky-800">
+                      单次
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">时间：</span>
+                    {detailFor.row.lesson_date} {detailFor.row.start_time.slice(0, 5)}-
+                    {detailFor.row.end_time.slice(0, 5)}
+                  </div>
+                  {detailFor.row.notes && (
+                    <div>
+                      <span className="text-muted-foreground">备注：</span>
+                      {detailFor.row.notes}
+                    </div>
+                  )}
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setEditingLesson(detailFor.row);
+                        setDetailFor(null);
+                        setEditorOpen(true);
+                      }}
+                      className="gap-1.5"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      编辑
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={() => handleDeleteSingle(detailFor.row)}
+                      className="gap-1.5"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      删除
+                    </Button>
+                  </DialogFooter>
+                </>
+              )}
+              {detailFor.kind === "imported" && (
+                <>
+                  <div>
+                    <span className="text-muted-foreground">班级：</span>
+                    <span className="font-medium">{detailFor.className}</span>
+                    <span className="ml-2 rounded bg-amber-200 px-1.5 py-0.5 text-[10px] text-amber-800">
+                      导入
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">时间：</span>
+                    {detailFor.date.toLocaleDateString("zh-CN")} {detailFor.start}-{detailFor.end}
+                  </div>
+                  <div className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                    通过 Excel 导入的课次。可以删除，或重新导入 Excel 覆盖整个课表。
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="destructive"
+                      onClick={() => handleDeleteImported(detailFor.id)}
+                      className="gap-1.5"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      删除
+                    </Button>
+                  </DialogFooter>
+                </>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
