@@ -365,7 +365,8 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
               </div>
             );
           })}
-        </div>
+        </div></div>
+
       )}
 
       <Dialog open={!!detail} onOpenChange={(v) => !v && setDetail(null)}>
