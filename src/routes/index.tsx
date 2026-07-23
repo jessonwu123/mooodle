@@ -120,29 +120,29 @@ function Index() {
   return (
     <div className="flex min-h-screen flex-col bg-[var(--gradient-soft)]">
       <header className="border-b border-border/40 bg-background/60 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4" />
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4" />
       </header>
 
-      <main className="flex flex-1 items-center justify-center px-6 py-12">
+      <main className="flex flex-1 items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
         <div className="w-full max-w-md">
-          <div className="mb-8 text-center">
+          <div className="mb-6 text-center sm:mb-8">
             <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-accent/60 px-3 py-1 text-xs font-medium text-accent-foreground">
               <Sparkles className="h-3.5 w-3.5" />
               欢迎登录
             </div>
-            <h1 className="text-2xl font-bold text-foreground">查看孩子的课堂表现</h1>
+            <h1 className="text-xl font-bold text-foreground sm:text-2xl">查看孩子的课堂表现</h1>
             <p className="mt-1 text-sm text-muted-foreground">请选择身份登录</p>
           </div>
 
           <Tabs value={tab} onValueChange={(v) => setTab(v as "student" | "teacher")}>
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="student" className="gap-1.5">
-                <UserRound className="h-4 w-4" />
-                家长登录
+              <TabsTrigger value="student" className="flex-row gap-1.5 whitespace-nowrap">
+                <UserRound className="h-4 w-4 shrink-0" />
+                <span>家长登录</span>
               </TabsTrigger>
-              <TabsTrigger value="teacher" className="gap-1.5">
-                <KeyRound className="h-4 w-4" />
-                教师登录
+              <TabsTrigger value="teacher" className="flex-row gap-1.5 whitespace-nowrap">
+                <KeyRound className="h-4 w-4 shrink-0" />
+                <span>教师登录</span>
               </TabsTrigger>
             </TabsList>
 
