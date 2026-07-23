@@ -507,9 +507,11 @@ export function StudentScheduleTab({ studentId }: Props) {
               }
               const badge = it.kind === "recurring" ? "固定" : "老师安排";
               return (
-                <div
+                <button
                   key={it.key}
-                  className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3"
+                  type="button"
+                  onClick={() => openDetail(it)}
+                  className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-left hover:bg-accent"
                 >
                   <div className="flex-1">
                     <div className="text-sm font-medium text-foreground">
@@ -522,7 +524,7 @@ export function StudentScheduleTab({ studentId }: Props) {
                       {dateLabel} · {timeStr}
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
