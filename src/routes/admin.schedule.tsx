@@ -548,9 +548,21 @@ function SchedulePage() {
             </div>
           ))}
           {days.map((d, i) => {
-            const dayOcc = inRange.filter((o) => sameDay(o.date, d));
-            const daySing = singleInRange.filter((o) => sameDay(o.date, d));
-            const dayImp = importedInRange.filter((o) => sameDay(o.date, d));
+            const dayItems: Array<
+              | { t: number; kind: "r"; o: Occurrence }
+              | { t: number; kind: "s"; o: SingleOccurrence }
+              | { t: number; kind: "i"; o: ImportedOccurrence }
+            > = [
+              ...inRange
+                .filter((o) => sameDay(o.date, d))
+                .map((o) => ({ t: o.date.getTime(), kind: "r" as const, o })),
+              ...singleInRange
+                .filter((o) => sameDay(o.date, d))
+                .map((o) => ({ t: o.date.getTime(), kind: "s" as const, o })),
+              ...importedInRange
+                .filter((o) => sameDay(o.date, d))
+                .map((o) => ({ t: o.date.getTime(), kind: "i" as const, o })),
+            ].sort((a, b) => a.t - b.t);
             const inCurrentRange = d >= rangeStart && d < rangeEnd;
             const isToday = sameDay(d, new Date());
             return (
@@ -564,46 +576,56 @@ function SchedulePage() {
               >
                 <div className="mb-1 text-xs font-medium">{d.getDate()}</div>
                 <div className="space-y-1">
-                  {dayOcc.map((o, j) => (
-                    <button
-                      key={`r-${j}`}
-                      type="button"
-                      onClick={() => setDetailFor(o)}
-                      className="block w-full truncate rounded-md bg-primary/10 px-1.5 py-1 text-left text-[11px] text-primary hover:bg-primary/20"
-                      title={`${o.student.name} ${o.slot.start_time?.slice(0, 5) ?? ""}${o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}`}
-                    >
-                      <span className="font-medium">
-                        {o.slot.start_time?.slice(0, 5)}
-                      </span>{" "}
-                      {o.student.name}
-                    </button>
-                  ))}
-                  {daySing.map((o) => (
-                    <button
-                      key={`s-${o.row.id}`}
-                      type="button"
-                      onClick={() => setDetailFor(o)}
-                      className="block w-full truncate rounded-md bg-sky-100 px-1.5 py-1 text-left text-[11px] text-sky-800 hover:bg-sky-200"
-                      title={`${o.studentName ?? o.row.class_name ?? ""} ${o.row.start_time.slice(0, 5)}-${o.row.end_time.slice(0, 5)}`}
-                    >
-                      <span className="font-medium">
-                        {o.row.start_time.slice(0, 5)}
-                      </span>{" "}
-                      {o.studentName ?? o.row.class_name}
-                    </button>
-                  ))}
-                  {dayImp.map((o) => (
-                    <button
-                      key={`i-${o.id}`}
-                      type="button"
-                      onClick={() => setDetailFor(o)}
-                      className="block w-full truncate rounded-md bg-amber-100 px-1.5 py-1 text-left text-[11px] text-amber-800 hover:bg-amber-200"
-                      title={`${o.className} ${o.start}-${o.end}`}
-                    >
-                      <span className="font-medium">{o.start}</span> {o.className}
-                    </button>
-                  ))}
+                  {dayItems.map((item, j) => {
+                    if (item.kind === "r") {
+                      const o = item.o;
+                      return (
+                        <button
+                          key={`r-${j}`}
+                          type="button"
+                          onClick={() => setDetailFor(o)}
+                          className="block w-full truncate rounded-md bg-primary/10 px-1.5 py-1 text-left text-[11px] text-primary hover:bg-primary/20"
+                          title={`${o.student.name} ${o.slot.start_time?.slice(0, 5) ?? ""}${o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}`}
+                        >
+                          <span className="font-medium">
+                            {o.slot.start_time?.slice(0, 5)}
+                          </span>{" "}
+                          {o.student.name}
+                        </button>
+                      );
+                    }
+                    if (item.kind === "s") {
+                      const o = item.o;
+                      return (
+                        <button
+                          key={`s-${o.row.id}`}
+                          type="button"
+                          onClick={() => setDetailFor(o)}
+                          className="block w-full truncate rounded-md bg-sky-100 px-1.5 py-1 text-left text-[11px] text-sky-800 hover:bg-sky-200"
+                          title={`${o.studentName ?? o.row.class_name ?? ""} ${o.row.start_time.slice(0, 5)}-${o.row.end_time.slice(0, 5)}`}
+                        >
+                          <span className="font-medium">
+                            {o.row.start_time.slice(0, 5)}
+                          </span>{" "}
+                          {o.studentName ?? o.row.class_name}
+                        </button>
+                      );
+                    }
+                    const o = item.o;
+                    return (
+                      <button
+                        key={`i-${o.id}`}
+                        type="button"
+                        onClick={() => setDetailFor(o)}
+                        className="block w-full truncate rounded-md bg-amber-100 px-1.5 py-1 text-left text-[11px] text-amber-800 hover:bg-amber-200"
+                        title={`${o.className} ${o.start}-${o.end}`}
+                      >
+                        <span className="font-medium">{o.start}</span> {o.className}
+                      </button>
+                    );
+                  })}
                 </div>
+
               </div>
             );
           })}
