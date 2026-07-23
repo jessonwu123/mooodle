@@ -553,7 +553,10 @@ function ManageStudent() {
         </TabsContent>
 
         <TabsContent value="course">
-          <CourseInfoPanel studentId={id} />
+          <div className="space-y-6">
+            <CourseInfoPanel studentId={id} />
+            <SingleLessonsPanel studentId={id} />
+          </div>
         </TabsContent>
 
         <TabsContent value="analytics">
