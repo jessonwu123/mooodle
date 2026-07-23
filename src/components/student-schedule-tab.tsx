@@ -549,7 +549,6 @@ export function StudentScheduleTab({ studentId }: Props) {
                   </button>
                 );
               }
-              const badge = it.kind === "recurring" ? "固定" : "老师安排";
               return (
                 <button
                   key={it.key}
@@ -560,9 +559,6 @@ export function StudentScheduleTab({ studentId }: Props) {
                   <div className="flex-1">
                     <div className="text-sm font-medium text-foreground">
                       {it.title}
-                      <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
-                        {badge}
-                      </span>
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {dateLabel} · {timeStr}
@@ -570,6 +566,7 @@ export function StudentScheduleTab({ studentId }: Props) {
                   </div>
                 </button>
               );
+
             })}
           </div>
         </div>
