@@ -314,7 +314,7 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
           加载中...
         </div>
       ) : (
-        <div className="grid grid-cols-7 gap-2">
+        <div className="-mx-4 overflow-x-auto px-4"><div className="grid min-w-[770px] grid-cols-[repeat(7,minmax(110px,1fr))] gap-2">
           {WEEKDAY_LABELS.map((w) => (
             <div
               key={w}
