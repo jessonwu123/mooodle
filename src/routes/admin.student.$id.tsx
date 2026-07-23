@@ -562,6 +562,10 @@ function ManageStudent() {
           </div>
         </TabsContent>
 
+        <TabsContent value="schedule">
+          <AdminStudentScheduleTab studentId={id} />
+        </TabsContent>
+
         <TabsContent value="analytics">
           <LearningAnalyticsTab studentId={id} isOwnerView={false} />
         </TabsContent>
