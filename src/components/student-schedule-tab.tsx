@@ -163,6 +163,7 @@ export function StudentScheduleTab({ studentId }: Props) {
     setCancelled(set);
     const t = Array.isArray(tinfo) ? tinfo[0] : null;
     setTeacherEmail((t as { email?: string } | null)?.email ?? null);
+    setTeacherDisplayNameFromDb((t as { display_name?: string | null } | null)?.display_name ?? null);
     const nm: Record<string, string> = {};
     for (const n of notesRows ?? []) {
       nm[(n as { lesson_ref: string }).lesson_ref] = (n as { note: string }).note ?? "";
