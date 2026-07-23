@@ -167,6 +167,15 @@ export function StudentScheduleTab({ studentId }: Props) {
       nm[(n as { lesson_ref: string }).lesson_ref] = (n as { note: string }).note ?? "";
     }
     setNotesMap(nm);
+    const { data: rr } = await supabase
+      .from("ratings")
+      .select("lesson_date")
+      .eq("student_id", studentId);
+    const rset = new Set<string>();
+    for (const r of (rr ?? []) as { lesson_date: string }[]) {
+      rset.add(r.lesson_date);
+    }
+    setRatedDates(rset);
     setLoading(false);
   }, [studentId]);
 
