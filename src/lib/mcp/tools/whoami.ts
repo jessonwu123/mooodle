@@ -10,14 +10,11 @@ export default defineTool({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "未认证" }], isError: true };
     }
-    const { createClient } = await import("@supabase/supabase-js");
-    const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const userId = ctx.getUserId();
     const [{ data: roles }, { data: student }] = await Promise.all([
-      admin.from("user_roles").select("role").eq("user_id", userId),
-      admin.from("students").select("id, name").eq("auth_user_id", userId).maybeSingle(),
+      supabaseAdmin.from("user_roles").select("role").eq("user_id", userId),
+      supabaseAdmin.from("students").select("id, name").eq("auth_user_id", userId).maybeSingle(),
     ]);
     const roleList = (roles ?? []).map((r: any) => r.role);
     const info = {
