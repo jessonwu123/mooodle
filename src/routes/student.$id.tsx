@@ -454,6 +454,10 @@ function StudentProfile() {
             <LearningAnalyticsTab studentId={id} isOwnerView={isOwner} />
           </TabsContent>
 
+          <TabsContent value="schedule">
+            <StudentScheduleTab studentId={id} />
+          </TabsContent>
+
           <TabsContent value="library">
             <StudentLibraryTab studentId={id} />
           </TabsContent>
