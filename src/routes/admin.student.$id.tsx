@@ -32,6 +32,7 @@ import { ComprehensiveAssessment } from "@/components/comprehensive-assessment";
 import { CourseInfoPanel } from "@/components/course-info-panel";
 import { SingleLessonsPanel } from "@/components/single-lessons-panel";
 import { LearningAnalyticsTab } from "@/components/learning-analytics-tab";
+import { AdminStudentScheduleTab } from "@/components/admin-student-schedule-tab";
 import type { AssessmentTimestamps } from "@/lib/assessment-updates";
 
 export const Route = createFileRoute("/admin/student/$id")({
