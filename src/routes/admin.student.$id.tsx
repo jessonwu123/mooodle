@@ -143,13 +143,31 @@ function ManageStudent() {
   }, [id]);
 
   const resetForm = () => {
-    setDate(today());
+    setDate("");
     setLessonName("");
     setSummary("");
     setOverall(5);
     setScores({ focus: 5, interaction: 5, discipline: 5, accuracy: 5 });
     setOverallProgress(80);
     setProgressItems([]);
+  };
+
+  const openAddDialog = async () => {
+    resetForm();
+    const opts = await fetchStudentLessons(id);
+    setLessonOptions(opts);
+    // Default: nearest upcoming lesson, or last past if none upcoming
+    const now = Date.now();
+    const iso = (s: string) => new Date(s + "T00:00:00").getTime();
+    const upcoming = opts.find((o) => iso(o.date) >= now - 86400000);
+    const def = upcoming ?? opts[opts.length - 1];
+    if (def) {
+      setDate(def.date);
+      if (def.className) setLessonName(def.className);
+    } else {
+      setDate(today());
+    }
+    setOpen(true);
   };
 
   const addProgressRow = () => {
