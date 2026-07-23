@@ -512,7 +512,8 @@ export function StudentScheduleTab({ studentId }: Props) {
               </div>
             );
           })}
-        </div>
+        </div></div>
+
       )}
 
       {!loading && inRange.length > 0 && (
