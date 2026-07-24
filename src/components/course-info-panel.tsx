@@ -493,7 +493,7 @@ export function CourseInfoPanel({ studentId }: Props) {
 
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={busy}>
-          {busy ? "保存中..." : "保存课程信息"}
+          {busy ? "生成中..." : "生成课次"}
         </Button>
       </div>
     </div>
