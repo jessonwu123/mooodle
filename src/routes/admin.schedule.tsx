@@ -505,6 +505,9 @@ function SchedulePage() {
           </h1>
           <div className="mt-1 text-sm text-muted-foreground">&nbsp;</div>
 
+          <div className="mt-1 text-sm text-muted-foreground">
+            {view === "week" ? "本周" : "本月"}总课时 <span className="font-semibold text-foreground">{totalHours}</span> 小时
+          </div>
           <div className="mt-1 flex items-center gap-1.5 text-sm font-medium text-emerald-600">
             <Coins className="h-3.5 w-3.5" />
             预计收入 ¥{monthlyIncome}
