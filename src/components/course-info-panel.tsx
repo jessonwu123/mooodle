@@ -209,6 +209,8 @@ export function CourseInfoPanel({ studentId }: Props) {
         .eq("id", studentId);
     }
 
+    const { data: authData } = await supabase.auth.getUser();
+    const uid = authData.user?.id;
     const rows = occs.map((o) => {
       const d = o.date;
       const yyyy = d.getFullYear();
@@ -220,6 +222,7 @@ export function CourseInfoPanel({ studentId }: Props) {
           : "00:00:00";
       return {
         student_id: studentId,
+        created_by: uid,
         lesson_date: `${yyyy}-${mm}-${dd}`,
         start_time: o.slot.start_time.length === 5 ? `${o.slot.start_time}:00` : o.slot.start_time,
         end_time: o.slot.end_time
