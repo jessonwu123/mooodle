@@ -618,6 +618,7 @@ export function SingleLessonsPanel({ studentId }: Props) {
         count={selected.size}
         onConfirmPostpone={onConfirmPostpone}
         onConfirmReschedule={onConfirmReschedule}
+        onConfirmAdd={onConfirmBulkAdd}
       />
     </section>
   );
