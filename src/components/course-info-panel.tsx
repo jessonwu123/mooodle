@@ -12,7 +12,7 @@ import {
   totalCourseFee,
   WEEKDAY_LABELS,
   generateLessonOccurrences,
-  effectiveSlots,
+  
   lessonKey,
 } from "@/lib/course-schedule";
 import { BookOpen, CalendarClock, Coins, CheckCircle2, Clock } from "lucide-react";
