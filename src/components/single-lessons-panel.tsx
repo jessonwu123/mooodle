@@ -67,7 +67,7 @@ export function SingleLessonsPanel({ studentId }: Props) {
 
   const [batchMode, setBatchMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bulkDialog, setBulkDialog] = useState<null | "postpone" | "reschedule">(null);
+  const [bulkDialog, setBulkDialog] = useState<null | "postpone" | "reschedule" | "add">(null);
   const [bulkBusy, setBulkBusy] = useState(false);
 
   const load = useCallback(async () => {
