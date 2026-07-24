@@ -187,28 +187,63 @@ export function CourseInfoPanel({ studentId }: Props) {
   };
 
   const handleSave = async () => {
-    setBusy(true);
-    const first = effectiveSlots(c)[0];
-    const { error } = await supabase
-      .from("students")
-      .update({
-        total_hours: c.total_hours,
-        hours_per_lesson: c.hours_per_lesson,
-        hourly_rate: c.hourly_rate,
-        schedule_start_date: c.schedule_start_date,
-        schedule_slots: (c.schedule_slots ?? []) as unknown as never,
-        schedule_frequency_weeks: c.schedule_frequency_weeks ?? 1,
-        schedule_weekday: first?.weekday ?? null,
-        schedule_start_time: first?.start_time ?? null,
-        schedule_end_time: first?.end_time ?? null,
-      })
-      .eq("id", studentId);
-    setBusy(false);
-    if (error) {
-      toast.error("保存失败：" + error.message);
+    // 「新增课程」为累加操作：按当前表单参数生成一批 single_lessons，
+    // 不会覆盖学生表里已存在的固定课程配置。
+    const occs = generateLessonOccurrences(c);
+    if (occs.length === 0) {
+      toast.error("请填写总课时、每节时长、开始日期与至少一个上课时段");
       return;
     }
-    toast.success("已保存课程信息");
+    setBusy(true);
+
+    // 学生级课时费默认值：仅当学生表里还没设置时才写入，避免覆盖旧值
+    const { data: cur } = await supabase
+      .from("students")
+      .select("hourly_rate")
+      .eq("id", studentId)
+      .maybeSingle();
+    if (cur && cur.hourly_rate == null && c.hourly_rate != null) {
+      await supabase
+        .from("students")
+        .update({ hourly_rate: c.hourly_rate })
+        .eq("id", studentId);
+    }
+
+    const rows = occs.map((o) => {
+      const d = o.date;
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      const endTime =
+        o.slot.end_time && o.slot.end_time.length >= 5
+          ? o.slot.end_time.slice(0, 8).padEnd(8, ":00".slice(0, 8 - o.slot.end_time.slice(0, 8).length))
+          : "00:00:00";
+      return {
+        student_id: studentId,
+        lesson_date: `${yyyy}-${mm}-${dd}`,
+        start_time: o.slot.start_time.length === 5 ? `${o.slot.start_time}:00` : o.slot.start_time,
+        end_time: o.slot.end_time
+          ? (o.slot.end_time.length === 5 ? `${o.slot.end_time}:00` : o.slot.end_time)
+          : endTime,
+        hours_per_lesson: c.hours_per_lesson,
+        hourly_rate: c.hourly_rate,
+      };
+    });
+
+    const { error } = await supabase.from("single_lessons").insert(rows as never);
+    setBusy(false);
+    if (error) {
+      toast.error("生成失败：" + error.message);
+      return;
+    }
+    toast.success(`已新增 ${rows.length} 节课`);
+    // 载入新数据，清空表单里本次输入的课时字段（保留时段以便再次填写）
+    const { data: sng } = await supabase
+      .from("single_lessons")
+      .select("id, lesson_date, start_time, end_time, hours_per_lesson, hourly_rate")
+      .eq("student_id", studentId);
+    setSingles((sng ?? []) as SingleLessonLite[]);
+    setC((p) => ({ ...p, total_hours: null }));
   };
 
   if (loading) {
