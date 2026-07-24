@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
-import { CalendarPlus } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CalendarPlus, ListChecks } from "lucide-react";
 import { toast } from "sonner";
 import {
   LessonEditorDialog,
   type SingleLessonRow,
 } from "./lesson-editor-dialog";
+import { BulkLessonActionsDialog } from "./bulk-lesson-actions-dialog";
 import {
   type CourseInfo,
   type ScheduleSlot,
@@ -34,6 +36,18 @@ type Item =
       slot: ScheduleSlot;
     };
 
+function pad(n: number) {
+  return String(n).padStart(2, "0");
+}
+function fmtDate(d: Date) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+function addDays(d: Date, days: number) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + days);
+  return x;
+}
+
 export function SingleLessonsPanel({ studentId }: Props) {
   const { session } = useAuth();
   const [singles, setSingles] = useState<SingleLessonRow[]>([]);
@@ -46,6 +60,11 @@ export function SingleLessonsPanel({ studentId }: Props) {
     date: Date;
     slot: ScheduleSlot;
   } | null>(null);
+
+  const [batchMode, setBatchMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDialog, setBulkDialog] = useState<null | "postpone" | "reschedule">(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -133,26 +152,238 @@ export function SingleLessonsPanel({ studentId }: Props) {
     await load();
   };
 
+  const toggleSelect = (key: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const exitBatch = () => {
+    setBatchMode(false);
+    setSelected(new Set());
+  };
+
+  const selectedItems = useMemo(
+    () => items.filter((it) => selected.has(it.key)),
+    [items, selected],
+  );
+
+  const bulkDelete = async () => {
+    if (selectedItems.length === 0) return;
+    if (!confirm(`确定要删除选中的 ${selectedItems.length} 个课次吗？`)) return;
+    setBulkBusy(true);
+    try {
+      const singleIds = selectedItems
+        .filter((it): it is Extract<Item, { kind: "single" }> => it.kind === "single")
+        .map((it) => it.row.id);
+      const recurringDates = selectedItems
+        .filter((it): it is Extract<Item, { kind: "recurring" }> => it.kind === "recurring")
+        .map((it) => it.date);
+
+      if (singleIds.length > 0) {
+        const { error } = await supabase
+          .from("single_lessons")
+          .delete()
+          .in("id", singleIds);
+        if (error) throw error;
+      }
+      if (recurringDates.length > 0) {
+        const rows = recurringDates.map((d) => ({
+          student_id: studentId,
+          lesson_at: d.toISOString(),
+          created_by: session?.user.id ?? null,
+        }));
+        const { error } = await supabase.from("cancelled_lessons").insert(rows);
+        if (error) throw error;
+      }
+      toast.success(`已删除 ${selectedItems.length} 个课次`);
+      exitBatch();
+      await load();
+    } catch (e) {
+      toast.error("批量删除失败：" + (e as Error).message);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const applyBulkChange = async (
+    computeNew: (it: Item) => { date: Date; start: string; end: string },
+  ) => {
+    if (!session?.user.id) {
+      toast.error("请先登录");
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      const cancelRows: { student_id: string; lesson_at: string; created_by: string | null }[] = [];
+      const insertRows: {
+        created_by: string;
+        student_id: string;
+        class_name: null;
+        lesson_date: string;
+        start_time: string;
+        end_time: string;
+        hours_per_lesson: number | null;
+        hourly_rate: number | null;
+        notes: null;
+      }[] = [];
+
+      for (const it of selectedItems) {
+        const nv = computeNew(it);
+        if (it.kind === "single") {
+          const { error } = await supabase
+            .from("single_lessons")
+            .update({
+              lesson_date: fmtDate(nv.date),
+              start_time: `${nv.start}:00`,
+              end_time: `${nv.end}:00`,
+            })
+            .eq("id", it.row.id);
+          if (error) throw error;
+        } else {
+          cancelRows.push({
+            student_id: studentId,
+            lesson_at: it.date.toISOString(),
+            created_by: session.user.id,
+          });
+          insertRows.push({
+            created_by: session.user.id,
+            student_id: studentId,
+            class_name: null,
+            lesson_date: fmtDate(nv.date),
+            start_time: `${nv.start}:00`,
+            end_time: `${nv.end}:00`,
+            hours_per_lesson: course?.hours_per_lesson ?? null,
+            hourly_rate: course?.hourly_rate ?? null,
+            notes: null,
+          });
+        }
+      }
+      if (cancelRows.length > 0) {
+        const { error } = await supabase.from("cancelled_lessons").insert(cancelRows);
+        if (error) throw error;
+      }
+      if (insertRows.length > 0) {
+        const { error } = await supabase.from("single_lessons").insert(insertRows);
+        if (error) throw error;
+      }
+      toast.success(`已更新 ${selectedItems.length} 个课次`);
+      setBulkDialog(null);
+      exitBatch();
+      await load();
+    } catch (e) {
+      toast.error("批量操作失败：" + (e as Error).message);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const onConfirmPostpone = async (days: number) => {
+    await applyBulkChange((it) => {
+      const newDate = addDays(it.date, days);
+      const startStr = `${pad(it.date.getHours())}:${pad(it.date.getMinutes())}`;
+      let endStr: string;
+      if (it.kind === "single") {
+        endStr = `${pad(it.end.getHours())}:${pad(it.end.getMinutes())}`;
+      } else {
+        endStr = it.slot.end_time ? it.slot.end_time.slice(0, 5) : startStr;
+      }
+      return { date: newDate, start: startStr, end: endStr };
+    });
+  };
+
+  const onConfirmReschedule = async (weekday: number, start: string, end: string) => {
+    await applyBulkChange((it) => {
+      const delta = weekday - it.date.getDay();
+      const newDate = addDays(it.date, delta);
+      return { date: newDate, start, end };
+    });
+  };
+
   return (
     <section className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <CalendarPlus className="h-4 w-4 text-primary" />
           <h3 className="text-base font-semibold text-foreground">课次管理</h3>
         </div>
         {session?.user.id && (
-          <Button
-            size="sm"
-            onClick={() => {
-              setEditing(null);
-              setRecurringOverride(null);
-              setOpen(true);
-            }}
-            className="gap-1.5"
-          >
-            <CalendarPlus className="h-4 w-4" />
-            新增课次
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {!batchMode ? (
+              <>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setEditing(null);
+                    setRecurringOverride(null);
+                    setOpen(true);
+                  }}
+                  className="gap-1.5"
+                >
+                  <CalendarPlus className="h-4 w-4" />
+                  新增课次
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setBatchMode(true)}
+                  className="gap-1.5"
+                >
+                  <ListChecks className="h-4 w-4" />
+                  批量操作
+                </Button>
+              </>
+            ) : (
+              <>
+                <span className="text-xs text-muted-foreground">
+                  已选 {selected.size} 项
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setSelected(
+                      selected.size === items.length
+                        ? new Set()
+                        : new Set(items.map((i) => i.key)),
+                    )
+                  }
+                >
+                  {selected.size === items.length ? "取消全选" : "全选"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={selected.size === 0 || bulkBusy}
+                  onClick={bulkDelete}
+                >
+                  批量删除
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={selected.size === 0 || bulkBusy}
+                  onClick={() => setBulkDialog("postpone")}
+                >
+                  批量顺延
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={selected.size === 0 || bulkBusy}
+                  onClick={() => setBulkDialog("reschedule")}
+                >
+                  批量改时间
+                </Button>
+                <Button size="sm" variant="ghost" onClick={exitBatch}>
+                  退出
+                </Button>
+              </>
+            )}
+          </div>
         )}
       </div>
 
@@ -164,23 +395,9 @@ export function SingleLessonsPanel({ studentId }: Props) {
         </div>
       ) : (
         <div className="space-y-2">
-          {items.map((it) => (
-            <button
-              key={it.key}
-              type="button"
-              onClick={() => {
-                if (it.kind === "single") {
-                  setEditing(it.row);
-                  setRecurringOverride(null);
-                } else {
-                  setEditing(null);
-                  setRecurringOverride({ date: it.date, slot: it.slot });
-                }
-                setOpen(true);
-              }}
-              className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/20 px-3 py-2 text-left hover:bg-muted/40"
-            >
-              <div className="min-w-0">
+          {items.map((it) => {
+            const label = (
+              <>
                 <div className="text-sm font-medium text-foreground">
                   {it.date.toLocaleDateString("zh-CN", {
                     year: "numeric",
@@ -207,9 +424,43 @@ export function SingleLessonsPanel({ studentId }: Props) {
                     <span className="truncate">{it.row.notes}</span>
                   )}
                 </div>
-              </div>
-            </button>
-          ))}
+              </>
+            );
+
+            if (batchMode) {
+              return (
+                <label
+                  key={it.key}
+                  className="flex w-full cursor-pointer items-center gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2 hover:bg-muted/40"
+                >
+                  <Checkbox
+                    checked={selected.has(it.key)}
+                    onCheckedChange={() => toggleSelect(it.key)}
+                  />
+                  <div className="min-w-0 flex-1">{label}</div>
+                </label>
+              );
+            }
+            return (
+              <button
+                key={it.key}
+                type="button"
+                onClick={() => {
+                  if (it.kind === "single") {
+                    setEditing(it.row);
+                    setRecurringOverride(null);
+                  } else {
+                    setEditing(null);
+                    setRecurringOverride({ date: it.date, slot: it.slot });
+                  }
+                  setOpen(true);
+                }}
+                className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/20 px-3 py-2 text-left hover:bg-muted/40"
+              >
+                <div className="min-w-0">{label}</div>
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -281,6 +532,15 @@ export function SingleLessonsPanel({ studentId }: Props) {
           onSaved={load}
         />
       )}
+
+      <BulkLessonActionsDialog
+        open={bulkDialog !== null}
+        onOpenChange={(v) => !v && setBulkDialog(null)}
+        mode={bulkDialog}
+        count={selected.size}
+        onConfirmPostpone={onConfirmPostpone}
+        onConfirmReschedule={onConfirmReschedule}
+      />
     </section>
   );
 }

@@ -254,6 +254,26 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
 
   const inRange = items.filter((o) => o.date >= rangeStart && o.date < rangeEnd);
 
+  const totalHours = useMemo(() => {
+    let sum = 0;
+    for (const it of items) {
+      if (it.kind === "single") {
+        if (it.row.hours_per_lesson != null) {
+          sum += Number(it.row.hours_per_lesson);
+        } else {
+          sum += (it.end.getTime() - it.date.getTime()) / 3600000;
+        }
+      } else {
+        if (course?.hours_per_lesson) {
+          sum += Number(course.hours_per_lesson);
+        } else if (it.end) {
+          sum += (it.end.getTime() - it.date.getTime()) / 3600000;
+        }
+      }
+    }
+    return Math.round(sum * 100) / 100;
+  }, [items, course]);
+
   const days: Date[] = [];
   if (view === "week") {
     for (let i = 0; i < 7; i++) {
@@ -289,6 +309,9 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
           <h2 className="mt-1 text-2xl font-bold tracking-tight text-foreground">
             {label}
           </h2>
+          <div className="mt-1 text-xs text-muted-foreground">
+            已排课程总课时：<span className="font-semibold text-foreground">{totalHours}</span> 小时（共 {items.length} 节）
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Tabs value={view} onValueChange={(v) => setView(v as "week" | "month")}>
