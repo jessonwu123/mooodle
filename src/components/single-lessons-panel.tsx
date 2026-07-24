@@ -9,7 +9,11 @@ import {
   LessonEditorDialog,
   type SingleLessonRow,
 } from "./lesson-editor-dialog";
-import { BulkLessonActionsDialog } from "./bulk-lesson-actions-dialog";
+import {
+  BulkLessonActionsDialog,
+  type PostponeUnit,
+  type BulkAddPayload,
+} from "./bulk-lesson-actions-dialog";
 import {
   type CourseInfo,
   type ScheduleSlot,
