@@ -320,6 +320,32 @@ function SchedulePage() {
     return Math.round((recurring + single) * 100) / 100;
   }, [inRange, singleInRange]);
 
+  const totalHours = useMemo(() => {
+    let sum = 0;
+    for (const o of inRange) {
+      if (o.student.hours_per_lesson) {
+        sum += Number(o.student.hours_per_lesson);
+      } else if (o.slot.end_time) {
+        const [sh, sm] = o.slot.start_time.split(":").map(Number);
+        const [eh, em] = o.slot.end_time.split(":").map(Number);
+        sum += (eh * 60 + em - sh * 60 - sm) / 60;
+      }
+    }
+    for (const o of singleInRange) {
+      if (o.row.hours_per_lesson != null) {
+        sum += Number(o.row.hours_per_lesson);
+      } else {
+        sum += (o.end.getTime() - o.date.getTime()) / 3600000;
+      }
+    }
+    for (const o of importedInRange) {
+      const [sh, sm] = o.start.split(":").map(Number);
+      const [eh, em] = o.end.split(":").map(Number);
+      sum += (eh * 60 + em - sh * 60 - sm) / 60;
+    }
+    return Math.round(sum * 100) / 100;
+  }, [inRange, singleInRange, importedInRange]);
+
   const shift = (dir: -1 | 1) => {
     const d = new Date(anchor);
     if (view === "week") d.setDate(d.getDate() + dir * 7);
