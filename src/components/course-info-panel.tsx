@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,16 +13,34 @@ import {
   WEEKDAY_LABELS,
   generateLessonOccurrences,
   effectiveSlots,
+  lessonKey,
 } from "@/lib/course-schedule";
-import { BookOpen, CalendarClock, Coins } from "lucide-react";
+import { BookOpen, CalendarClock, Coins, CheckCircle2, Clock } from "lucide-react";
 
 interface Props {
   studentId: string;
 }
 
+interface SingleLessonLite {
+  id: string;
+  lesson_date: string;
+  start_time: string;
+  end_time: string;
+  hours_per_lesson: number | null;
+  hourly_rate: number | null;
+}
+
+function diffHours(start: string, end: string): number {
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  return Math.max(0, (eh * 60 + em - sh * 60 - sm) / 60);
+}
+
 export function CourseInfoPanel({ studentId }: Props) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [singles, setSingles] = useState<SingleLessonLite[]>([]);
+  const [cancelled, setCancelled] = useState<Set<string>>(new Set());
   const [c, setC] = useState<CourseInfo>({
     total_hours: null,
     hours_per_lesson: null,
@@ -35,13 +53,20 @@ export function CourseInfoPanel({ studentId }: Props) {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from("students")
-        .select(
-          "total_hours, hours_per_lesson, hourly_rate, schedule_start_date, schedule_slots, schedule_frequency_weeks, schedule_weekday, schedule_start_time, schedule_end_time",
-        )
-        .eq("id", studentId)
-        .maybeSingle();
+      const [{ data }, { data: sng }, { data: cans }] = await Promise.all([
+        supabase
+          .from("students")
+          .select(
+            "total_hours, hours_per_lesson, hourly_rate, schedule_start_date, schedule_slots, schedule_frequency_weeks, schedule_weekday, schedule_start_time, schedule_end_time",
+          )
+          .eq("id", studentId)
+          .maybeSingle(),
+        supabase
+          .from("single_lessons")
+          .select("id, lesson_date, start_time, end_time, hours_per_lesson, hourly_rate")
+          .eq("student_id", studentId),
+        supabase.from("cancelled_lessons").select("lesson_at").eq("student_id", studentId),
+      ]);
       if (data) {
         const initial: CourseInfo = {
           total_hours: data.total_hours as number | null,
@@ -55,7 +80,6 @@ export function CourseInfoPanel({ studentId }: Props) {
           schedule_start_time: data.schedule_start_time as string | null,
           schedule_end_time: data.schedule_end_time as string | null,
         };
-        // If no multi-slots saved but legacy single slot exists, seed it
         if (
           (!initial.schedule_slots || initial.schedule_slots.length === 0) &&
           initial.schedule_weekday != null &&
@@ -71,6 +95,12 @@ export function CourseInfoPanel({ studentId }: Props) {
         }
         setC(initial);
       }
+      setSingles((sng ?? []) as SingleLessonLite[]);
+      const set = new Set<string>();
+      for (const cn of cans ?? []) {
+        set.add(new Date(cn.lesson_at as string).toISOString());
+      }
+      setCancelled(set);
       setLoading(false);
     })();
   }, [studentId]);
@@ -78,6 +108,54 @@ export function CourseInfoPanel({ studentId }: Props) {
   const lessonCount = totalLessonCount(c);
   const upcoming = generateLessonOccurrences(c).slice(0, 5);
   const slots = c.schedule_slots ?? [];
+
+  // === Overview computations across all lessons (single + recurring) ===
+  const overview = useMemo(() => {
+    const now = new Date();
+    let pastHours = 0;
+    let futureHours = 0;
+    let totalFee = 0;
+
+    // Single lessons
+    for (const s of singles) {
+      const [y, m, d] = s.lesson_date.split("-").map(Number);
+      const [h, mm] = s.start_time.split(":").map(Number);
+      const dt = new Date(y, (m ?? 1) - 1, d ?? 1, h ?? 0, mm ?? 0);
+      const hours =
+        s.hours_per_lesson != null && s.hours_per_lesson > 0
+          ? Number(s.hours_per_lesson)
+          : diffHours(s.start_time, s.end_time);
+      const rate = s.hourly_rate ?? c.hourly_rate ?? 0;
+      if (dt < now) pastHours += hours;
+      else futureHours += hours;
+      totalFee += hours * (rate ?? 0);
+    }
+
+    // Recurring lessons
+    const occs = generateLessonOccurrences(c);
+    const perLesson = c.hours_per_lesson ?? 0;
+    const rate = c.hourly_rate ?? 0;
+    for (const o of occs) {
+      if (cancelled.has(lessonKey(o.date))) continue;
+      const hours =
+        perLesson > 0
+          ? perLesson
+          : o.slot.end_time
+            ? diffHours(o.slot.start_time, o.slot.end_time)
+            : 0;
+      if (o.date < now) pastHours += hours;
+      else futureHours += hours;
+      totalFee += hours * rate;
+    }
+
+    const total = pastHours + futureHours;
+    return {
+      total: Math.round(total * 100) / 100,
+      past: Math.round(pastHours * 100) / 100,
+      future: Math.round(futureHours * 100) / 100,
+      fee: Math.round(totalFee * 100) / 100,
+    };
+  }, [singles, cancelled, c]);
 
   const toggleWeekday = (wd: number, checked: boolean) => {
     setC((p) => {
@@ -110,7 +188,6 @@ export function CourseInfoPanel({ studentId }: Props) {
 
   const handleSave = async () => {
     setBusy(true);
-    // Keep legacy single fields in sync with first slot for backward compatibility
     const first = effectiveSlots(c)[0];
     const { error } = await supabase
       .from("students")
@@ -140,12 +217,52 @@ export function CourseInfoPanel({ studentId }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* 课程信息总览 */}
       <section className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
         <div className="mb-4 flex items-center gap-2">
           <BookOpen className="h-4 w-4 text-primary" />
-          <h3 className="text-base font-semibold text-foreground">课时设置</h3>
+          <h3 className="text-base font-semibold text-foreground">课程信息总览</h3>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex items-center justify-between rounded-lg bg-primary/10 px-4 py-3">
+            <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
+              <BookOpen className="h-3.5 w-3.5 text-primary" />
+              总课时数
+            </span>
+            <span className="text-lg font-bold text-primary">{overview.total} 小时</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-4 py-3 dark:bg-emerald-900/20">
+            <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
+              <Coins className="h-3.5 w-3.5 text-emerald-600" />
+              总课时费
+            </span>
+            <span className="text-lg font-bold text-emerald-600">¥{overview.fee}</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-sky-50 px-4 py-3 dark:bg-sky-900/20">
+            <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5 text-sky-600" />
+              已上课时数
+            </span>
+            <span className="text-lg font-bold text-sky-600">{overview.past} 小时</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-amber-50 px-4 py-3 dark:bg-amber-900/20">
+            <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 text-amber-600" />
+              未上课时数
+            </span>
+            <span className="text-lg font-bold text-amber-600">{overview.future} 小时</span>
+          </div>
+        </div>
+      </section>
+
+      {/* 新增课程（含课时设置） */}
+      <section className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
+        <div className="mb-4 flex items-center gap-2">
+          <CalendarClock className="h-4 w-4 text-primary" />
+          <h3 className="text-base font-semibold text-foreground">新增课程</h3>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-2">
             <Label htmlFor="total_hours">总课时（小时）</Label>
             <Input
@@ -199,28 +316,22 @@ export function CourseInfoPanel({ studentId }: Props) {
             />
           </div>
         </div>
+
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div className="flex items-center justify-between rounded-lg bg-primary/10 px-4 py-3">
-            <span className="text-sm font-medium text-foreground">总课节数</span>
+            <span className="text-sm font-medium text-foreground">本次课节数</span>
             <span className="text-lg font-bold text-primary">{lessonCount} 节</span>
           </div>
           <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-4 py-3 dark:bg-emerald-900/20">
             <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
               <Coins className="h-3.5 w-3.5 text-emerald-600" />
-              总课时费
+              本次课程费
             </span>
             <span className="text-lg font-bold text-emerald-600">¥{totalCourseFee(c)}</span>
           </div>
         </div>
-      </section>
 
-      <section className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
-        <div className="mb-4 flex items-center gap-2">
-          <CalendarClock className="h-4 w-4 text-primary" />
-          <h3 className="text-base font-semibold text-foreground">新增课程</h3>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="schedule_start_date">开始日期（第一周）</Label>
             <Input
