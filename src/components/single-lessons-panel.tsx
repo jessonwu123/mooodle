@@ -9,7 +9,11 @@ import {
   LessonEditorDialog,
   type SingleLessonRow,
 } from "./lesson-editor-dialog";
-import { BulkLessonActionsDialog } from "./bulk-lesson-actions-dialog";
+import {
+  BulkLessonActionsDialog,
+  type PostponeUnit,
+  type BulkAddPayload,
+} from "./bulk-lesson-actions-dialog";
 import {
   type CourseInfo,
   type ScheduleSlot,
@@ -63,7 +67,7 @@ export function SingleLessonsPanel({ studentId }: Props) {
 
   const [batchMode, setBatchMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bulkDialog, setBulkDialog] = useState<null | "postpone" | "reschedule">(null);
+  const [bulkDialog, setBulkDialog] = useState<null | "postpone" | "reschedule" | "add">(null);
   const [bulkBusy, setBulkBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -281,9 +285,17 @@ export function SingleLessonsPanel({ studentId }: Props) {
     }
   };
 
-  const onConfirmPostpone = async (days: number) => {
+  const onConfirmPostpone = async (amount: number, unit: PostponeUnit) => {
     await applyBulkChange((it) => {
-      const newDate = addDays(it.date, days);
+      let newDate: Date;
+      if (unit === "day") {
+        newDate = addDays(it.date, amount);
+      } else if (unit === "week") {
+        newDate = addDays(it.date, amount * 7);
+      } else {
+        newDate = new Date(it.date);
+        newDate.setMonth(newDate.getMonth() + amount);
+      }
       const startStr = `${pad(it.date.getHours())}:${pad(it.date.getMinutes())}`;
       let endStr: string;
       if (it.kind === "single") {
@@ -293,6 +305,63 @@ export function SingleLessonsPanel({ studentId }: Props) {
       }
       return { date: newDate, start: startStr, end: endStr };
     });
+  };
+
+  const onConfirmBulkAdd = async (p: BulkAddPayload) => {
+    if (!session?.user.id) {
+      toast.error("请先登录");
+      return;
+    }
+    if (p.weekdays.length === 0) {
+      toast.error("请选择至少一个星期");
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      const [sy, sm, sd] = p.startDate.split("-").map((n) => parseInt(n, 10));
+      const [ey, em, ed] = p.endDate.split("-").map((n) => parseInt(n, 10));
+      const start = new Date(sy, (sm ?? 1) - 1, sd ?? 1);
+      const end = new Date(ey, (em ?? 1) - 1, ed ?? 1);
+      const rows: {
+        created_by: string;
+        student_id: string;
+        class_name: string | null;
+        lesson_date: string;
+        start_time: string;
+        end_time: string;
+        hours_per_lesson: number | null;
+        hourly_rate: number | null;
+        notes: null;
+      }[] = [];
+      for (let d = new Date(start); d <= end; d = addDays(d, 1)) {
+        if (p.weekdays.includes(d.getDay())) {
+          rows.push({
+            created_by: session.user.id,
+            student_id: studentId,
+            class_name: p.className || null,
+            lesson_date: fmtDate(d),
+            start_time: `${p.startTime}:00`,
+            end_time: `${p.endTime}:00`,
+            hours_per_lesson: p.hoursPerLesson,
+            hourly_rate: p.hourlyRate,
+            notes: null,
+          });
+        }
+      }
+      if (rows.length === 0) {
+        toast.error("指定范围内没有符合星期的日期");
+        return;
+      }
+      const { error } = await supabase.from("single_lessons").insert(rows);
+      if (error) throw error;
+      toast.success(`已新增 ${rows.length} 个课次`);
+      setBulkDialog(null);
+      await load();
+    } catch (e) {
+      toast.error("批量新增失败：" + (e as Error).message);
+    } finally {
+      setBulkBusy(false);
+    }
   };
 
   const onConfirmReschedule = async (weekday: number, start: string, end: string) => {
@@ -325,6 +394,15 @@ export function SingleLessonsPanel({ studentId }: Props) {
                 >
                   <CalendarPlus className="h-4 w-4" />
                   新增课次
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setBulkDialog("add")}
+                  className="gap-1.5"
+                >
+                  <CalendarPlus className="h-4 w-4" />
+                  批量增加
                 </Button>
                 <Button
                   size="sm"
@@ -540,6 +618,7 @@ export function SingleLessonsPanel({ studentId }: Props) {
         count={selected.size}
         onConfirmPostpone={onConfirmPostpone}
         onConfirmReschedule={onConfirmReschedule}
+        onConfirmAdd={onConfirmBulkAdd}
       />
     </section>
   );
