@@ -398,6 +398,15 @@ export function SingleLessonsPanel({ studentId }: Props) {
                 <Button
                   size="sm"
                   variant="outline"
+                  onClick={() => setBulkDialog("add")}
+                  className="gap-1.5"
+                >
+                  <CalendarPlus className="h-4 w-4" />
+                  批量增加
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
                   onClick={() => setBatchMode(true)}
                   className="gap-1.5"
                 >
