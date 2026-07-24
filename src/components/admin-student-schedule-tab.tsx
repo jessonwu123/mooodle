@@ -309,6 +309,9 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
           <h2 className="mt-1 text-2xl font-bold tracking-tight text-foreground">
             {label}
           </h2>
+          <div className="mt-1 text-xs text-muted-foreground">
+            已排课程总课时：<span className="font-semibold text-foreground">{totalHours}</span> 小时（共 {items.length} 节）
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Tabs value={view} onValueChange={(v) => setView(v as "week" | "month")}>
