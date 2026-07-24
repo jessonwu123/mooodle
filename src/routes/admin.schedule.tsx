@@ -503,7 +503,7 @@ function SchedulePage() {
           <h1 className="mt-1 text-3xl font-bold tracking-tight text-foreground">
             {label}
           </h1>
-          <div className="mt-1 text-sm text-muted-foreground">&nbsp;</div>
+          
 
           <div className="mt-1 text-sm text-muted-foreground">
             {view === "week" ? "本周" : "本月"}总课时 <span className="font-semibold text-foreground">{totalHours}</span> 小时
