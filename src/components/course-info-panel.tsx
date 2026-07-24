@@ -217,7 +217,7 @@ export function CourseInfoPanel({ studentId }: Props) {
       <section className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
         <div className="mb-4 flex items-center gap-2">
           <CalendarClock className="h-4 w-4 text-primary" />
-          <h3 className="text-base font-semibold text-foreground">固定上课时间</h3>
+          <h3 className="text-base font-semibold text-foreground">新增课程</h3>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
