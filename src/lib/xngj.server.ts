@@ -124,7 +124,7 @@ export function computeSyncWindow(): { startDate: string; endDate: string } {
   end.setMonth(end.getMonth() + 6);
   const fmt = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  return { startDate: fmt(start), endDate: fmt(now.setMonth(now.getMonth())) === "" ? "" : fmt(end) };
+  return { startDate: fmt(start), endDate: fmt(end) };
 }
 
 export function lessonKey(l: {
