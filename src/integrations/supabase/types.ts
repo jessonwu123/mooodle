@@ -1172,6 +1172,7 @@ export type Database = {
         }[]
       }
       student_login_email: { Args: { _username: string }; Returns: string }
+      user_can_read_paper: { Args: { _paper_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "teacher"
