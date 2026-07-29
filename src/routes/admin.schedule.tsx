@@ -35,6 +35,7 @@ import {
   LessonEditorDialog,
   type SingleLessonRow,
 } from "@/components/lesson-editor-dialog";
+import { XngjSyncButton } from "@/components/xngj-sync-dialog";
 
 export const Route = createFileRoute("/admin/schedule")({
   component: SchedulePage,
