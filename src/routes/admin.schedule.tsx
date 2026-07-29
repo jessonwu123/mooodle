@@ -35,6 +35,7 @@ import {
   LessonEditorDialog,
   type SingleLessonRow,
 } from "@/components/lesson-editor-dialog";
+import { XngjSyncButton } from "@/components/xngj-sync-dialog";
 
 export const Route = createFileRoute("/admin/schedule")({
   component: SchedulePage,
@@ -525,6 +526,7 @@ function SchedulePage() {
             <CalendarPlus className="h-4 w-4" />
             增加课次
           </Button>
+          <XngjSyncButton onDone={load} />
           <Button
             variant="outline"
             size="sm"
