@@ -525,6 +525,7 @@ function SchedulePage() {
             <CalendarPlus className="h-4 w-4" />
             增加课次
           </Button>
+          <XngjSyncButton onDone={load} />
           <Button
             variant="outline"
             size="sm"
