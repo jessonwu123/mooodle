@@ -198,16 +198,16 @@ export function XngjSyncButton({ onDone }: Props) {
       </Dialog>
 
       <Dialog open={resultOpen} onOpenChange={setResultOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-2xl max-h-[90dvh] flex flex-col p-0 gap-0">
+          <DialogHeader className="p-6 pb-3 shrink-0">
             <DialogTitle>同步完成</DialogTitle>
             <DialogDescription>
               范围 {result?.startDate} ~ {result?.endDate}
             </DialogDescription>
           </DialogHeader>
           {result && (
-            <>
-              <div className="flex flex-wrap gap-3 text-sm">
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 space-y-4">
+              <div className="flex flex-wrap gap-2 text-sm">
                 <span className="rounded bg-green-100 text-green-800 px-3 py-1.5">
                   新增 <strong>{result.added.length}</strong> 节
                 </span>
@@ -240,9 +240,9 @@ export function XngjSyncButton({ onDone }: Props) {
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
-            </>
+            </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="p-6 pt-3 border-t shrink-0">
             <Button onClick={() => setResultOpen(false)}>关闭</Button>
           </DialogFooter>
         </DialogContent>
