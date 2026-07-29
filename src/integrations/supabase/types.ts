@@ -1007,6 +1007,36 @@ export type Database = {
         }
         Relationships: []
       }
+      teacher_xngj_credentials: {
+        Row: {
+          created_at: string
+          password: string
+          tenant_name: string
+          updated_at: string
+          user_id: string
+          username: string
+          xngj_user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          password: string
+          tenant_name?: string
+          updated_at?: string
+          user_id: string
+          username: string
+          xngj_user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          password?: string
+          tenant_name?: string
+          updated_at?: string
+          user_id?: string
+          username?: string
+          xngj_user_id?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
