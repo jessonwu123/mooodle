@@ -166,25 +166,26 @@ function StudentProfile() {
   return (
     <div className="min-h-screen bg-[var(--gradient-soft)] pb-16">
       <header className="border-b border-border/40 bg-background/60 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-4">
           {isOwner ? (
             <div />
           ) : (
-            <Link to="/" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="h-4 w-4" />
+            <Link to="/" className="flex shrink-0 items-center gap-2 whitespace-nowrap text-sm text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="h-4 w-4 shrink-0" />
               返回
             </Link>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             {isOwner && (
               <>
                 <Dialog open={acctOpen} onOpenChange={setAcctOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="ghost" size="sm" className="gap-1.5">
-                      <Settings className="h-4 w-4" />
+                    <Button variant="ghost" size="sm" className="gap-1.5 whitespace-nowrap px-2 sm:px-3">
+                      <Settings className="h-4 w-4 shrink-0" />
                       账号设置
                     </Button>
                   </DialogTrigger>
+
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>账号设置</DialogTitle>
