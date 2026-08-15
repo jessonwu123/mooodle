@@ -289,16 +289,17 @@ function StudentProfile() {
       </header>
 
 
-      <main className="mx-auto max-w-4xl px-6 py-10">
-        <div className="mb-8">
+      <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
+        <div className="mb-6 sm:mb-8">
           <div className="text-sm text-muted-foreground">学生档案</div>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+          <h1 className="mt-1 break-words text-2xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
             {student?.name}
           </h1>
           <div className="mt-2 text-sm text-muted-foreground">
             共 {ratings.length} 节课记录
           </div>
         </div>
+
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <div className="mb-6 -mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
