@@ -227,7 +227,7 @@ export function ComprehensiveAssessment({
           >
             <AccordionTrigger className="hover:no-underline">
               <div className="flex w-full items-center gap-3 pr-2">
-                <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                   <Icon className="h-4 w-4" />
                   {unread && (
                     <span className="absolute -right-1 -top-1 flex h-3 w-3">
@@ -236,8 +236,8 @@ export function ComprehensiveAssessment({
                     </span>
                   )}
                 </div>
-                <div className="flex-1 text-left">
-                  <div className="flex items-center gap-2 text-base font-semibold text-foreground">
+                <div className="min-w-0 flex-1 text-left">
+                  <div className="flex flex-wrap items-center gap-2 text-base font-semibold text-foreground">
                     {cat.label}
                     {unread && (
                       <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-600">
@@ -454,9 +454,9 @@ function ItemRow({
   })();
 
   return (
-    <div className="rounded-xl border border-border bg-muted/30 p-4">
-      <div className="flex items-start gap-3">
-        <div className="flex-1 space-y-3">
+    <div className="rounded-xl border border-border bg-muted/30 p-3 sm:p-4">
+      <div className="flex items-start gap-2 sm:gap-3">
+        <div className="min-w-0 flex-1 space-y-3">
           {editable ? (
             <Input
               value={name}
@@ -467,10 +467,10 @@ function ItemRow({
               className="font-medium"
             />
           ) : (
-            <div className="font-medium text-foreground">{item.item_name}</div>
+            <div className="break-words font-medium text-foreground">{item.item_name}</div>
           )}
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-xs text-muted-foreground">评分</span>
+            <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">评分</span>
             <StarRating
               value={item.rating ?? 0}
               readOnly={!editable}
@@ -507,7 +507,7 @@ function ItemRow({
             variant="ghost"
             size="icon"
             onClick={onDelete}
-            className="text-muted-foreground hover:text-destructive"
+            className="shrink-0 text-muted-foreground hover:text-destructive"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
