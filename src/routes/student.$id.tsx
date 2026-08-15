@@ -166,25 +166,26 @@ function StudentProfile() {
   return (
     <div className="min-h-screen bg-[var(--gradient-soft)] pb-16">
       <header className="border-b border-border/40 bg-background/60 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-4">
           {isOwner ? (
             <div />
           ) : (
-            <Link to="/" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="h-4 w-4" />
+            <Link to="/" className="flex shrink-0 items-center gap-2 whitespace-nowrap text-sm text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="h-4 w-4 shrink-0" />
               返回
             </Link>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             {isOwner && (
               <>
                 <Dialog open={acctOpen} onOpenChange={setAcctOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="ghost" size="sm" className="gap-1.5">
-                      <Settings className="h-4 w-4" />
+                    <Button variant="ghost" size="sm" className="gap-1.5 whitespace-nowrap px-2 sm:px-3">
+                      <Settings className="h-4 w-4 shrink-0" />
                       账号设置
                     </Button>
                   </DialogTrigger>
+
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>账号设置</DialogTitle>
@@ -288,16 +289,17 @@ function StudentProfile() {
       </header>
 
 
-      <main className="mx-auto max-w-4xl px-6 py-10">
-        <div className="mb-8">
+      <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
+        <div className="mb-6 sm:mb-8">
           <div className="text-sm text-muted-foreground">学生档案</div>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+          <h1 className="mt-1 break-words text-2xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
             {student?.name}
           </h1>
           <div className="mt-2 text-sm text-muted-foreground">
             共 {ratings.length} 节课记录
           </div>
         </div>
+
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <div className="mb-6 -mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -325,17 +327,17 @@ function StudentProfile() {
 
           <TabsContent value="lessons" className="space-y-8">
             {ratings.length > 0 && (
-              <section className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]">
+              <section className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)] sm:p-6">
                 <div className="mb-4 flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-primary" />
+                  <TrendingUp className="h-4 w-4 shrink-0 text-primary" />
                   <h2 className="text-base font-semibold text-foreground">总体平均</h2>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
                   {dimensions.map((d) => {
                     const a = avg(d.key);
                     return (
-                      <div key={d.key} className="rounded-xl bg-muted/50 p-4">
-                        <div className="mb-2 text-xs font-medium text-muted-foreground">
+                      <div key={d.key} className="min-w-0 rounded-xl bg-muted/50 p-3 sm:p-4">
+                        <div className="mb-2 whitespace-nowrap text-xs font-medium text-muted-foreground">
                           {d.label}
                         </div>
                         <div className="mb-1.5 text-2xl font-bold text-foreground">
@@ -360,20 +362,22 @@ function StudentProfile() {
                   {ratings.map((r) => (
                     <article
                       key={r.id}
-                      className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]"
+                      className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)] sm:p-5"
                     >
                       <div className="mb-3">
-                        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                          <Calendar className="h-4 w-4 text-primary" />
-                          {new Date(r.lesson_date).toLocaleDateString("zh-CN", {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                            weekday: "short",
-                          })}
+                        <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
+                          <Calendar className="h-4 w-4 shrink-0 text-primary" />
+                          <span className="truncate">
+                            {new Date(r.lesson_date).toLocaleDateString("zh-CN", {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                              weekday: "short",
+                            })}
+                          </span>
                         </div>
                         {r.lesson_name && (
-                          <div className="mt-1 text-base font-semibold text-foreground">
+                          <div className="mt-1 break-words text-base font-semibold text-foreground">
                             {r.lesson_name}
                           </div>
                         )}
@@ -385,20 +389,24 @@ function StudentProfile() {
                         {dimensions.map((d) => (
                           <div
                             key={d.key}
-                            className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2"
+                            className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2"
                           >
-                            <span className="text-sm text-muted-foreground">
+                            <span className="whitespace-nowrap text-sm text-muted-foreground">
                               {d.label}
                             </span>
-                            <StarRating value={r[d.key]} size="sm" readOnly />
+                            <span className="shrink-0">
+                              <StarRating value={r[d.key]} size="sm" readOnly />
+                            </span>
                           </div>
                         ))}
                         {r.overall_assessment != null && (
-                          <div className="flex items-center justify-between rounded-lg bg-primary/10 px-3 py-2 sm:col-span-2">
-                            <span className="text-sm font-semibold text-foreground">
+                          <div className="flex items-center justify-between gap-2 rounded-lg bg-primary/10 px-3 py-2 sm:col-span-2">
+                            <span className="whitespace-nowrap text-sm font-semibold text-foreground">
                               整体表现
                             </span>
-                            <StarRating value={r.overall_assessment} size="sm" readOnly />
+                            <span className="shrink-0">
+                              <StarRating value={r.overall_assessment} size="sm" readOnly />
+                            </span>
                           </div>
                         )}
                       </div>
@@ -411,20 +419,22 @@ function StudentProfile() {
                             {r.progress_items.map((p) => (
                               <div
                                 key={p.id}
-                                className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2"
+                                className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2"
                               >
-                                <span className="text-sm text-foreground">{p.item_name}</span>
-                                <span className="text-sm font-semibold text-primary">
+                                <span className="min-w-0 break-words text-sm text-foreground">
+                                  {p.item_name}
+                                </span>
+                                <span className="shrink-0 whitespace-nowrap text-sm font-semibold text-primary">
                                   {p.percentage}%
                                 </span>
                               </div>
                             ))}
                             {r.overall_progress != null && (
-                              <div className="flex items-center justify-between rounded-lg bg-primary/10 px-3 py-2">
-                                <span className="text-sm font-semibold text-foreground">
+                              <div className="flex items-center justify-between gap-2 rounded-lg bg-primary/10 px-3 py-2">
+                                <span className="whitespace-nowrap text-sm font-semibold text-foreground">
                                   整体吸收程度
                                 </span>
-                                <span className="text-sm font-bold text-primary">
+                                <span className="shrink-0 whitespace-nowrap text-sm font-bold text-primary">
                                   {r.overall_progress}%
                                 </span>
                               </div>
@@ -433,7 +443,7 @@ function StudentProfile() {
                         </>
                       )}
                       {r.summary && (
-                        <div className="mt-3 whitespace-pre-wrap rounded-lg bg-muted/40 px-3 py-2 text-sm text-foreground">
+                        <div className="mt-3 whitespace-pre-wrap break-words rounded-lg bg-muted/40 px-3 py-2 text-sm text-foreground">
                           <div className="mb-1 text-xs font-medium text-muted-foreground">课堂总结</div>
                           {r.summary}
                         </div>
@@ -444,6 +454,7 @@ function StudentProfile() {
               )}
             </section>
           </TabsContent>
+
 
           <TabsContent value="comprehensive">
             <ComprehensiveAssessment
