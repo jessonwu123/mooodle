@@ -184,7 +184,7 @@ function triggerBrowserDownload(url: string, filename: string) {
 
 function QuestionBankPage() {
   const search = Route.useSearch();
-  const navigate = useNavigate({ from: "/admin/question-bank" });
+  const navigate = useNavigate({ from: "/admin/question-bank/" });
   const currentFolderId = search.folder;
 
   const [allFolders, setAllFolders] = useState<FolderRow[]>([]);
@@ -1083,7 +1083,7 @@ function QuestionBankPage() {
   };
 
   const goToFolder = (id: string | null) => {
-    navigate({ search: { folder: id } });
+    navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, folder: id ?? undefined }) });
   };
 
   return (
