@@ -86,60 +86,101 @@ export function ScheduleExportDialog({ entries }: { entries: ExportEntry[] }) {
     0,
   );
 
-  const handleExport = () => {
-    if (parseISO(end) < parseISO(start)) {
-      toast.error("结束日期不能早于开始日期");
-      return;
-    }
-    const title = `课程表 ${start} 至 ${end}`;
-    const rows = weeks
+  const [busy, setBusy] = useState(false);
+
+  const pageHtml = (
+    pageWeeks: typeof weeks,
+    title: string,
+    pageNo: number,
+    pageTotal: number,
+  ) => {
+    const rows = pageWeeks
       .map((w) => {
         const cells = w.days
           .map((d) => {
             const list = d.items
               .map(
                 (it) =>
-                  `<div class="ev"><b>${esc(it.timeLabel)}</b> ${esc(it.title)}</div>`,
+                  `<div style="border-radius:3px;background:#eef3ff;padding:2px 4px;margin-bottom:2px;line-height:1.35;word-break:break-word;"><b>${esc(it.timeLabel)}</b> ${esc(it.title)}</div>`,
               )
               .join("");
-            return `<td><div class="dn">${d.date.getMonth() + 1}/${d.date.getDate()}</div>${list}</td>`;
+            return `<td style="border:1px solid #999;vertical-align:top;padding:4px;font-size:11px;">
+              <div style="color:#888;font-size:10px;margin-bottom:2px;">${d.date.getMonth() + 1}/${d.date.getDate()}</div>${list}</td>`;
           })
           .join("");
         const ws = w.weekStart;
-        return `<tr><th class="wk">${ws.getMonth() + 1}/${ws.getDate()}<br/><span>起</span></th>${cells}</tr>`;
+        return `<tr><th style="border:1px solid #999;width:58px;background:#fafafa;text-align:center;font-size:11px;font-weight:600;">${ws.getMonth() + 1}/${ws.getDate()}<br/><span style="font-weight:400;color:#888;font-size:9px;">起</span></th>${cells}</tr>`;
       })
       .join("");
+    return `<div style="width:1080px;padding:24px;background:#fff;color:#111;box-sizing:border-box;font-family:'PingFang SC','Microsoft YaHei','Heiti SC',sans-serif;">
+      <div style="font-size:18px;font-weight:700;margin-bottom:4px;">${esc(title)}</div>
+      <div style="font-size:12px;color:#666;margin-bottom:10px;">共 ${weeks.length} 周 / ${lessonCount} 节课 · 第 ${pageNo}/${pageTotal} 页</div>
+      <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
+        <thead><tr>
+          <th style="border:1px solid #999;width:58px;background:#f2f2f2;font-size:12px;padding:4px;">周次</th>
+          ${WEEKDAYS.map((w) => `<th style="border:1px solid #999;background:#f2f2f2;font-size:12px;padding:4px;">${w}</th>`).join("")}
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  };
 
-    const html = `<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>${esc(title)}</title>
-<style>
-@page { size: A4 landscape; margin: 10mm; }
-body { font-family: "PingFang SC","Microsoft YaHei","Heiti SC",sans-serif; color:#111; }
-h1 { font-size: 16px; margin: 0 0 4px; }
-.sub { font-size: 11px; color:#666; margin-bottom: 8px; }
-table { width:100%; border-collapse: collapse; table-layout: fixed; }
-th, td { border: 1px solid #999; vertical-align: top; padding: 4px; font-size: 10px; }
-thead th { background:#f2f2f2; text-align:center; font-size: 11px; }
-th.wk { width: 52px; background:#fafafa; text-align:center; font-weight:600; }
-th.wk span { font-weight:400; color:#888; font-size:9px; }
-.dn { color:#888; font-size:9px; margin-bottom:2px; }
-.ev { border-radius:3px; background:#eef3ff; padding:2px 3px; margin-bottom:2px; line-height:1.3; word-break:break-word; }
-tr { page-break-inside: avoid; }
-</style></head><body>
-<h1>${esc(title)}</h1>
-<div class="sub">共 ${weeks.length} 周 / ${lessonCount} 节课</div>
-<table><thead><tr><th class="wk">周次</th>${WEEKDAYS.map((w) => `<th>${w}</th>`).join("")}</tr></thead>
-<tbody>${rows}</tbody></table>
-<script>window.onload=function(){setTimeout(function(){window.print();},200);}<\/script>
-</body></html>`;
-
-    const w = window.open("", "_blank");
-    if (!w) {
-      toast.error("浏览器拦截了新窗口，请允许弹出窗口后重试");
+  const handleExport = async () => {
+    if (parseISO(end) < parseISO(start)) {
+      toast.error("结束日期不能早于开始日期");
       return;
     }
-    w.document.write(html);
-    w.document.close();
-    setOpen(false);
+    setBusy(true);
+    const title = `课程表 ${start} 至 ${end}`;
+    try {
+      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+        import("jspdf"),
+        import("html2canvas-pro"),
+      ]);
+      const perPage = 6;
+      const pages: (typeof weeks)[] = [];
+      for (let i = 0; i < weeks.length; i += perPage) {
+        pages.push(weeks.slice(i, i + perPage));
+      }
+      if (pages.length === 0) pages.push([]);
+
+      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pw = pdf.internal.pageSize.getWidth();
+      const ph = pdf.internal.pageSize.getHeight();
+
+      const host = document.createElement("div");
+      host.style.cssText =
+        "position:fixed;left:-10000px;top:0;z-index:-1;background:#fff;";
+      document.body.appendChild(host);
+
+      for (let i = 0; i < pages.length; i++) {
+        host.innerHTML = pageHtml(pages[i]!, title, i + 1, pages.length);
+        const canvas = await html2canvas(host.firstElementChild as HTMLElement, {
+          scale: 2,
+          backgroundColor: "#ffffff",
+        });
+        const img = canvas.toDataURL("image/jpeg", 0.92);
+        const margin = 6;
+        const maxW = pw - margin * 2;
+        const maxH = ph - margin * 2;
+        let w = maxW;
+        let h = (canvas.height / canvas.width) * w;
+        if (h > maxH) {
+          h = maxH;
+          w = (canvas.width / canvas.height) * h;
+        }
+        if (i > 0) pdf.addPage();
+        pdf.addImage(img, "JPEG", (pw - w) / 2, margin, w, h);
+      }
+
+      host.remove();
+      pdf.save(`${title}.pdf`);
+      setOpen(false);
+    } catch (err) {
+      toast.error(`导出失败：${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
