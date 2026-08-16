@@ -26,3 +26,15 @@ export async function ensureUniqueUsername(
   }
   throw new Error("无法生成唯一的用户名");
 }
+
+export async function assertTeacher(userId: string) {
+  const { data: roles } = await supabaseAdmin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId);
+  const list = (roles ?? []).map((r) => r.role as string);
+  const isAdmin = list.includes("admin");
+  const isTeacher = isAdmin || list.includes("teacher");
+  if (!isTeacher) throw new Error("无权访问");
+  return { isAdmin };
+}

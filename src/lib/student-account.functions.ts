@@ -5,6 +5,7 @@ import {
   DEFAULT_STUDENT_PASSWORD,
   ensureUniqueUsername,
   internalEmailFor,
+  assertTeacher,
 } from "@/lib/student-account.server";
 
 /** 教师创建/确保某个学生的登录账号 */
@@ -99,18 +100,6 @@ export const updateStudentPassword = createServerFn({ method: "POST" })
     if (error) throw new Error("修改密码失败：" + error.message);
     return { ok: true };
   });
-
-async function assertTeacher(userId: string) {
-  const { data: roles } = await supabaseAdmin
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId);
-  const list = (roles ?? []).map((r) => r.role as string);
-  const isAdmin = list.includes("admin");
-  const isTeacher = isAdmin || list.includes("teacher");
-  if (!isTeacher) throw new Error("无权访问");
-  return { isAdmin };
-}
 
 /** 列出学生账号（管理员看全部，教师看自己创建的） */
 export const listStudentAccounts = createServerFn({ method: "POST" })
