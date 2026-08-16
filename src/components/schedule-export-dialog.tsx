@@ -241,16 +241,16 @@ export function ScheduleExportDialog({ entries }: { entries: ExportEntry[] }) {
           </div>
           <p className="text-xs text-muted-foreground">
             表格每一行代表一周（周日至周六），当前范围共 {weeks.length} 周、
-            {lessonCount} 节课。点击导出后将打开打印窗口，选择「另存为 PDF」即可。
+            {lessonCount} 节课。点击导出将直接下载 PDF 文件。
           </p>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
             取消
           </Button>
-          <Button onClick={handleExport} className="gap-1.5">
+          <Button onClick={handleExport} disabled={busy} className="gap-1.5">
             <FileDown className="h-4 w-4" />
-            导出
+            {busy ? "生成中..." : "下载 PDF"}
           </Button>
         </DialogFooter>
       </DialogContent>
