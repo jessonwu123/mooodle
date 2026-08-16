@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { StudentAccountsPanel } from "@/components/student-accounts-panel";
 
 export const Route = createFileRoute("/admin/teachers/")({
   component: TeachersPage,
@@ -79,6 +80,7 @@ function TeachersPage() {
     desc: string;
     action: () => Promise<void>;
   } | null>(null);
+  const [tab, setTab] = useState<"teacher" | "student">("teacher");
   const [historyFor, setHistoryFor] = useState<Teacher | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyRows, setHistoryRows] = useState<LoginEvent[]>([]);
@@ -182,16 +184,16 @@ function TeachersPage() {
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回学生列表
+        返回学生档案
       </Link>
 
-      <div className="mb-8">
+      <div className="mb-6">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <ShieldCheck className="h-4 w-4" />
           权限管理
         </div>
         <h1 className="mt-1 text-3xl font-bold tracking-tight text-foreground">
-          教师管理
+          用户管理
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           下方列出系统中全部账号。点击任意账号可查看该老师创建的学生档案；管理员可在此处授予 / 撤销教师与管理员权限。
@@ -204,6 +206,29 @@ function TeachersPage() {
         </p>
       </div>
 
+      <div className="mb-6 flex gap-2 overflow-x-auto">
+        <Button
+          variant={tab === "teacher" ? "default" : "outline"}
+          size="sm"
+          className="whitespace-nowrap"
+          onClick={() => setTab("teacher")}
+        >
+          教师账号
+        </Button>
+        <Button
+          variant={tab === "student" ? "default" : "outline"}
+          size="sm"
+          className="whitespace-nowrap"
+          onClick={() => setTab("student")}
+        >
+          学生账号
+        </Button>
+      </div>
+
+      {tab === "student" ? (
+        <StudentAccountsPanel />
+      ) : (
+      <>
       <form
         onSubmit={handleGrantTeacher}
         className="mb-8 rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]"
@@ -392,6 +417,8 @@ function TeachersPage() {
             );
           })}
         </div>
+      )}
+      </>
       )}
 
       <AlertDialog

@@ -84,7 +84,7 @@ function AdminLayout() {
                 <div className="text-xs text-muted-foreground">{session.user.email}</div>
               </div>
             </button>
-            <Link to="/admin" className="ml-2 text-xs text-muted-foreground hover:text-foreground">
+            <Link to="/admin/teachers" className="ml-2 text-xs text-muted-foreground hover:text-foreground">
               管理后台
             </Link>
           </div>
