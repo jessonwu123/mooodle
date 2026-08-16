@@ -36,6 +36,10 @@ import {
   type SingleLessonRow,
 } from "@/components/lesson-editor-dialog";
 import { XngjSyncButton } from "@/components/xngj-sync-dialog";
+import {
+  ScheduleExportDialog,
+  type ExportEntry,
+} from "@/components/schedule-export-dialog";
 
 export const Route = createFileRoute("/admin/schedule")({
   component: SchedulePage,
@@ -347,6 +351,34 @@ function SchedulePage() {
     return Math.round(sum * 100) / 100;
   }, [inRange, singleInRange, importedInRange]);
 
+  const exportEntries: ExportEntry[] = useMemo(() => {
+    const fmt = (d: Date) =>
+      `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    const out: ExportEntry[] = [];
+    for (const o of occurrences) {
+      out.push({
+        date: o.date,
+        timeLabel: `${o.slot.start_time.slice(0, 5)}${o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}`,
+        title: o.student.name,
+      });
+    }
+    for (const o of singleOccurrences) {
+      out.push({
+        date: o.date,
+        timeLabel: `${fmt(o.date)}-${fmt(o.end)}`,
+        title: o.row.class_name ?? o.studentName ?? "单次课",
+      });
+    }
+    for (const o of importedOccurrences) {
+      out.push({
+        date: o.date,
+        timeLabel: `${o.start}-${o.end}`,
+        title: o.className,
+      });
+    }
+    return out;
+  }, [occurrences, singleOccurrences, importedOccurrences]);
+
   const shift = (dir: -1 | 1) => {
     const d = new Date(anchor);
     if (view === "week") d.setDate(d.getDate() + dir * 7);
@@ -527,6 +559,7 @@ function SchedulePage() {
             增加课次
           </Button>
           <XngjSyncButton onDone={load} />
+          <ScheduleExportDialog entries={exportEntries} />
           <Button
             variant="outline"
             size="sm"

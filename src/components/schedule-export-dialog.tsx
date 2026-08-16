@@ -106,7 +106,7 @@ export function ScheduleExportDialog({ entries }: { entries: ExportEntry[] }) {
           })
           .join("");
         const ws = w.weekStart;
-        return `<tr><th class="wk">${ws.getMonth() + 1}/${ws.getDate()}<br/><span>那一周</span></th>${cells}</tr>`;
+        return `<tr><th class="wk">${ws.getMonth() + 1}/${ws.getDate()}<br/><span>起</span></th>${cells}</tr>`;
       })
       .join("");
 
