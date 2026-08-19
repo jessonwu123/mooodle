@@ -101,9 +101,10 @@ export function ScheduleExportDialog({ entries }: { entries: ExportEntry[] }) {
             const list = d.items
               .map(
                 (it) =>
-                  `<div style="border-radius:3px;background:#eef3ff;padding:2px 4px;margin-bottom:2px;line-height:1.35;word-break:break-word;"><b>${esc(it.timeLabel)}</b> ${esc(it.title)}</div>`,
+                  `<div style="border-radius:3px;background:#eef3ff;padding:2px 4px;margin-bottom:2px;line-height:1.35;word-break:break-word;"><div style="font-weight:700;white-space:nowrap;">${esc(it.timeLabel)}</div><div>${esc(it.title)}</div></div>`,
               )
               .join("");
+
             return `<td style="border:1px solid #999;vertical-align:top;padding:4px;font-size:11px;">
               <div style="color:#888;font-size:10px;margin-bottom:2px;">${d.date.getMonth() + 1}/${d.date.getDate()}</div>${list}</td>`;
           })

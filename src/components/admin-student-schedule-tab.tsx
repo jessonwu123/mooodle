@@ -17,6 +17,11 @@ import {
 } from "lucide-react";
 import { LessonRatingDialog } from "@/components/lesson-rating-dialog";
 import {
+  ScheduleExportDialog,
+  type ExportEntry,
+} from "@/components/schedule-export-dialog";
+
+import {
   type CourseInfo,
   type ScheduleSlot,
   generateLessonOccurrences,
@@ -274,6 +279,25 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
     return Math.round(sum * 100) / 100;
   }, [items, course]);
 
+  const exportEntries: ExportEntry[] = useMemo(
+    () =>
+      items.map((it) => {
+        const endStr =
+          it.kind === "recurring"
+            ? it.slot.end_time
+              ? it.slot.end_time.slice(0, 5)
+              : ""
+            : fmtTime(it.end);
+        return {
+          date: it.date,
+          timeLabel: `${fmtTime(it.date)}${endStr ? `-${endStr}` : ""}`,
+          title: it.title,
+        };
+      }),
+    [items],
+  );
+
+
   const days: Date[] = [];
   if (view === "week") {
     for (let i = 0; i < 7; i++) {
@@ -314,12 +338,14 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <ScheduleExportDialog entries={exportEntries} />
           <Tabs value={view} onValueChange={(v) => setView(v as "week" | "month")}>
             <TabsList>
               <TabsTrigger value="week">周视图</TabsTrigger>
               <TabsTrigger value="month">月视图</TabsTrigger>
             </TabsList>
           </Tabs>
+
           <Button variant="outline" size="icon" onClick={() => shift(-1)}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -364,7 +390,13 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
                 <div className="mb-1 text-xs font-medium">{d.getDate()}</div>
                 <div className="space-y-1">
                   {dayItems.map((it) => {
-                    const timeStr = fmtTime(it.date);
+                    const endStr =
+                      it.kind === "recurring"
+                        ? it.slot.end_time
+                          ? it.slot.end_time.slice(0, 5)
+                          : ""
+                        : fmtTime(it.end);
+                    const timeStr = `${fmtTime(it.date)}${endStr ? `-${endStr}` : ""}`;
                     const isSelf = it.kind === "single" && it.isSelfCreated;
                     const cls =
                       it.kind === "recurring"
@@ -377,13 +409,15 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
                         key={it.key}
                         type="button"
                         onClick={() => setDetail(it)}
-                        className={`block w-full truncate rounded-md px-1.5 py-1 text-left text-[11px] ${cls}`}
+                        className={`block w-full rounded-md px-1.5 py-1 text-left text-[11px] ${cls}`}
                         title={`${it.title} ${timeStr}`}
                       >
-                        <span className="font-medium">{timeStr}</span> {it.title}
+                        <div className="font-medium whitespace-nowrap">{timeStr}</div>
+                        <div className="truncate">{it.title}</div>
                       </button>
                     );
                   })}
+
                 </div>
               </div>
             );

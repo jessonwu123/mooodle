@@ -8,12 +8,20 @@ import {
   Coins,
   Upload,
   CalendarPlus,
+  Filter,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import {
   Dialog,
   DialogContent,
@@ -94,7 +102,11 @@ interface ParsedRow {
 }
 
 
+const IMPORTED_KEY = "__imported__";
+const OTHER_KEY = "__other__";
+
 function startOfWeek(d: Date) {
+
   const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   x.setDate(x.getDate() - x.getDay());
   return x;
@@ -185,6 +197,9 @@ function SchedulePage() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"week" | "month">("week");
   const [anchor, setAnchor] = useState(new Date());
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+
+
 
   const [importOpen, setImportOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -306,14 +321,19 @@ function SchedulePage() {
   }, [view, anchor]);
 
   const inRange = occurrences.filter(
-    (o) => o.date >= rangeStart && o.date < rangeEnd,
+    (o) =>
+      o.date >= rangeStart && o.date < rangeEnd && !hidden.has(o.student.id),
   );
   const singleInRange = singleOccurrences.filter(
-    (o) => o.date >= rangeStart && o.date < rangeEnd,
+    (o) =>
+      o.date >= rangeStart &&
+      o.date < rangeEnd &&
+      !hidden.has(o.row.student_id ?? OTHER_KEY),
   );
   const importedInRange = importedOccurrences.filter(
-    (o) => o.date >= rangeStart && o.date < rangeEnd,
+    (o) => o.date >= rangeStart && o.date < rangeEnd && !hidden.has(IMPORTED_KEY),
   );
+
 
   const monthlyIncome = useMemo(() => {
     const recurring = inRange.reduce((sum, o) => {
@@ -560,6 +580,76 @@ function SchedulePage() {
           </Button>
           <XngjSyncButton onDone={load} />
           <ScheduleExportDialog entries={exportEntries} />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Filter className="h-4 w-4" />
+                筛选
+                {hidden.size > 0 && (
+                  <span className="rounded bg-primary/10 px-1 text-[10px] text-primary">
+                    已筛选
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-64 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-sm font-medium">显示内容</span>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setHidden(new Set())}
+                  >
+                    全选
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() =>
+                      setHidden(
+                        new Set([
+                          ...students.map((s) => s.id),
+                          OTHER_KEY,
+                          IMPORTED_KEY,
+                        ]),
+                      )
+                    }
+                  >
+                    清空
+                  </Button>
+                </div>
+              </div>
+              <div className="max-h-72 space-y-1.5 overflow-y-auto">
+                {[
+                  ...students.map((s) => ({ key: s.id, label: s.name })),
+                  { key: OTHER_KEY, label: "未关联学生的单次课" },
+                  { key: IMPORTED_KEY, label: "导入的课表" },
+                ].map((opt) => (
+                  <label
+                    key={opt.key}
+                    className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted/60"
+                  >
+                    <Checkbox
+                      checked={!hidden.has(opt.key)}
+                      onCheckedChange={(v) =>
+                        setHidden((prev) => {
+                          const next = new Set(prev);
+                          if (v) next.delete(opt.key);
+                          else next.add(opt.key);
+                          return next;
+                        })
+                      }
+                    />
+                    <span className="truncate">{opt.label}</span>
+                  </label>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
           <Button
             variant="outline"
             size="sm"
@@ -643,35 +733,35 @@ function SchedulePage() {
                   {dayItems.map((item, j) => {
                     if (item.kind === "r") {
                       const o = item.o;
+                      const time = `${o.slot.start_time?.slice(0, 5) ?? ""}${o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}`;
                       return (
                         <button
                           key={`r-${j}`}
                           type="button"
                           onClick={() => setDetailFor(o)}
-                          className="block w-full truncate rounded-md bg-primary/10 px-1.5 py-1 text-left text-[11px] text-primary hover:bg-primary/20"
-                          title={`${o.student.name} ${o.slot.start_time?.slice(0, 5) ?? ""}${o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}`}
+                          className="block w-full rounded-md bg-primary/10 px-1.5 py-1 text-left text-[11px] text-primary hover:bg-primary/20"
+                          title={`${o.student.name} ${time}`}
                         >
-                          <span className="font-medium">
-                            {o.slot.start_time?.slice(0, 5)}
-                          </span>{" "}
-                          {o.student.name}
+                          <div className="font-medium whitespace-nowrap">{time}</div>
+                          <div className="truncate">{o.student.name}</div>
                         </button>
                       );
                     }
                     if (item.kind === "s") {
                       const o = item.o;
+                      const time = `${o.row.start_time.slice(0, 5)}-${o.row.end_time.slice(0, 5)}`;
                       return (
                         <button
                           key={`s-${o.row.id}`}
                           type="button"
                           onClick={() => setDetailFor(o)}
-                          className="block w-full truncate rounded-md bg-sky-100 px-1.5 py-1 text-left text-[11px] text-sky-800 hover:bg-sky-200"
-                          title={`${o.studentName ?? o.row.class_name ?? ""} ${o.row.start_time.slice(0, 5)}-${o.row.end_time.slice(0, 5)}`}
+                          className="block w-full rounded-md bg-sky-100 px-1.5 py-1 text-left text-[11px] text-sky-800 hover:bg-sky-200"
+                          title={`${o.studentName ?? o.row.class_name ?? ""} ${time}`}
                         >
-                          <span className="font-medium">
-                            {o.row.start_time.slice(0, 5)}
-                          </span>{" "}
-                          {o.studentName ?? o.row.class_name}
+                          <div className="font-medium whitespace-nowrap">{time}</div>
+                          <div className="truncate">
+                            {o.studentName ?? o.row.class_name}
+                          </div>
                         </button>
                       );
                     }
@@ -681,13 +771,17 @@ function SchedulePage() {
                         key={`i-${o.id}`}
                         type="button"
                         onClick={() => setDetailFor(o)}
-                        className="block w-full truncate rounded-md bg-amber-100 px-1.5 py-1 text-left text-[11px] text-amber-800 hover:bg-amber-200"
+                        className="block w-full rounded-md bg-amber-100 px-1.5 py-1 text-left text-[11px] text-amber-800 hover:bg-amber-200"
                         title={`${o.className} ${o.start}-${o.end}`}
                       >
-                        <span className="font-medium">{o.start}</span> {o.className}
+                        <div className="font-medium whitespace-nowrap">
+                          {o.start}-{o.end}
+                        </div>
+                        <div className="truncate">{o.className}</div>
                       </button>
                     );
                   })}
+
                 </div>
 
               </div>
