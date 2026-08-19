@@ -587,7 +587,11 @@ function SchedulePage() {
             增加课次
           </Button>
           <XngjSyncButton onDone={load} />
-          <ScheduleExportDialog entries={exportEntries} />
+          <ScheduleExportDialog
+            entries={filteredExportEntries}
+            defaultStart={toISODate(rangeStart)}
+            defaultEnd={toISODate(new Date(rangeEnd.getTime() - 86400000))}
+          />
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1.5">
