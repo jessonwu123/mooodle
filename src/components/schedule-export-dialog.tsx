@@ -125,6 +125,23 @@ export function ScheduleExportDialog({
     0,
   );
 
+  const totalHours = useMemo(() => {
+    let sum = 0;
+    for (const w of weeks) {
+      for (const d of w.days) {
+        for (const it of d.items) {
+          const m = it.timeLabel.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
+          if (!m) continue;
+          const mins =
+            Number(m[3]) * 60 + Number(m[4]) - Number(m[1]) * 60 - Number(m[2]);
+          if (mins > 0) sum += mins / 60;
+        }
+      }
+    }
+    return Math.round(sum * 100) / 100;
+  }, [weeks]);
+
+
   const [busy, setBusy] = useState(false);
 
   const pageHtml = (
