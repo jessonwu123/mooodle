@@ -580,6 +580,76 @@ function SchedulePage() {
           </Button>
           <XngjSyncButton onDone={load} />
           <ScheduleExportDialog entries={exportEntries} />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Filter className="h-4 w-4" />
+                筛选
+                {hidden.size > 0 && (
+                  <span className="rounded bg-primary/10 px-1 text-[10px] text-primary">
+                    已筛选
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-64 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-sm font-medium">显示内容</span>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setHidden(new Set())}
+                  >
+                    全选
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() =>
+                      setHidden(
+                        new Set([
+                          ...students.map((s) => s.id),
+                          OTHER_KEY,
+                          IMPORTED_KEY,
+                        ]),
+                      )
+                    }
+                  >
+                    清空
+                  </Button>
+                </div>
+              </div>
+              <div className="max-h-72 space-y-1.5 overflow-y-auto">
+                {[
+                  ...students.map((s) => ({ key: s.id, label: s.name })),
+                  { key: OTHER_KEY, label: "未关联学生的单次课" },
+                  { key: IMPORTED_KEY, label: "导入的课表" },
+                ].map((opt) => (
+                  <label
+                    key={opt.key}
+                    className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted/60"
+                  >
+                    <Checkbox
+                      checked={!hidden.has(opt.key)}
+                      onCheckedChange={(v) =>
+                        setHidden((prev) => {
+                          const next = new Set(prev);
+                          if (v) next.delete(opt.key);
+                          else next.add(opt.key);
+                          return next;
+                        })
+                      }
+                    />
+                    <span className="truncate">{opt.label}</span>
+                  </label>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
           <Button
             variant="outline"
             size="sm"
