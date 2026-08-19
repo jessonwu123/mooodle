@@ -193,6 +193,9 @@ function SchedulePage() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"week" | "month">("week");
   const [anchor, setAnchor] = useState(new Date());
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+
+
 
   const [importOpen, setImportOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
