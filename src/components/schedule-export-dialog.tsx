@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -40,7 +40,15 @@ function esc(s: string) {
   );
 }
 
-export function ScheduleExportDialog({ entries }: { entries: ExportEntry[] }) {
+export function ScheduleExportDialog({
+  entries,
+  defaultStart,
+  defaultEnd,
+}: {
+  entries: ExportEntry[];
+  defaultStart?: string;
+  defaultEnd?: string;
+}) {
   const today = new Date();
   const [open, setOpen] = useState(false);
   const [start, setStart] = useState(toISO(startOfWeek(today)));
@@ -49,6 +57,11 @@ export function ScheduleExportDialog({ entries }: { entries: ExportEntry[] }) {
     e.setDate(e.getDate() + 27);
     return toISO(e);
   });
+
+  useEffect(() => {
+    if (open && defaultStart) setStart(defaultStart);
+    if (open && defaultEnd) setEnd(defaultEnd);
+  }, [open, defaultStart, defaultEnd]);
 
   const weeks = useMemo(() => {
     const s = startOfWeek(parseISO(start));
