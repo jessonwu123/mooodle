@@ -314,14 +314,19 @@ function SchedulePage() {
   }, [view, anchor]);
 
   const inRange = occurrences.filter(
-    (o) => o.date >= rangeStart && o.date < rangeEnd,
+    (o) =>
+      o.date >= rangeStart && o.date < rangeEnd && !hidden.has(o.student.id),
   );
   const singleInRange = singleOccurrences.filter(
-    (o) => o.date >= rangeStart && o.date < rangeEnd,
+    (o) =>
+      o.date >= rangeStart &&
+      o.date < rangeEnd &&
+      !hidden.has(o.row.student_id ?? OTHER_KEY),
   );
   const importedInRange = importedOccurrences.filter(
-    (o) => o.date >= rangeStart && o.date < rangeEnd,
+    (o) => o.date >= rangeStart && o.date < rangeEnd && !hidden.has(IMPORTED_KEY),
   );
+
 
   const monthlyIncome = useMemo(() => {
     const recurring = inRange.reduce((sum, o) => {
