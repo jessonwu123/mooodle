@@ -7,7 +7,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { registerParentAccount } from "@/lib/self-register.functions";
 import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -60,8 +71,13 @@ function Index() {
   // teacher form
   const [tAcct, setTAcct] = useState("");
   const [tPwd, setTPwd] = useState("");
-  const [tMode, setTMode] = useState<"signin" | "signup">("signin");
   const [tBusy, setTBusy] = useState(false);
+  // register dialog
+  const [regOpen, setRegOpen] = useState(false);
+  const [regRole, setRegRole] = useState<"parent" | "teacher">("parent");
+  const [regUser, setRegUser] = useState("");
+  const [regPwd, setRegPwd] = useState("");
+  const [regBusy, setRegBusy] = useState(false);
 
   const handleStudentLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,28 +110,52 @@ function Index() {
     setTBusy(true);
     const trimmed = tAcct.trim();
     const email = trimmed.includes("@") ? trimmed : `${trimmed.toLowerCase()}@teacher.local`;
-    if (tMode === "signup") {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password: tPwd,
-        options: { emailRedirectTo: `${window.location.origin}/admin` },
-      });
-      if (error) {
-        toast.error(error.message);
-        setTBusy(false);
-        return;
-      }
-      toast.success("注册成功，正在登录...");
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password: tPwd });
-      if (error) {
-        toast.error("账号或密码错误");
-        setTBusy(false);
-        return;
-      }
-    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password: tPwd });
     setTBusy(false);
+    if (error) toast.error("账号或密码错误");
   };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const username = regUser.trim();
+    if (!username || regPwd.length < 6) {
+      toast.error("请填写用户名，密码至少 6 位");
+      return;
+    }
+    setRegBusy(true);
+    try {
+      if (regRole === "teacher") {
+        const email = username.includes("@")
+          ? username
+          : `${username.toLowerCase()}@teacher.local`;
+        const { error } = await supabase.auth.signUp({
+          email,
+          password: regPwd,
+          options: { emailRedirectTo: `${window.location.origin}/admin` },
+        });
+        if (error) throw new Error(error.message);
+        await supabase.auth.signInWithPassword({ email, password: regPwd });
+      } else {
+        const res = await registerParentAccount({
+          data: { username, password: regPwd },
+        });
+        const { error } = await supabase.auth.signInWithPassword({
+          email: res.email,
+          password: regPwd,
+        });
+        if (error) throw new Error(error.message);
+      }
+      setRegOpen(false);
+      setRegUser("");
+      setRegPwd("");
+      toast.success("注册成功，正在登录...");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "注册失败");
+    } finally {
+      setRegBusy(false);
+    }
+  };
+
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--gradient-soft)]">
@@ -178,9 +218,21 @@ function Index() {
                 >
                   {sBusy ? "登录中..." : "登录"}
                 </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setRegRole("parent");
+                    setRegOpen(true);
+                  }}
+                  className="h-11 w-full"
+                >
+                  注册
+                </Button>
                 <p className="text-center text-xs text-muted-foreground">
-                  账号由老师创建，初始密码为 000000
+                  老师创建的账号初始密码为 000000；自行注册的家长账号为独立账号
                 </p>
+
               </form>
             </TabsContent>
 
@@ -214,20 +266,85 @@ function Index() {
                   disabled={tBusy || !tAcct.trim() || !tPwd}
                   className="h-11 w-full bg-green-500 text-primary-foreground shadow-[var(--shadow-soft)] hover:bg-green-600"
                 >
-                  {tBusy ? "处理中..." : tMode === "signin" ? "登录" : "注册并登录"}
+                  {tBusy ? "处理中..." : "登录"}
                 </Button>
-                <button
+                <Button
                   type="button"
-                  onClick={() => setTMode(tMode === "signin" ? "signup" : "signin")}
-                  className="block w-full text-center text-xs text-muted-foreground hover:text-foreground"
+                  variant="outline"
+                  onClick={() => {
+                    setRegRole("teacher");
+                    setRegOpen(true);
+                  }}
+                  className="h-11 w-full"
                 >
-                  {tMode === "signin" ? "首次使用？注册教师账号" : "已有账号？前往登录"}
-                </button>
+                  注册
+                </Button>
               </form>
             </TabsContent>
           </Tabs>
         </div>
       </main>
+
+      <Dialog open={regOpen} onOpenChange={setRegOpen}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>注册账号</DialogTitle>
+            <DialogDescription>
+              自行创建的家长账号为独立账号，不与任何教师账号关联；如需关联请联系管理员。
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div className="space-y-2">
+              <Label>账号类型</Label>
+              <RadioGroup
+                value={regRole}
+                onValueChange={(v) => setRegRole(v as "parent" | "teacher")}
+                className="flex gap-4"
+              >
+                <label className="flex items-center gap-2 text-sm">
+                  <RadioGroupItem value="parent" id="reg-parent" />
+                  家长
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <RadioGroupItem value="teacher" id="reg-teacher" />
+                  教师
+                </label>
+              </RadioGroup>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="reg-user">用户名</Label>
+              <Input
+                id="reg-user"
+                value={regUser}
+                onChange={(e) => setRegUser(e.target.value)}
+                placeholder="请输入用户名"
+                maxLength={50}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="reg-pwd">密码</Label>
+              <Input
+                id="reg-pwd"
+                type="password"
+                minLength={6}
+                value={regPwd}
+                onChange={(e) => setRegPwd(e.target.value)}
+                placeholder="至少 6 位"
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="submit"
+                disabled={regBusy || !regUser.trim() || regPwd.length < 6}
+                className="h-11 w-full bg-green-500 text-primary-foreground hover:bg-green-600"
+              >
+                {regBusy ? "注册中..." : "注册并登录"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
