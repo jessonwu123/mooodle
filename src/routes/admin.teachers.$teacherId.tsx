@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, ChevronRight, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TeacherScheduleView } from "@/components/teacher-schedule-view";
 
 export const Route = createFileRoute("/admin/teachers/$teacherId")({
   component: TeacherStudentsPage,
@@ -65,6 +67,18 @@ function TeacherStudentsPage() {
         </p>
       </div>
 
+      <Tabs defaultValue="students">
+        <TabsList className="mb-4">
+          <TabsTrigger value="students">学生档案</TabsTrigger>
+          <TabsTrigger value="schedule">课程表</TabsTrigger>
+        </TabsList>
+        <TabsContent value="schedule">
+          <TeacherScheduleView
+            teacherId={teacherId}
+            teacherLabel={teacherEmail || "该老师"}
+          />
+        </TabsContent>
+        <TabsContent value="students">
       {loading ? (
         <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
           加载中...
@@ -101,6 +115,8 @@ function TeacherStudentsPage() {
           ))}
         </div>
       )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
