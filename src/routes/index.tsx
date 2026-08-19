@@ -254,20 +254,85 @@ function Index() {
                   disabled={tBusy || !tAcct.trim() || !tPwd}
                   className="h-11 w-full bg-green-500 text-primary-foreground shadow-[var(--shadow-soft)] hover:bg-green-600"
                 >
-                  {tBusy ? "处理中..." : tMode === "signin" ? "登录" : "注册并登录"}
+                  {tBusy ? "处理中..." : "登录"}
                 </Button>
-                <button
+                <Button
                   type="button"
-                  onClick={() => setTMode(tMode === "signin" ? "signup" : "signin")}
-                  className="block w-full text-center text-xs text-muted-foreground hover:text-foreground"
+                  variant="outline"
+                  onClick={() => {
+                    setRegRole("teacher");
+                    setRegOpen(true);
+                  }}
+                  className="h-11 w-full"
                 >
-                  {tMode === "signin" ? "首次使用？注册教师账号" : "已有账号？前往登录"}
-                </button>
+                  注册
+                </Button>
               </form>
             </TabsContent>
           </Tabs>
         </div>
       </main>
+
+      <Dialog open={regOpen} onOpenChange={setRegOpen}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>注册账号</DialogTitle>
+            <DialogDescription>
+              自行创建的家长账号为独立账号，不与任何教师账号关联；如需关联请联系管理员。
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div className="space-y-2">
+              <Label>账号类型</Label>
+              <RadioGroup
+                value={regRole}
+                onValueChange={(v) => setRegRole(v as "parent" | "teacher")}
+                className="flex gap-4"
+              >
+                <label className="flex items-center gap-2 text-sm">
+                  <RadioGroupItem value="parent" id="reg-parent" />
+                  家长
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <RadioGroupItem value="teacher" id="reg-teacher" />
+                  教师
+                </label>
+              </RadioGroup>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="reg-user">用户名</Label>
+              <Input
+                id="reg-user"
+                value={regUser}
+                onChange={(e) => setRegUser(e.target.value)}
+                placeholder="请输入用户名"
+                maxLength={50}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="reg-pwd">密码</Label>
+              <Input
+                id="reg-pwd"
+                type="password"
+                minLength={6}
+                value={regPwd}
+                onChange={(e) => setRegPwd(e.target.value)}
+                placeholder="至少 6 位"
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="submit"
+                disabled={regBusy || !regUser.trim() || regPwd.length < 6}
+                className="h-11 w-full bg-green-500 text-primary-foreground hover:bg-green-600"
+              >
+                {regBusy ? "注册中..." : "注册并登录"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
