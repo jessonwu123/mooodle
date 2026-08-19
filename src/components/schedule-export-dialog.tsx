@@ -279,6 +279,49 @@ export function ScheduleExportDialog({
               </Button>
             ))}
           </div>
+          {groups.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>包含的学生 / 课表</Label>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setExcluded(new Set())}
+                  >
+                    全选
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setExcluded(new Set(groups.map((g) => g.key)))}
+                  >
+                    全不选
+                  </Button>
+                </div>
+              </div>
+              <div className="max-h-44 space-y-1.5 overflow-y-auto rounded-md border p-2">
+                {groups.map((g) => (
+                  <label
+                    key={g.key}
+                    className="flex cursor-pointer items-center gap-2 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-primary"
+                      checked={!excluded.has(g.key)}
+                      onChange={() => toggleGroup(g.key)}
+                    />
+                    <span className="truncate">{g.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
           <p className="text-xs text-muted-foreground">
             表格每一行代表一周（周日至周六），当前范围共 {weeks.length} 周、
             {lessonCount} 节课。点击导出将直接下载 PDF 文件。
