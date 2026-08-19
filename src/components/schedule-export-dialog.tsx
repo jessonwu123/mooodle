@@ -66,6 +66,29 @@ export function ScheduleExportDialog({
     if (open && defaultEnd) setEnd(defaultEnd);
   }, [open, defaultStart, defaultEnd]);
 
+  const groups = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const e of entries) {
+      const key = e.groupKey ?? e.title;
+      if (!map.has(key)) map.set(key, e.groupLabel ?? e.title);
+    }
+    return [...map.entries()].map(([key, label]) => ({ key, label }));
+  }, [entries]);
+
+  const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  const toggleGroup = (key: string) =>
+    setExcluded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  const visibleEntries = useMemo(
+    () => entries.filter((e) => !excluded.has(e.groupKey ?? e.title)),
+    [entries, excluded],
+  );
+
   const weeks = useMemo(() => {
     const s = startOfWeek(parseISO(start));
     const e = parseISO(end);
@@ -79,7 +102,7 @@ export function ScheduleExportDialog({
         d.setDate(cur.getDate() + i);
         return {
           date: d,
-          items: entries
+          items: visibleEntries
             .filter(
               (x) =>
                 x.date.getFullYear() === d.getFullYear() &&
@@ -95,7 +118,7 @@ export function ScheduleExportDialog({
       cur = next;
     }
     return out;
-  }, [entries, start, end]);
+  }, [visibleEntries, start, end]);
 
   const lessonCount = weeks.reduce(
     (n, w) => n + w.days.reduce((m, d) => m + d.items.length, 0),
