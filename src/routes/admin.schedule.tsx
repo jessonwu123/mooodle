@@ -591,7 +591,7 @@ function SchedulePage() {
           </Button>
           <XngjSyncButton onDone={load} />
           <ScheduleExportDialog
-            entries={filteredExportEntries}
+            entries={exportEntries}
             defaultStart={toISODate(rangeStart)}
             defaultEnd={toISODate(new Date(rangeEnd.getTime() - 86400000))}
           />
