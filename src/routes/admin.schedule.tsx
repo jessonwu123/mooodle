@@ -102,7 +102,11 @@ interface ParsedRow {
 }
 
 
+const IMPORTED_KEY = "__imported__";
+const OTHER_KEY = "__other__";
+
 function startOfWeek(d: Date) {
+
   const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   x.setDate(x.getDate() - x.getDay());
   return x;
