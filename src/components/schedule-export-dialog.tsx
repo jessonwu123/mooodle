@@ -125,6 +125,23 @@ export function ScheduleExportDialog({
     0,
   );
 
+  const totalHours = useMemo(() => {
+    let sum = 0;
+    for (const w of weeks) {
+      for (const d of w.days) {
+        for (const it of d.items) {
+          const m = it.timeLabel.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
+          if (!m) continue;
+          const mins =
+            Number(m[3]) * 60 + Number(m[4]) - Number(m[1]) * 60 - Number(m[2]);
+          if (mins > 0) sum += mins / 60;
+        }
+      }
+    }
+    return Math.round(sum * 100) / 100;
+  }, [weeks]);
+
+
   const [busy, setBusy] = useState(false);
 
   const pageHtml = (
@@ -154,7 +171,7 @@ export function ScheduleExportDialog({
       .join("");
     return `<div style="width:1080px;padding:24px;background:#fff;color:#111;box-sizing:border-box;font-family:'PingFang SC','Microsoft YaHei','Heiti SC',sans-serif;">
       <div style="font-size:18px;font-weight:700;margin-bottom:4px;">${esc(title)}</div>
-      <div style="font-size:12px;color:#666;margin-bottom:10px;">共 ${weeks.length} 周 / ${lessonCount} 节课 · 第 ${pageNo}/${pageTotal} 页</div>
+      <div style="font-size:12px;color:#666;margin-bottom:10px;">共 ${weeks.length} 周 / ${lessonCount} 节课 / ${totalHours} 小时 · 第 ${pageNo}/${pageTotal} 页</div>
       <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
         <thead><tr>
           <th style="border:1px solid #999;width:58px;background:#f2f2f2;font-size:12px;padding:4px;">周次</th>
@@ -324,7 +341,7 @@ export function ScheduleExportDialog({
           )}
           <p className="text-xs text-muted-foreground">
             表格每一行代表一周（周日至周六），当前范围共 {weeks.length} 周、
-            {lessonCount} 节课。点击导出将直接下载 PDF 文件。
+            {lessonCount} 节课、{totalHours} 小时。点击导出将直接下载 PDF 文件。
           </p>
         </div>
         <DialogFooter>
