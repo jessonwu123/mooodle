@@ -364,7 +364,13 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
                 <div className="mb-1 text-xs font-medium">{d.getDate()}</div>
                 <div className="space-y-1">
                   {dayItems.map((it) => {
-                    const timeStr = fmtTime(it.date);
+                    const endStr =
+                      it.kind === "recurring"
+                        ? it.slot.end_time
+                          ? it.slot.end_time.slice(0, 5)
+                          : ""
+                        : fmtTime(it.end);
+                    const timeStr = `${fmtTime(it.date)}${endStr ? `-${endStr}` : ""}`;
                     const isSelf = it.kind === "single" && it.isSelfCreated;
                     const cls =
                       it.kind === "recurring"
@@ -377,13 +383,15 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
                         key={it.key}
                         type="button"
                         onClick={() => setDetail(it)}
-                        className={`block w-full truncate rounded-md px-1.5 py-1 text-left text-[11px] ${cls}`}
+                        className={`block w-full rounded-md px-1.5 py-1 text-left text-[11px] ${cls}`}
                         title={`${it.title} ${timeStr}`}
                       >
-                        <span className="font-medium">{timeStr}</span> {it.title}
+                        <div className="font-medium whitespace-nowrap">{timeStr}</div>
+                        <div className="truncate">{it.title}</div>
                       </button>
                     );
                   })}
+
                 </div>
               </div>
             );
