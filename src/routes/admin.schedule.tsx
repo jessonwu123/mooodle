@@ -371,36 +371,39 @@ function SchedulePage() {
     return Math.round(sum * 100) / 100;
   }, [inRange, singleInRange, importedInRange]);
 
-  const filteredExportEntries: ExportEntry[] = useMemo(() => {
+  const exportEntries: ExportEntry[] = useMemo(() => {
     const fmt = (d: Date) =>
       `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
     const out: ExportEntry[] = [];
     for (const o of occurrences) {
-      if (hidden.has(o.student.id)) continue;
       out.push({
         date: o.date,
         timeLabel: `${o.slot.start_time.slice(0, 5)}${o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}`,
         title: o.student.name,
+        groupKey: o.student.id,
+        groupLabel: o.student.name,
       });
     }
     for (const o of singleOccurrences) {
-      if (hidden.has(o.row.student_id ?? OTHER_KEY)) continue;
       out.push({
         date: o.date,
         timeLabel: `${fmt(o.date)}-${fmt(o.end)}`,
         title: o.row.class_name ?? o.studentName ?? "单次课",
+        groupKey: o.row.student_id ?? OTHER_KEY,
+        groupLabel: o.studentName ?? "其他单次课",
       });
     }
     for (const o of importedOccurrences) {
-      if (hidden.has(IMPORTED_KEY)) continue;
       out.push({
         date: o.date,
         timeLabel: `${o.start}-${o.end}`,
         title: o.className,
+        groupKey: IMPORTED_KEY,
+        groupLabel: "导入课表",
       });
     }
     return out;
-  }, [occurrences, singleOccurrences, importedOccurrences, hidden]);
+  }, [occurrences, singleOccurrences, importedOccurrences]);
 
   function toISODate(d: Date) {
     const p = (n: number) => String(n).padStart(2, "0");
@@ -588,7 +591,7 @@ function SchedulePage() {
           </Button>
           <XngjSyncButton onDone={load} />
           <ScheduleExportDialog
-            entries={filteredExportEntries}
+            entries={exportEntries}
             defaultStart={toISODate(rangeStart)}
             defaultEnd={toISODate(new Date(rangeEnd.getTime() - 86400000))}
           />

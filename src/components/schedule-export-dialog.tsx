@@ -17,6 +17,9 @@ export interface ExportEntry {
   date: Date;
   timeLabel: string;
   title: string;
+  /** Optional grouping key used by the in-dialog student filter. */
+  groupKey?: string;
+  groupLabel?: string;
 }
 
 const WEEKDAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
@@ -63,6 +66,29 @@ export function ScheduleExportDialog({
     if (open && defaultEnd) setEnd(defaultEnd);
   }, [open, defaultStart, defaultEnd]);
 
+  const groups = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const e of entries) {
+      const key = e.groupKey ?? e.title;
+      if (!map.has(key)) map.set(key, e.groupLabel ?? e.title);
+    }
+    return [...map.entries()].map(([key, label]) => ({ key, label }));
+  }, [entries]);
+
+  const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  const toggleGroup = (key: string) =>
+    setExcluded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  const visibleEntries = useMemo(
+    () => entries.filter((e) => !excluded.has(e.groupKey ?? e.title)),
+    [entries, excluded],
+  );
+
   const weeks = useMemo(() => {
     const s = startOfWeek(parseISO(start));
     const e = parseISO(end);
@@ -76,7 +102,7 @@ export function ScheduleExportDialog({
         d.setDate(cur.getDate() + i);
         return {
           date: d,
-          items: entries
+          items: visibleEntries
             .filter(
               (x) =>
                 x.date.getFullYear() === d.getFullYear() &&
@@ -92,7 +118,7 @@ export function ScheduleExportDialog({
       cur = next;
     }
     return out;
-  }, [entries, start, end]);
+  }, [visibleEntries, start, end]);
 
   const lessonCount = weeks.reduce(
     (n, w) => n + w.days.reduce((m, d) => m + d.items.length, 0),
@@ -253,6 +279,49 @@ export function ScheduleExportDialog({
               </Button>
             ))}
           </div>
+          {groups.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>包含的学生 / 课表</Label>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setExcluded(new Set())}
+                  >
+                    全选
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setExcluded(new Set(groups.map((g) => g.key)))}
+                  >
+                    全不选
+                  </Button>
+                </div>
+              </div>
+              <div className="max-h-44 space-y-1.5 overflow-y-auto rounded-md border p-2">
+                {groups.map((g) => (
+                  <label
+                    key={g.key}
+                    className="flex cursor-pointer items-center gap-2 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-primary"
+                      checked={!excluded.has(g.key)}
+                      onChange={() => toggleGroup(g.key)}
+                    />
+                    <span className="truncate">{g.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
           <p className="text-xs text-muted-foreground">
             表格每一行代表一周（周日至周六），当前范围共 {weeks.length} 周、
             {lessonCount} 节课。点击导出将直接下载 PDF 文件。
