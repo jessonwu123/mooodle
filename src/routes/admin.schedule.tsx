@@ -371,11 +371,12 @@ function SchedulePage() {
     return Math.round(sum * 100) / 100;
   }, [inRange, singleInRange, importedInRange]);
 
-  const exportEntries: ExportEntry[] = useMemo(() => {
+  const filteredExportEntries: ExportEntry[] = useMemo(() => {
     const fmt = (d: Date) =>
       `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
     const out: ExportEntry[] = [];
     for (const o of occurrences) {
+      if (hidden.has(o.student.id)) continue;
       out.push({
         date: o.date,
         timeLabel: `${o.slot.start_time.slice(0, 5)}${o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}`,
@@ -383,6 +384,7 @@ function SchedulePage() {
       });
     }
     for (const o of singleOccurrences) {
+      if (hidden.has(o.row.student_id ?? OTHER_KEY)) continue;
       out.push({
         date: o.date,
         timeLabel: `${fmt(o.date)}-${fmt(o.end)}`,
@@ -390,6 +392,7 @@ function SchedulePage() {
       });
     }
     for (const o of importedOccurrences) {
+      if (hidden.has(IMPORTED_KEY)) continue;
       out.push({
         date: o.date,
         timeLabel: `${o.start}-${o.end}`,
@@ -397,7 +400,12 @@ function SchedulePage() {
       });
     }
     return out;
-  }, [occurrences, singleOccurrences, importedOccurrences]);
+  }, [occurrences, singleOccurrences, importedOccurrences, hidden]);
+
+  function toISODate(d: Date) {
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
 
   const shift = (dir: -1 | 1) => {
     const d = new Date(anchor);
