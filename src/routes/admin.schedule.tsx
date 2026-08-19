@@ -733,35 +733,35 @@ function SchedulePage() {
                   {dayItems.map((item, j) => {
                     if (item.kind === "r") {
                       const o = item.o;
+                      const time = `${o.slot.start_time?.slice(0, 5) ?? ""}${o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}`;
                       return (
                         <button
                           key={`r-${j}`}
                           type="button"
                           onClick={() => setDetailFor(o)}
-                          className="block w-full truncate rounded-md bg-primary/10 px-1.5 py-1 text-left text-[11px] text-primary hover:bg-primary/20"
-                          title={`${o.student.name} ${o.slot.start_time?.slice(0, 5) ?? ""}${o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}`}
+                          className="block w-full rounded-md bg-primary/10 px-1.5 py-1 text-left text-[11px] text-primary hover:bg-primary/20"
+                          title={`${o.student.name} ${time}`}
                         >
-                          <span className="font-medium">
-                            {o.slot.start_time?.slice(0, 5)}
-                          </span>{" "}
-                          {o.student.name}
+                          <div className="font-medium whitespace-nowrap">{time}</div>
+                          <div className="truncate">{o.student.name}</div>
                         </button>
                       );
                     }
                     if (item.kind === "s") {
                       const o = item.o;
+                      const time = `${o.row.start_time.slice(0, 5)}-${o.row.end_time.slice(0, 5)}`;
                       return (
                         <button
                           key={`s-${o.row.id}`}
                           type="button"
                           onClick={() => setDetailFor(o)}
-                          className="block w-full truncate rounded-md bg-sky-100 px-1.5 py-1 text-left text-[11px] text-sky-800 hover:bg-sky-200"
-                          title={`${o.studentName ?? o.row.class_name ?? ""} ${o.row.start_time.slice(0, 5)}-${o.row.end_time.slice(0, 5)}`}
+                          className="block w-full rounded-md bg-sky-100 px-1.5 py-1 text-left text-[11px] text-sky-800 hover:bg-sky-200"
+                          title={`${o.studentName ?? o.row.class_name ?? ""} ${time}`}
                         >
-                          <span className="font-medium">
-                            {o.row.start_time.slice(0, 5)}
-                          </span>{" "}
-                          {o.studentName ?? o.row.class_name}
+                          <div className="font-medium whitespace-nowrap">{time}</div>
+                          <div className="truncate">
+                            {o.studentName ?? o.row.class_name}
+                          </div>
                         </button>
                       );
                     }
@@ -771,13 +771,17 @@ function SchedulePage() {
                         key={`i-${o.id}`}
                         type="button"
                         onClick={() => setDetailFor(o)}
-                        className="block w-full truncate rounded-md bg-amber-100 px-1.5 py-1 text-left text-[11px] text-amber-800 hover:bg-amber-200"
+                        className="block w-full rounded-md bg-amber-100 px-1.5 py-1 text-left text-[11px] text-amber-800 hover:bg-amber-200"
                         title={`${o.className} ${o.start}-${o.end}`}
                       >
-                        <span className="font-medium">{o.start}</span> {o.className}
+                        <div className="font-medium whitespace-nowrap">
+                          {o.start}-{o.end}
+                        </div>
+                        <div className="truncate">{o.className}</div>
                       </button>
                     );
                   })}
+
                 </div>
 
               </div>
