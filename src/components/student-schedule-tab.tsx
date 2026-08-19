@@ -476,38 +476,35 @@ export function StudentScheduleTab({ studentId }: Props) {
                 <div className="mb-1 text-xs font-medium">{d.getDate()}</div>
                 <div className="space-y-1">
                   {dayItems.map((it) => {
-                    const timeStr = it.date.toLocaleTimeString("zh-CN", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      hour12: false,
-                    });
-                    if (it.kind === "single-self") {
-                      return (
-                        <button
-                          key={it.key}
-                          type="button"
-                          onClick={() => openEdit(it.row)}
-                          className="block w-full truncate rounded-md bg-sky-100 px-1.5 py-1 text-left text-[11px] text-sky-800 hover:bg-sky-200"
-                          title={`${it.title} ${timeStr}`}
-                        >
-                          <span className="font-medium">{timeStr}</span>{" "}
-                          {it.title}
-                        </button>
-                      );
-                    }
+                    const hm = (d: Date) =>
+                      d.toLocaleTimeString("zh-CN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: false,
+                      });
+                    const timeStr = `${hm(it.date)}${it.end ? "-" + hm(it.end) : ""}`;
+                    const cls =
+                      it.kind === "single-self"
+                        ? "bg-sky-100 text-sky-800 hover:bg-sky-200"
+                        : "bg-primary/10 text-primary hover:bg-primary/20";
                     return (
                       <button
                         key={it.key}
                         type="button"
-                        onClick={() => openDetail(it)}
-                        className="block w-full truncate rounded-md bg-primary/10 px-1.5 py-1 text-left text-[11px] text-primary hover:bg-primary/20"
+                        onClick={() =>
+                          it.kind === "single-self"
+                            ? openEdit(it.row)
+                            : openDetail(it)
+                        }
+                        className={`block w-full rounded-md px-1.5 py-1 text-left text-[11px] ${cls}`}
                         title={`${it.title} ${timeStr}`}
                       >
-                        <span className="font-medium">{timeStr}</span>{" "}
-                        {it.title}
+                        <div className="font-medium whitespace-nowrap">{timeStr}</div>
+                        <div className="truncate">{it.title}</div>
                       </button>
                     );
                   })}
+
                 </div>
               </div>
             );
