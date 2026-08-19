@@ -17,6 +17,9 @@ export interface ExportEntry {
   date: Date;
   timeLabel: string;
   title: string;
+  /** Optional grouping key used by the in-dialog student filter. */
+  groupKey?: string;
+  groupLabel?: string;
 }
 
 const WEEKDAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
