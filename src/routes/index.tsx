@@ -71,8 +71,13 @@ function Index() {
   // teacher form
   const [tAcct, setTAcct] = useState("");
   const [tPwd, setTPwd] = useState("");
-  const [tMode, setTMode] = useState<"signin" | "signup">("signin");
   const [tBusy, setTBusy] = useState(false);
+  // register dialog
+  const [regOpen, setRegOpen] = useState(false);
+  const [regRole, setRegRole] = useState<"parent" | "teacher">("parent");
+  const [regUser, setRegUser] = useState("");
+  const [regPwd, setRegPwd] = useState("");
+  const [regBusy, setRegBusy] = useState(false);
 
   const handleStudentLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,28 +110,52 @@ function Index() {
     setTBusy(true);
     const trimmed = tAcct.trim();
     const email = trimmed.includes("@") ? trimmed : `${trimmed.toLowerCase()}@teacher.local`;
-    if (tMode === "signup") {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password: tPwd,
-        options: { emailRedirectTo: `${window.location.origin}/admin` },
-      });
-      if (error) {
-        toast.error(error.message);
-        setTBusy(false);
-        return;
-      }
-      toast.success("注册成功，正在登录...");
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password: tPwd });
-      if (error) {
-        toast.error("账号或密码错误");
-        setTBusy(false);
-        return;
-      }
-    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password: tPwd });
     setTBusy(false);
+    if (error) toast.error("账号或密码错误");
   };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const username = regUser.trim();
+    if (!username || regPwd.length < 6) {
+      toast.error("请填写用户名，密码至少 6 位");
+      return;
+    }
+    setRegBusy(true);
+    try {
+      if (regRole === "teacher") {
+        const email = username.includes("@")
+          ? username
+          : `${username.toLowerCase()}@teacher.local`;
+        const { error } = await supabase.auth.signUp({
+          email,
+          password: regPwd,
+          options: { emailRedirectTo: `${window.location.origin}/admin` },
+        });
+        if (error) throw new Error(error.message);
+        await supabase.auth.signInWithPassword({ email, password: regPwd });
+      } else {
+        const res = await registerParentAccount({
+          data: { username, password: regPwd },
+        });
+        const { error } = await supabase.auth.signInWithPassword({
+          email: res.email,
+          password: regPwd,
+        });
+        if (error) throw new Error(error.message);
+      }
+      setRegOpen(false);
+      setRegUser("");
+      setRegPwd("");
+      toast.success("注册成功，正在登录...");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "注册失败");
+    } finally {
+      setRegBusy(false);
+    }
+  };
+
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--gradient-soft)]">
