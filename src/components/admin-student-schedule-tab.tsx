@@ -279,6 +279,25 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
     return Math.round(sum * 100) / 100;
   }, [items, course]);
 
+  const exportEntries: ExportEntry[] = useMemo(
+    () =>
+      items.map((it) => {
+        const endStr =
+          it.kind === "recurring"
+            ? it.slot.end_time
+              ? it.slot.end_time.slice(0, 5)
+              : ""
+            : fmtTime(it.end);
+        return {
+          date: it.date,
+          timeLabel: `${fmtTime(it.date)}${endStr ? `-${endStr}` : ""}`,
+          title: it.title,
+        };
+      }),
+    [items],
+  );
+
+
   const days: Date[] = [];
   if (view === "week") {
     for (let i = 0; i < 7; i++) {
