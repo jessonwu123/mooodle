@@ -218,9 +218,21 @@ function Index() {
                 >
                   {sBusy ? "登录中..." : "登录"}
                 </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setRegRole("parent");
+                    setRegOpen(true);
+                  }}
+                  className="h-11 w-full"
+                >
+                  注册
+                </Button>
                 <p className="text-center text-xs text-muted-foreground">
-                  账号由老师创建，初始密码为 000000
+                  老师创建的账号初始密码为 000000；自行注册的家长账号为独立账号
                 </p>
+
               </form>
             </TabsContent>
 
