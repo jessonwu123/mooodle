@@ -314,12 +314,14 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <ScheduleExportDialog entries={exportEntries} />
           <Tabs value={view} onValueChange={(v) => setView(v as "week" | "month")}>
             <TabsList>
               <TabsTrigger value="week">周视图</TabsTrigger>
               <TabsTrigger value="month">月视图</TabsTrigger>
             </TabsList>
           </Tabs>
+
           <Button variant="outline" size="icon" onClick={() => shift(-1)}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
