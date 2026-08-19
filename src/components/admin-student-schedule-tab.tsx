@@ -17,6 +17,11 @@ import {
 } from "lucide-react";
 import { LessonRatingDialog } from "@/components/lesson-rating-dialog";
 import {
+  ScheduleExportDialog,
+  type ExportEntry,
+} from "@/components/schedule-export-dialog";
+
+import {
   type CourseInfo,
   type ScheduleSlot,
   generateLessonOccurrences,
