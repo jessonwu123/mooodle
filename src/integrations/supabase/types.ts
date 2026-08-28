@@ -1009,23 +1009,29 @@ export type Database = {
       }
       teacher_org_rates: {
         Row: {
+          base_salary: number
           created_at: string
           group_rate: number
           one_on_one_rate: number
+          package_hours: number
           updated_at: string
           user_id: string
         }
         Insert: {
+          base_salary?: number
           created_at?: string
           group_rate?: number
           one_on_one_rate?: number
+          package_hours?: number
           updated_at?: string
           user_id: string
         }
         Update: {
+          base_salary?: number
           created_at?: string
           group_rate?: number
           one_on_one_rate?: number
+          package_hours?: number
           updated_at?: string
           user_id?: string
         }
