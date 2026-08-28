@@ -590,7 +590,7 @@ function SchedulePage() {
         返回学生列表
       </Link>
 
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CalendarDays className="h-4 w-4" />
@@ -613,133 +613,137 @@ function SchedulePage() {
             <span className="font-semibold text-foreground">¥{importedIncome}</span>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            onClick={() => {
-              setEditingLesson(null);
-              setEditorOpen(true);
-            }}
-            className="gap-1.5"
-          >
-            <CalendarPlus className="h-4 w-4" />
-            增加课次
-          </Button>
-          <XngjSyncButton onDone={load} />
-          <OrgRateButton
-            userId={session?.user.id}
-            rates={orgRates}
-            onSaved={setOrgRates}
-          />
-          <ScheduleExportDialog
-            entries={exportEntries}
-            defaultStart={toISODate(rangeStart)}
-            defaultEnd={toISODate(new Date(rangeEnd.getTime() - 86400000))}
-          />
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <Filter className="h-4 w-4" />
-                筛选
-                {hidden.size > 0 && (
-                  <span className="rounded bg-primary/10 px-1 text-[10px] text-primary">
-                    已筛选
-                  </span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-64 p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm font-medium">显示内容</span>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => setHidden(new Set())}
-                  >
-                    全选
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={() =>
-                      setHidden(
-                        new Set([
-                          ...students.map((s) => s.id),
-                          OTHER_KEY,
-                          IMPORTED_KEY,
-                        ]),
-                      )
-                    }
-                  >
-                    清空
-                  </Button>
-                </div>
-              </div>
-              <div className="max-h-72 space-y-1.5 overflow-y-auto">
-                {[
-                  ...students.map((s) => ({ key: s.id, label: s.name })),
-                  { key: OTHER_KEY, label: "未关联学生的单次课" },
-                  { key: IMPORTED_KEY, label: "导入的课表" },
-                ].map((opt) => (
-                  <label
-                    key={opt.key}
-                    className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted/60"
-                  >
-                    <Checkbox
-                      checked={!hidden.has(opt.key)}
-                      onCheckedChange={(v) =>
-                        setHidden((prev) => {
-                          const next = new Set(prev);
-                          if (v) next.delete(opt.key);
-                          else next.add(opt.key);
-                          return next;
-                        })
-                      }
-                    />
-                    <span className="truncate">{opt.label}</span>
-                  </label>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setImportOpen(true)}
-            className="gap-1.5"
-          >
-            <Upload className="h-4 w-4" />
-            导入课表
-          </Button>
-          {imported.length > 0 && (
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
-              variant="ghost"
               size="sm"
-              onClick={handleClearImport}
-              className="text-muted-foreground hover:text-destructive"
+              onClick={() => {
+                setEditingLesson(null);
+                setEditorOpen(true);
+              }}
+              className="gap-1.5"
             >
-              清空导入
+              <CalendarPlus className="h-4 w-4" />
+              增加课次
             </Button>
-          )}
-          <Tabs value={view} onValueChange={(v) => setView(v as "week" | "month")}>
-            <TabsList>
-              <TabsTrigger value="week">周视图</TabsTrigger>
-              <TabsTrigger value="month">月视图</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <Button variant="outline" size="icon" onClick={() => shift(-1)}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setAnchor(new Date())}>
-            今天
-          </Button>
-          <Button variant="outline" size="icon" onClick={() => shift(1)}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+            <XngjSyncButton onDone={load} />
+            <OrgRateButton
+              userId={session?.user.id}
+              rates={orgRates}
+              onSaved={setOrgRates}
+            />
+            <ScheduleExportDialog
+              entries={exportEntries}
+              defaultStart={toISODate(rangeStart)}
+              defaultEnd={toISODate(new Date(rangeEnd.getTime() - 86400000))}
+            />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <Filter className="h-4 w-4" />
+                  筛选
+                  {hidden.size > 0 && (
+                    <span className="rounded bg-primary/10 px-1 text-[10px] text-primary">
+                      已筛选
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-64 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-sm font-medium">显示内容</span>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setHidden(new Set())}
+                    >
+                      全选
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() =>
+                        setHidden(
+                          new Set([
+                            ...students.map((s) => s.id),
+                            OTHER_KEY,
+                            IMPORTED_KEY,
+                          ]),
+                        )
+                      }
+                    >
+                      清空
+                    </Button>
+                  </div>
+                </div>
+                <div className="max-h-72 space-y-1.5 overflow-y-auto">
+                  {[
+                    ...students.map((s) => ({ key: s.id, label: s.name })),
+                    { key: OTHER_KEY, label: "未关联学生的单次课" },
+                    { key: IMPORTED_KEY, label: "导入的课表" },
+                  ].map((opt) => (
+                    <label
+                      key={opt.key}
+                      className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-muted/60"
+                    >
+                      <Checkbox
+                        checked={!hidden.has(opt.key)}
+                        onCheckedChange={(v) =>
+                          setHidden((prev) => {
+                            const next = new Set(prev);
+                            if (v) next.delete(opt.key);
+                            else next.add(opt.key);
+                            return next;
+                          })
+                        }
+                      />
+                      <span className="truncate">{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setImportOpen(true)}
+              className="gap-1.5"
+            >
+              <Upload className="h-4 w-4" />
+              导入课表
+            </Button>
+            {imported.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClearImport}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                清空导入
+              </Button>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Tabs value={view} onValueChange={(v) => setView(v as "week" | "month")}>
+              <TabsList>
+                <TabsTrigger value="week">周视图</TabsTrigger>
+                <TabsTrigger value="month">月视图</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Button variant="outline" size="icon" onClick={() => shift(-1)}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setAnchor(new Date())}>
+              今天
+            </Button>
+            <Button variant="outline" size="icon" onClick={() => shift(1)}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
