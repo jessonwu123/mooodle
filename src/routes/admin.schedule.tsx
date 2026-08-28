@@ -204,6 +204,24 @@ function SchedulePage() {
   const [view, setView] = useState<"week" | "month">("week");
   const [anchor, setAnchor] = useState(new Date());
   const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [orgRates, setOrgRates] = useState<OrgRates>(DEFAULT_ORG_RATES);
+
+  useEffect(() => {
+    if (!session?.user.id) return;
+    (async () => {
+      const { data } = await supabase
+        .from("teacher_org_rates")
+        .select("group_rate, one_on_one_rate")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+      if (data) {
+        setOrgRates({
+          group_rate: Number(data.group_rate) || 0,
+          one_on_one_rate: Number(data.one_on_one_rate) || 0,
+        });
+      }
+    })();
+  }, [session?.user.id]);
 
 
 
