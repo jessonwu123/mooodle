@@ -45,6 +45,12 @@ import {
 } from "@/components/lesson-editor-dialog";
 import { XngjSyncButton } from "@/components/xngj-sync-dialog";
 import {
+  OrgRateButton,
+  DEFAULT_ORG_RATES,
+  importedLessonFee,
+  type OrgRates,
+} from "@/components/org-rate-dialog";
+import {
   ScheduleExportDialog,
   type ExportEntry,
 } from "@/components/schedule-export-dialog";
