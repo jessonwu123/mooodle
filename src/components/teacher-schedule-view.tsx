@@ -243,7 +243,7 @@ export function TeacherScheduleView({ teacherId, teacherLabel }: Props) {
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CalendarDays className="h-4 w-4" />
@@ -255,23 +255,27 @@ export function TeacherScheduleView({ teacherId, teacherLabel }: Props) {
             {rangeHours} 小时
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <ScheduleExportDialog entries={exportEntries} />
-          <Tabs value={view} onValueChange={(v) => setView(v as "week" | "month")}>
-            <TabsList>
-              <TabsTrigger value="week">周</TabsTrigger>
-              <TabsTrigger value="month">月</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <Button variant="outline" size="icon" onClick={() => shift(-1)}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setAnchor(new Date())}>
-            今天
-          </Button>
-          <Button variant="outline" size="icon" onClick={() => shift(1)}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <div className="flex flex-wrap items-center gap-2">
+            <ScheduleExportDialog entries={exportEntries} />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Tabs value={view} onValueChange={(v) => setView(v as "week" | "month")}>
+              <TabsList>
+                <TabsTrigger value="week">周</TabsTrigger>
+                <TabsTrigger value="month">月</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Button variant="outline" size="icon" onClick={() => shift(-1)}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setAnchor(new Date())}>
+              今天
+            </Button>
+            <Button variant="outline" size="icon" onClick={() => shift(1)}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
