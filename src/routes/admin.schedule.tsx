@@ -47,7 +47,7 @@ import { XngjSyncButton } from "@/components/xngj-sync-dialog";
 import {
   OrgRateButton,
   DEFAULT_ORG_RATES,
-  importedLessonFee,
+  computeOrgFee,
   type OrgRates,
 } from "@/components/org-rate-dialog";
 import {
@@ -211,13 +211,15 @@ function SchedulePage() {
     (async () => {
       const { data } = await supabase
         .from("teacher_org_rates")
-        .select("group_rate, one_on_one_rate")
+        .select("group_rate, one_on_one_rate, base_salary, package_hours")
         .eq("user_id", session.user.id)
         .maybeSingle();
       if (data) {
         setOrgRates({
           group_rate: Number(data.group_rate) || 0,
           one_on_one_rate: Number(data.one_on_one_rate) || 0,
+          base_salary: Number(data.base_salary) || 0,
+          package_hours: Number(data.package_hours) || 0,
         });
       }
     })();
@@ -359,23 +361,30 @@ function SchedulePage() {
   );
 
 
-  const importedIncome = useMemo(() => {
-    const sum = importedInRange.reduce(
-      (acc, o) => acc + importedLessonFee(o.className, o.start, o.end, orgRates),
-      0,
-    );
-    return Math.round(sum * 100) / 100;
-  }, [importedInRange, orgRates]);
+  const orgFee = useMemo(
+    () => computeOrgFee(importedInRange, orgRates),
+    [importedInRange, orgRates],
+  );
 
-  const monthlyIncome = useMemo(() => {
+  const incomeParts = useMemo(() => {
     const recurring = inRange.reduce((sum, o) => {
       return sum + lessonFee(o.student.hours_per_lesson, o.student.hourly_rate);
     }, 0);
     const single = singleInRange.reduce((sum, o) => {
       return sum + lessonFee(o.row.hours_per_lesson, o.row.hourly_rate);
     }, 0);
-    return Math.round((recurring + single + importedIncome) * 100) / 100;
-  }, [inRange, singleInRange, importedIncome]);
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    const base = Number(orgRates.base_salary) || 0;
+    return {
+      recurring: r2(recurring),
+      single: r2(single),
+      org: orgFee.total,
+      base: r2(base),
+      total: r2(recurring + single + orgFee.total + base),
+    };
+  }, [inRange, singleInRange, orgFee, orgRates.base_salary]);
+
+  const monthlyIncome = incomeParts.total;
 
   const totalHours = useMemo(() => {
     let sum = 0;
@@ -604,14 +613,64 @@ function SchedulePage() {
           <div className="mt-1 text-sm text-muted-foreground">
             {view === "week" ? "本周" : "本月"}总课时 <span className="font-semibold text-foreground">{totalHours}</span> 小时
           </div>
-          <div className="mt-1 flex items-center gap-1.5 text-sm font-medium text-emerald-600">
-            <Coins className="h-3.5 w-3.5" />
-            预计收入 ¥{monthlyIncome}
-          </div>
-          <div className="mt-1 text-sm text-muted-foreground">
-            {view === "week" ? "本周" : "本月"}机构课时费{" "}
-            <span className="font-semibold text-foreground">¥{importedIncome}</span>
-          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="mt-1 flex items-center gap-1.5 text-sm font-medium text-emerald-600 underline-offset-4 hover:underline"
+              >
+                <Coins className="h-3.5 w-3.5" />
+                {view === "week" ? "本周" : "本月"}总收入 ¥{monthlyIncome}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-80 space-y-2 text-sm">
+              <div className="font-semibold">收入计算过程</div>
+              <div className="space-y-1 text-muted-foreground">
+                <div className="flex justify-between">
+                  <span>固定课程课时费</span>
+                  <span className="text-foreground">¥{incomeParts.recurring}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>单次课课时费</span>
+                  <span className="text-foreground">¥{incomeParts.single}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>机构课时费</span>
+                  <span className="text-foreground">¥{incomeParts.org}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>底薪</span>
+                  <span className="text-foreground">¥{incomeParts.base}</span>
+                </div>
+                <div className="mt-1 flex justify-between border-t pt-1 font-semibold text-foreground">
+                  <span>合计</span>
+                  <span>¥{monthlyIncome}</span>
+                </div>
+              </div>
+              <div className="border-t pt-2">
+                <div className="font-semibold">机构课时费明细</div>
+                <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                  <div>
+                    班课 {orgFee.groupHours}h、1V1 {orgFee.soloHours}h，合计{" "}
+                    {orgFee.totalHours}h
+                  </div>
+                  <div>
+                    课时包扣除 {orgFee.packageHours}h（按比例：班课 -
+                    {orgFee.deductGroup}h、1V1 -{orgFee.deductSolo}h）
+                  </div>
+                  <div>
+                    班课 {orgFee.billableGroup}h × ¥{orgRates.group_rate} = ¥
+                    {orgFee.groupFee}
+                  </div>
+                  <div>
+                    1V1 {orgFee.billableSolo}h × ¥{orgRates.one_on_one_rate} = ¥
+                    {orgFee.soloFee}
+                  </div>
+                  <div className="text-foreground">机构课时费合计 ¥{orgFee.total}</div>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
         <div className="flex flex-col items-start gap-2 sm:items-end">
           <div className="flex flex-wrap items-center gap-2">
