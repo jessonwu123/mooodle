@@ -1007,6 +1007,30 @@ export type Database = {
         }
         Relationships: []
       }
+      teacher_org_rates: {
+        Row: {
+          created_at: string
+          group_rate: number
+          one_on_one_rate: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_rate?: number
+          one_on_one_rate?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          group_rate?: number
+          one_on_one_rate?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       teacher_xngj_credentials: {
         Row: {
           created_at: string
