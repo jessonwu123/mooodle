@@ -47,7 +47,6 @@ import { XngjSyncButton } from "@/components/xngj-sync-dialog";
 import {
   OrgRateButton,
   DEFAULT_ORG_RATES,
-  importedLessonFee,
   computeOrgFee,
   type OrgRates,
 } from "@/components/org-rate-dialog";
