@@ -599,7 +599,7 @@ function SchedulePage() {
         返回学生列表
       </Link>
 
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mb-6 space-y-4">
         <div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CalendarDays className="h-4 w-4" />
@@ -608,10 +608,9 @@ function SchedulePage() {
           <h1 className="mt-1 text-3xl font-bold tracking-tight text-foreground">
             {label}
           </h1>
-          
-
           <div className="mt-1 text-sm text-muted-foreground">
-            {view === "week" ? "本周" : "本月"}总课时 <span className="font-semibold text-foreground">{totalHours}</span> 小时
+            {view === "week" ? "本周" : "本月"}总课时{" "}
+            <span className="font-semibold text-foreground">{totalHours}</span> 小时
           </div>
           <Popover>
             <PopoverTrigger asChild>
@@ -672,7 +671,8 @@ function SchedulePage() {
             </PopoverContent>
           </Popover>
         </div>
-        <div className="flex flex-col items-start gap-2 sm:items-end">
+
+        <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
