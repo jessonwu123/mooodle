@@ -359,6 +359,14 @@ function SchedulePage() {
   );
 
 
+  const importedIncome = useMemo(() => {
+    const sum = importedInRange.reduce(
+      (acc, o) => acc + importedLessonFee(o.className, o.start, o.end, orgRates),
+      0,
+    );
+    return Math.round(sum * 100) / 100;
+  }, [importedInRange, orgRates]);
+
   const monthlyIncome = useMemo(() => {
     const recurring = inRange.reduce((sum, o) => {
       return sum + lessonFee(o.student.hours_per_lesson, o.student.hourly_rate);
