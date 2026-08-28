@@ -608,6 +608,10 @@ function SchedulePage() {
             <Coins className="h-3.5 w-3.5" />
             预计收入 ¥{monthlyIncome}
           </div>
+          <div className="mt-1 text-sm text-muted-foreground">
+            {view === "week" ? "本周" : "本月"}机构课时费{" "}
+            <span className="font-semibold text-foreground">¥{importedIncome}</span>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button
