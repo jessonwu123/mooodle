@@ -366,8 +366,8 @@ function SchedulePage() {
     const single = singleInRange.reduce((sum, o) => {
       return sum + lessonFee(o.row.hours_per_lesson, o.row.hourly_rate);
     }, 0);
-    return Math.round((recurring + single) * 100) / 100;
-  }, [inRange, singleInRange]);
+    return Math.round((recurring + single + importedIncome) * 100) / 100;
+  }, [inRange, singleInRange, importedIncome]);
 
   const totalHours = useMemo(() => {
     let sum = 0;
