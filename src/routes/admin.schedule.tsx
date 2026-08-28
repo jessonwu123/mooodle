@@ -626,6 +626,11 @@ function SchedulePage() {
             增加课次
           </Button>
           <XngjSyncButton onDone={load} />
+          <OrgRateButton
+            userId={session?.user.id}
+            rates={orgRates}
+            onSaved={setOrgRates}
+          />
           <ScheduleExportDialog
             entries={exportEntries}
             defaultStart={toISODate(rangeStart)}
