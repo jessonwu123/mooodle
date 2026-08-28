@@ -45,6 +45,12 @@ import {
 } from "@/components/lesson-editor-dialog";
 import { XngjSyncButton } from "@/components/xngj-sync-dialog";
 import {
+  OrgRateButton,
+  DEFAULT_ORG_RATES,
+  importedLessonFee,
+  type OrgRates,
+} from "@/components/org-rate-dialog";
+import {
   ScheduleExportDialog,
   type ExportEntry,
 } from "@/components/schedule-export-dialog";
@@ -198,6 +204,24 @@ function SchedulePage() {
   const [view, setView] = useState<"week" | "month">("week");
   const [anchor, setAnchor] = useState(new Date());
   const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [orgRates, setOrgRates] = useState<OrgRates>(DEFAULT_ORG_RATES);
+
+  useEffect(() => {
+    if (!session?.user.id) return;
+    (async () => {
+      const { data } = await supabase
+        .from("teacher_org_rates")
+        .select("group_rate, one_on_one_rate")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+      if (data) {
+        setOrgRates({
+          group_rate: Number(data.group_rate) || 0,
+          one_on_one_rate: Number(data.one_on_one_rate) || 0,
+        });
+      }
+    })();
+  }, [session?.user.id]);
 
 
 
@@ -335,6 +359,14 @@ function SchedulePage() {
   );
 
 
+  const importedIncome = useMemo(() => {
+    const sum = importedInRange.reduce(
+      (acc, o) => acc + importedLessonFee(o.className, o.start, o.end, orgRates),
+      0,
+    );
+    return Math.round(sum * 100) / 100;
+  }, [importedInRange, orgRates]);
+
   const monthlyIncome = useMemo(() => {
     const recurring = inRange.reduce((sum, o) => {
       return sum + lessonFee(o.student.hours_per_lesson, o.student.hourly_rate);
@@ -342,8 +374,8 @@ function SchedulePage() {
     const single = singleInRange.reduce((sum, o) => {
       return sum + lessonFee(o.row.hours_per_lesson, o.row.hourly_rate);
     }, 0);
-    return Math.round((recurring + single) * 100) / 100;
-  }, [inRange, singleInRange]);
+    return Math.round((recurring + single + importedIncome) * 100) / 100;
+  }, [inRange, singleInRange, importedIncome]);
 
   const totalHours = useMemo(() => {
     let sum = 0;
@@ -576,6 +608,10 @@ function SchedulePage() {
             <Coins className="h-3.5 w-3.5" />
             预计收入 ¥{monthlyIncome}
           </div>
+          <div className="mt-1 text-sm text-muted-foreground">
+            {view === "week" ? "本周" : "本月"}机构课时费{" "}
+            <span className="font-semibold text-foreground">¥{importedIncome}</span>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button
@@ -590,6 +626,11 @@ function SchedulePage() {
             增加课次
           </Button>
           <XngjSyncButton onDone={load} />
+          <OrgRateButton
+            userId={session?.user.id}
+            rates={orgRates}
+            onSaved={setOrgRates}
+          />
           <ScheduleExportDialog
             entries={exportEntries}
             defaultStart={toISODate(rangeStart)}
