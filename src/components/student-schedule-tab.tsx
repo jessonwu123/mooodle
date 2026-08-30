@@ -252,6 +252,28 @@ export function StudentScheduleTab({ studentId }: Props) {
     return out.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [course, singles, cancelled, myUid, teacherDisplay]);
 
+  const exportEntries: ExportEntry[] = useMemo(() => {
+    const hm = (d: Date) =>
+      d.toLocaleTimeString("zh-CN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+    return items.map((it) => ({
+      date: it.date,
+      timeLabel: `${hm(it.date)}${it.end ? "-" + hm(it.end) : ""}`,
+      title: it.title,
+      groupKey: it.kind,
+      groupLabel:
+        it.kind === "recurring"
+          ? "固定课次"
+          : it.kind === "single-teacher"
+            ? "老师添加的课次"
+            : "自建的课次",
+    }));
+  }, [items]);
+
+
 
   const { rangeStart, rangeEnd, label } = useMemo(() => {
     if (view === "week") {
