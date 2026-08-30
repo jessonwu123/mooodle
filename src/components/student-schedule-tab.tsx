@@ -448,6 +448,7 @@ export function StudentScheduleTab({ studentId }: Props) {
           </h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <ScheduleExportDialog entries={exportEntries} />
           <Button size="sm" onClick={openAdd} className="gap-1.5">
             <CalendarPlus className="h-4 w-4" />
             新增课次
