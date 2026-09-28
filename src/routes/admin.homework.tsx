@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, Download, Loader2, Search, X, ArrowUp, ArrowDown, ClipboardList } from "lucide-react";
+import { ArrowLeft, Download, Loader2, Search, X, ArrowUp, ArrowDown, ClipboardList, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
