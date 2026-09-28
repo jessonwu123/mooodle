@@ -576,7 +576,6 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
                               {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                             </button>
                           )}
-                          )}
                         </label>
                       );
                     })}
