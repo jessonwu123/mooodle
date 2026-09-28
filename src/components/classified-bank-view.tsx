@@ -20,6 +20,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { listTags, createTag, updateTag, deleteTag, setQuestionTags, autoTagByTags } from "@/lib/math-tags.functions";
 import { CalcImportDialog } from "@/components/calc-import-dialog";
 import { EditableQuestionImage } from "@/components/editable-question-image";
@@ -517,7 +518,7 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
                 return (
                   <label
                     key={t.id}
-                    className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted ${checked ? "bg-muted" : ""}`}
+                    className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted ${checked ? "bg-muted" : ""} ${t.parent_id ? "ml-5" : "font-medium"}`}
                   >
                     <Checkbox
                       checked={checked}
@@ -777,10 +778,11 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
             </div>
           ) : (
             <div className="max-h-[50vh] divide-y overflow-y-auto rounded-md border">
-              {tags.map((t) => (
+               {tags.filter((t) => !t.parent_id).flatMap((parent) => [parent, ...childTags(parent.id)]).map((t) => (
                 <div key={t.id} className="flex items-start gap-3 p-3">
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium">
+                       {t.parent_id && <span className="mr-2 text-muted-foreground">└</span>}
                       {t.name}
                       <span className="ml-2 text-[11px] text-muted-foreground">
                         {tagCounts[t.id] ?? 0} 题
@@ -842,6 +844,21 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
                     placeholder="如：勾股定理"
                   />
                 </div>
+                 {isCalc && (
+                   <div className="space-y-1.5">
+                     <Label>层级</Label>
+                     <Select
+                       value={d.parentId ?? "root"}
+                       onValueChange={(value) => updateDraft(idx, { parentId: value === "root" ? null : value })}
+                     >
+                       <SelectTrigger><SelectValue /></SelectTrigger>
+                       <SelectContent>
+                         <SelectItem value="root">一级标签</SelectItem>
+                         {rootTags.map((tag) => <SelectItem key={tag.id} value={tag.id}>二级标签，归入：{tag.name}</SelectItem>)}
+                       </SelectContent>
+                     </Select>
+                   </div>
+                 )}
                 <div className="space-y-1.5">
                   <Label>说明</Label>
                   <Textarea
@@ -892,6 +909,23 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
                 placeholder="会作为提示给 AI"
               />
             </div>
+            {isCalc && (
+              <div className="space-y-2">
+                <Label>层级</Label>
+                <Select
+                  value={editForm.parentId ?? "root"}
+                  onValueChange={(value) => setEditForm((f) => ({ ...f, parentId: value === "root" ? null : value }))}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="root">一级标签</SelectItem>
+                    {rootTags.filter((tag) => tag.id !== editing?.id).map((tag) => (
+                      <SelectItem key={tag.id} value={tag.id}>二级标签，归入：{tag.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>
@@ -965,6 +999,7 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
                       (t.description ?? "").toLowerCase().includes(kw)
                     );
                   })
+                  .sort((a, b) => Number(Boolean(a.parent_id)) - Number(Boolean(b.parent_id)))
                   .map((t) => {
                     const checked = aiTagIds.has(t.id);
                     return (
@@ -985,7 +1020,9 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
                           className="mt-0.5"
                         />
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium">{t.name}</div>
+                           <div className={`font-medium ${t.parent_id ? "pl-4" : ""}`}>
+                             {t.parent_id ? `└ ${t.name}` : t.name}
+                           </div>
                           {t.description && (
                             <div className="mt-0.5 text-xs text-muted-foreground">
                               {t.description}
