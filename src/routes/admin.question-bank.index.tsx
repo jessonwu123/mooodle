@@ -19,6 +19,7 @@ import {
   Crop,
   Zap,
   Shield,
+  FileSpreadsheet,
 } from "lucide-react";
 import { FolderPermissionsDialog } from "@/components/folder-permissions-dialog";
 import { toast } from "sonner";
@@ -56,6 +57,7 @@ import {
   getMathPaperPdfUrls,
   deleteMathPaper,
   bulkUpdateQuestionAnswers,
+  importCalcQuestions,
 } from "@/lib/math-papers.functions";
 import {
   listMathPaperFolders,
