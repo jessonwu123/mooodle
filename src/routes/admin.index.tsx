@@ -225,6 +225,12 @@ function AdminHome() {
               课程表
             </Button>
           </Link>
+          <Link to="/admin/homework">
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <FileText className="h-4 w-4" />
+              布置作业
+            </Button>
+          </Link>
           {isAdmin && (
             <Link to="/admin/question-bank">
               <Button variant="outline" size="sm" className="gap-1.5">

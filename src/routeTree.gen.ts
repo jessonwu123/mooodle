@@ -16,6 +16,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as StudentIdRouteImport } from './routes/student.$id'
 import { Route as AdminScheduleRouteImport } from './routes/admin.schedule'
+import { Route as AdminHomeworkRouteImport } from './routes/admin.homework'
 import { Route as AdminClassifiedBankRouteImport } from './routes/admin.classified-bank'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
@@ -61,6 +62,11 @@ const StudentIdRoute = StudentIdRouteImport.update({
 const AdminScheduleRoute = AdminScheduleRouteImport.update({
   id: '/schedule',
   path: '/schedule',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminHomeworkRoute = AdminHomeworkRouteImport.update({
+  id: '/homework',
+  path: '/homework',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminClassifiedBankRoute = AdminClassifiedBankRouteImport.update({
@@ -131,6 +137,7 @@ export interface FileRoutesByFullPath {
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/classified-bank': typeof AdminClassifiedBankRoute
+  '/admin/homework': typeof AdminHomeworkRoute
   '/admin/schedule': typeof AdminScheduleRoute
   '/student/$id': typeof StudentIdRoute
   '/admin/': typeof AdminIndexRoute
@@ -150,6 +157,7 @@ export interface FileRoutesByTo {
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/classified-bank': typeof AdminClassifiedBankRoute
+  '/admin/homework': typeof AdminHomeworkRoute
   '/admin/schedule': typeof AdminScheduleRoute
   '/student/$id': typeof StudentIdRoute
   '/admin': typeof AdminIndexRoute
@@ -171,6 +179,7 @@ export interface FileRoutesById {
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/classified-bank': typeof AdminClassifiedBankRoute
+  '/admin/homework': typeof AdminHomeworkRoute
   '/admin/schedule': typeof AdminScheduleRoute
   '/student/$id': typeof StudentIdRoute
   '/admin/': typeof AdminIndexRoute
@@ -193,6 +202,7 @@ export interface FileRouteTypes {
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/admin/classified-bank'
+    | '/admin/homework'
     | '/admin/schedule'
     | '/student/$id'
     | '/admin/'
@@ -212,6 +222,7 @@ export interface FileRouteTypes {
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/admin/classified-bank'
+    | '/admin/homework'
     | '/admin/schedule'
     | '/student/$id'
     | '/admin'
@@ -232,6 +243,7 @@ export interface FileRouteTypes {
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/admin/classified-bank'
+    | '/admin/homework'
     | '/admin/schedule'
     | '/student/$id'
     | '/admin/'
@@ -306,6 +318,13 @@ declare module '@tanstack/react-router' {
       path: '/schedule'
       fullPath: '/admin/schedule'
       preLoaderRoute: typeof AdminScheduleRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/homework': {
+      id: '/admin/homework'
+      path: '/homework'
+      fullPath: '/admin/homework'
+      preLoaderRoute: typeof AdminHomeworkRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/classified-bank': {
@@ -390,6 +409,7 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminClassifiedBankRoute: typeof AdminClassifiedBankRoute
+  AdminHomeworkRoute: typeof AdminHomeworkRoute
   AdminScheduleRoute: typeof AdminScheduleRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminAnalysisIdRoute: typeof AdminAnalysisIdRoute
@@ -402,6 +422,7 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminClassifiedBankRoute: AdminClassifiedBankRoute,
+  AdminHomeworkRoute: AdminHomeworkRoute,
   AdminScheduleRoute: AdminScheduleRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminAnalysisIdRoute: AdminAnalysisIdRoute,
