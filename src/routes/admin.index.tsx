@@ -248,6 +248,14 @@ function AdminHome() {
             </Link>
           )}
           {isAdmin && (
+            <Link to="/admin/calc-practice">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <BookOpen className="h-4 w-4" />
+                计算练习
+              </Button>
+            </Link>
+          )}
+          {isAdmin && (
             <Link to="/admin/teachers">
               <Button variant="outline" size="sm" className="gap-1.5">
                 <ShieldCheck className="h-4 w-4" />

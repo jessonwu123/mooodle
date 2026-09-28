@@ -18,6 +18,7 @@ import { Route as StudentIdRouteImport } from './routes/student.$id'
 import { Route as AdminScheduleRouteImport } from './routes/admin.schedule'
 import { Route as AdminHomeworkRouteImport } from './routes/admin.homework'
 import { Route as AdminClassifiedBankRouteImport } from './routes/admin.classified-bank'
+import { Route as AdminCalcPracticeRouteImport } from './routes/admin.calc-practice'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as AdminTeachersIndexRouteImport } from './routes/admin.teachers.index'
@@ -72,6 +73,11 @@ const AdminHomeworkRoute = AdminHomeworkRouteImport.update({
 const AdminClassifiedBankRoute = AdminClassifiedBankRouteImport.update({
   id: '/classified-bank',
   path: '/classified-bank',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminCalcPracticeRoute = AdminCalcPracticeRouteImport.update({
+  id: '/calc-practice',
+  path: '/calc-practice',
   getParentRoute: () => AdminRoute,
 } as any)
 const Char91DotwellKnownChar93OauthProtectedResourceRoute =
@@ -136,6 +142,7 @@ export interface FileRoutesByFullPath {
   '/mcp': typeof McpRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/admin/calc-practice': typeof AdminCalcPracticeRoute
   '/admin/classified-bank': typeof AdminClassifiedBankRoute
   '/admin/homework': typeof AdminHomeworkRoute
   '/admin/schedule': typeof AdminScheduleRoute
@@ -156,6 +163,7 @@ export interface FileRoutesByTo {
   '/mcp': typeof McpRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/admin/calc-practice': typeof AdminCalcPracticeRoute
   '/admin/classified-bank': typeof AdminClassifiedBankRoute
   '/admin/homework': typeof AdminHomeworkRoute
   '/admin/schedule': typeof AdminScheduleRoute
@@ -178,6 +186,7 @@ export interface FileRoutesById {
   '/mcp': typeof McpRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/admin/calc-practice': typeof AdminCalcPracticeRoute
   '/admin/classified-bank': typeof AdminClassifiedBankRoute
   '/admin/homework': typeof AdminHomeworkRoute
   '/admin/schedule': typeof AdminScheduleRoute
@@ -201,6 +210,7 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/admin/calc-practice'
     | '/admin/classified-bank'
     | '/admin/homework'
     | '/admin/schedule'
@@ -221,6 +231,7 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/admin/calc-practice'
     | '/admin/classified-bank'
     | '/admin/homework'
     | '/admin/schedule'
@@ -242,6 +253,7 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/admin/calc-practice'
     | '/admin/classified-bank'
     | '/admin/homework'
     | '/admin/schedule'
@@ -334,6 +346,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminClassifiedBankRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/calc-practice': {
+      id: '/admin/calc-practice'
+      path: '/calc-practice'
+      fullPath: '/admin/calc-practice'
+      preLoaderRoute: typeof AdminCalcPracticeRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/.well-known/oauth-protected-resource': {
       id: '/.well-known/oauth-protected-resource'
       path: '/.well-known/oauth-protected-resource'
@@ -408,6 +427,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminCalcPracticeRoute: typeof AdminCalcPracticeRoute
   AdminClassifiedBankRoute: typeof AdminClassifiedBankRoute
   AdminHomeworkRoute: typeof AdminHomeworkRoute
   AdminScheduleRoute: typeof AdminScheduleRoute
@@ -421,6 +441,7 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminCalcPracticeRoute: AdminCalcPracticeRoute,
   AdminClassifiedBankRoute: AdminClassifiedBankRoute,
   AdminHomeworkRoute: AdminHomeworkRoute,
   AdminScheduleRoute: AdminScheduleRoute,

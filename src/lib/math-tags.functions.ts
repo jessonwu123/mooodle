@@ -269,6 +269,7 @@ export const autoTagByTags = createServerFn({ method: "POST" })
       .object({
         tagIds: z.array(z.string().uuid()).min(1).max(20),
         scope: z.enum(["all", "missing"]).default("all"),
+        bank: z.enum(["exam", "calc"]).optional(),
         // missing = only consider questions that don't already have any of the chosen tags
       })
       .parse(d),
@@ -291,6 +292,7 @@ export const autoTagByTags = createServerFn({ method: "POST" })
       .from("math_questions")
       .select("id, question_number, stem, option_a, option_b, option_c, option_d, option_e, correct_answer");
 
+    if (data.bank) qQuery = qQuery.filter("answer_type", data.bank === "calc" ? "eq" : "neq", "计算");
     const { data: allQuestions, error: e1 } = await qQuery;
     if (e1) throw new Error(e1.message);
     if (!allQuestions || allQuestions.length === 0) throw new Error("题库为空");
