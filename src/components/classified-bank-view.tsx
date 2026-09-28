@@ -576,8 +576,6 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
                               {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                             </button>
                           )}
-                          {hasChildren && collapsed && children.length > 0 && (
-                            <span className="text-[10px] text-muted-foreground">{children.length}</span>
                           )}
                         </label>
                       );
