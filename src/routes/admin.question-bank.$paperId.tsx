@@ -420,7 +420,7 @@ function PaperDetailPage() {
                 第 {q.question_number} 题
                 {q.correct_answer && (
                   <span className="ml-2 rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700">
-                    答案 {q.correct_answer}
+                    答案 <MathText text={q.correct_answer} />
                   </span>
                 )}
                 {stemAsImage && (
@@ -613,7 +613,7 @@ function PaperDetailPage() {
               第 {solutionOpenFor?.question_number} 题 · 详细解答
               {solutionOpenFor?.correct_answer && (
                 <span className="ml-2 rounded bg-green-100 px-1.5 py-0.5 text-xs font-normal text-green-700">
-                  答案 {solutionOpenFor.correct_answer}
+                  答案 <MathText text={solutionOpenFor.correct_answer} />
                 </span>
               )}
             </DialogTitle>

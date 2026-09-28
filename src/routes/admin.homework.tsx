@@ -460,7 +460,7 @@ function HomeworkPage() {
                 <div style={{ fontSize: 20, fontWeight: 700, textAlign: "center", marginBottom: 12 }}>参考答案</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
                   {renderData.qs.map((q, i) => (
-                    <div key={q.id}>{i + 1}. {q.correct_answer || "—"}</div>
+                    <div key={q.id}>{i + 1}. <MathText text={q.correct_answer || "—"} /></div>
                   ))}
                 </div>
               </div>
