@@ -89,7 +89,19 @@ function HomeworkPage() {
             .select("id, paper_id, question_number, stem, option_a, option_b, option_c, option_d, option_e, correct_answer, image_path, options_image_path, answer_type")
             .order("question_number"),
           supabase.from("math_papers").select("id, year, name").order("year", { ascending: false }),
-          supabase.from("math_question_tags").select("question_id, tag_id"),
+          (async () => {
+            const all: any[] = [];
+            for (let from = 0; ; from += 1000) {
+              const { data } = await supabase
+                .from("math_question_tags")
+                .select("question_id, tag_id")
+                .order("id")
+                .range(from, from + 999);
+              all.push(...(data ?? []));
+              if (!data || data.length < 1000) break;
+            }
+            return { data: all };
+          })(),
         ]);
         setTags((t.tags ?? []) as Tag[]);
         setQuestions((q.data ?? []) as Q[]);
