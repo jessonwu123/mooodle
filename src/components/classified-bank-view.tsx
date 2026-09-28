@@ -116,6 +116,23 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
     optionsUrl: string | null;
   }>({ open: false, title: "", questionId: null, stemPath: null, optionsPath: null, stemUrl: null, optionsUrl: null });
 
+  // Supabase caps each query at 1000 rows; page through all tag links.
+  const fetchAllLinks = async () => {
+    const all: any[] = [];
+    const PAGE = 1000;
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from("math_question_tags")
+        .select("question_id, tag_id")
+        .order("id")
+        .range(from, from + PAGE - 1);
+      if (error) throw error;
+      all.push(...(data ?? []));
+      if (!data || data.length < PAGE) break;
+    }
+    return { data: all };
+  };
+
   const loadAll = async () => {
     setLoading(true);
     try {
@@ -128,7 +145,7 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
           )
           .order("question_number"),
         supabase.from("math_papers").select("id, year, name"),
-        supabase.from("math_question_tags").select("question_id, tag_id"),
+        fetchAllLinks(),
       ]);
       setTags(((tagsRes.tags ?? []) as TagRow[]).filter((t) => tagCategoryOk(t.category)));
       const calcTagIds = new Set(
@@ -317,9 +334,7 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
       toast.success("已删除");
       await refreshTags();
       // also refresh links/count since deletion cascades
-      const { data: linksRes } = await supabase
-        .from("math_question_tags")
-        .select("question_id, tag_id");
+      const { data: linksRes } = await fetchAllLinks();
       const map: Record<string, string[]> = {};
       (linksRes ?? []).forEach((l: any) => {
         (map[l.question_id] ??= []).push(l.tag_id);
@@ -382,9 +397,7 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
       );
       setAiOpen(false);
       // refresh links
-      const { data: linksRes } = await supabase
-        .from("math_question_tags")
-        .select("question_id, tag_id");
+      const { data: linksRes } = await fetchAllLinks();
       const map: Record<string, string[]> = {};
       (linksRes ?? []).forEach((l: any) => {
         (map[l.question_id] ??= []).push(l.tag_id);
