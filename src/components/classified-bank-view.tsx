@@ -427,7 +427,7 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
           </div>
           <h1 className="mt-1 text-2xl font-bold text-foreground">{isCalc ? "按知识点筛选计算题" : "按知识点浏览题目"}</h1>
         </div>
-        {isCalc && <CalcImportDialog onImported={() => void loadAll()} />}
+        {isCalc && <CalcImportDialog tags={tags} onImported={() => void loadAll()} />}
         <Button variant="outline" onClick={openAi} className="gap-1.5">
           <Sparkles className="h-4 w-4" />
           AI 更新标签

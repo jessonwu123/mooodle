@@ -2,16 +2,26 @@ import { useRef, useState } from "react";
 import { FileSpreadsheet, Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { MathText } from "@/components/math-text";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { importCalcQuestions } from "@/lib/math-papers.functions";
 
-export function CalcImportDialog({ onImported }: { onImported?: () => void }) {
+type CalcTag = { id: string; name: string };
+
+export function CalcImportDialog({
+  tags,
+  onImported,
+}: {
+  tags: CalcTag[];
+  onImported?: () => void;
+}) {
   type CalcRow = { stem: string; answer: string; tags: string[] };
   const [calcOpen, setCalcOpen] = useState(false);
   const [calcText, setCalcText] = useState("");
   const [calcRows, setCalcRows] = useState<CalcRow[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(new Set());
   const [calcImporting, setCalcImporting] = useState(false);
   const calcFileRef = useRef<HTMLInputElement | null>(null);
 
@@ -64,13 +74,14 @@ export function CalcImportDialog({ onImported }: { onImported?: () => void }) {
     if (calcRows.length === 0) return toast.error("没有可导入的题目");
     setCalcImporting(true);
     try {
+      const batchTagNames = tags.filter((tag) => selectedTagIds.has(tag.id)).map((tag) => tag.name);
       const { count } = await importCalcQuestions({
         data: {
           folderId: null,
           questions: calcRows.map((r) => ({
             stem: r.stem,
             answer: r.answer || null,
-            tags: r.tags,
+            tags: [...new Set([...r.tags, ...batchTagNames])],
           })),
         },
       });
@@ -78,6 +89,7 @@ export function CalcImportDialog({ onImported }: { onImported?: () => void }) {
       setCalcOpen(false);
       setCalcText("");
       setCalcRows([]);
+      setSelectedTagIds(new Set());
       onImported?.();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "导入失败");
@@ -123,6 +135,40 @@ export function CalcImportDialog({ onImported }: { onImported?: () => void }) {
                   （答案和知识点可省略）。公式用 LaTeX，如 <span className="font-mono">$\frac{"{1}"}{"{2}"}+\frac{"{1}"}{"{3}"}$</span>。
                   Excel 三列依次为：题干、答案、知识点。
                 </p>
+                 <div className="space-y-2 rounded-md border p-3">
+                   <div className="text-sm font-medium">本次统一标签（可多选）</div>
+                   {tags.length > 0 ? (
+                     <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto">
+                       {tags.map((tag) => {
+                         const checked = selectedTagIds.has(tag.id);
+                         return (
+                           <label
+                             key={tag.id}
+                             className="flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1.5 text-xs hover:bg-muted"
+                           >
+                             <Checkbox
+                               checked={checked}
+                               onCheckedChange={() => {
+                                 setSelectedTagIds((current) => {
+                                   const next = new Set(current);
+                                   if (next.has(tag.id)) next.delete(tag.id);
+                                   else next.add(tag.id);
+                                   return next;
+                                 });
+                               }}
+                             />
+                             {tag.name}
+                           </label>
+                         );
+                       })}
+                     </div>
+                   ) : (
+                     <p className="text-xs text-muted-foreground">请先在计算练习中创建知识点标签。</p>
+                   )}
+                   <p className="text-xs text-muted-foreground">
+                     已选 {selectedTagIds.size} 个，将应用到本次导入的全部题目。
+                   </p>
+                 </div>
                 <Textarea
                   value={calcText}
                   onChange={(e) => handleCalcTextChange(e.target.value)}
@@ -145,9 +191,9 @@ export function CalcImportDialog({ onImported }: { onImported?: () => void }) {
                               答案：<MathText text={r.answer} />
                             </span>
                           )}
-                          {r.tags.length > 0 && (
+                           {[...new Set([...r.tags, ...tags.filter((tag) => selectedTagIds.has(tag.id)).map((tag) => tag.name)])].length > 0 && (
                             <span className="shrink-0 text-xs text-muted-foreground">
-                              {r.tags.join("、")}
+                               {[...new Set([...r.tags, ...tags.filter((tag) => selectedTagIds.has(tag.id)).map((tag) => tag.name)])].join("、")}
                             </span>
                           )}
                         </div>
