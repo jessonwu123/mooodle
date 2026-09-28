@@ -209,10 +209,6 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
   }, [tags]);
   const rootTags = useMemo(() => tags.filter((t) => !t.parent_id), [tags]);
   const childTags = (parentId: string) => tags.filter((t) => t.parent_id === parentId);
-  const expandedTagIds = (id: string) => {
-    const children = childTags(id).map((t) => t.id);
-    return children.length ? [id, ...children] : [id];
-  };
 
   // Stats: count questions per tag
   const tagCounts = useMemo(() => {
@@ -237,8 +233,8 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
     if (selectedTags.size === 0) return questions;
     return questions.filter((q) => {
       const tids = qTagMap[q.id] ?? [];
-      if (filterMode === "any") return Array.from(selectedTags).some((id) => expandedTagIds(id).some((t) => tids.includes(t)));
-      return Array.from(selectedTags).every((id) => expandedTagIds(id).some((t) => tids.includes(t)));
+      if (filterMode === "any") return Array.from(selectedTags).some((id) => tids.includes(id));
+      return Array.from(selectedTags).every((id) => tids.includes(id));
     });
   }, [questions, qTagMap, selectedTags, filterMode, showUntagged, tags]);
 
@@ -265,8 +261,16 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
     setShowUntagged(false);
     setSelectedTags((prev) => {
       const n = new Set(prev);
-      if (n.has(id)) n.delete(id);
-      else n.add(id);
+      const childIds = childTags(id).map((t) => t.id);
+      if (n.has(id)) {
+        // 取消一级标签时，同时取消其所有二级标签
+        n.delete(id);
+        childIds.forEach((cid) => n.delete(cid));
+      } else {
+        // 选中一级标签时，默认同时选中其所有二级标签
+        n.add(id);
+        childIds.forEach((cid) => n.add(cid));
+      }
       return n;
     });
   };
