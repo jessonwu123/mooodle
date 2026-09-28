@@ -545,3 +545,105 @@ export const bulkUpdateQuestionAnswers = createServerFn({ method: "POST" })
     return { ok: true, updated };
   });
 
+
+// ===== 批量导入计算题（纯文字题，无 PDF）=====
+const ImportCalcInput = z.object({
+  folderId: z.string().uuid().nullable().optional(),
+  name: z.string().min(1).max(200),
+  questions: z
+    .array(
+      z.object({
+        stem: z.string().min(1).max(4000),
+        answer: z.string().max(2000).nullable().optional(),
+        tags: z.array(z.string().min(1).max(80)).max(10).optional(),
+      }),
+    )
+    .min(1)
+    .max(500),
+});
+
+export const importCalcQuestions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => ImportCalcInput.parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: isAdmin } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (!isAdmin) throw new Error("仅管理员可执行");
+    const { supabase } = context;
+
+    const { data: paper, error: e0 } = await supabase
+      .from("math_papers")
+      .insert({
+        year: null,
+        name: data.name,
+        pdf_path: null,
+        answer_pdf_path: null,
+        folder_id: data.folderId ?? null,
+        kind: "paper",
+        question_count: data.questions.length,
+        uploaded_by: context.userId,
+      })
+      .select("id")
+      .single();
+    if (e0 || !paper) throw new Error(e0?.message || "题集创建失败");
+
+    try {
+      const rows = data.questions.map((q, i) => ({
+        paper_id: paper.id,
+        year: null,
+        question_number: i + 1,
+        stem: q.stem,
+        correct_answer: q.answer?.trim() || null,
+        answer_type: "计算",
+        tags: q.tags ?? [],
+        stem_render_mode: "text",
+        options_render_mode: "text",
+      }));
+      const { data: inserted, error: e1 } = await supabase
+        .from("math_questions")
+        .insert(rows)
+        .select("id");
+      if (e1) throw new Error("题目写入失败：" + e1.message);
+
+      // 知识点标签：按名称查找，不存在的自动创建，再关联到题目
+      const allNames = [...new Set(data.questions.flatMap((q) => q.tags ?? []))];
+      if (allNames.length > 0 && inserted?.length) {
+        const { data: existing } = await supabase
+          .from("math_tags")
+          .select("id, name")
+          .in("name", allNames);
+        const tagIdByName = new Map<string, string>(
+          (existing ?? []).map((t: any) => [t.name, t.id]),
+        );
+        const missing = allNames.filter((n) => !tagIdByName.has(n));
+        if (missing.length > 0) {
+          const { data: created, error: e2 } = await supabase
+            .from("math_tags")
+            .insert(missing.map((n) => ({ name: n, category: "knowledge" })))
+            .select("id, name");
+          if (e2) throw new Error("知识点创建失败：" + e2.message);
+          for (const t of created ?? []) tagIdByName.set((t as any).name, (t as any).id);
+        }
+        const links: { question_id: string; tag_id: string; assigned_by_ai: boolean }[] = [];
+        data.questions.forEach((q, i) => {
+          const qid = (inserted as any[])[i]?.id;
+          if (!qid) return;
+          for (const name of q.tags ?? []) {
+            const tid = tagIdByName.get(name);
+            if (tid) links.push({ question_id: qid, tag_id: tid, assigned_by_ai: false });
+          }
+        });
+        if (links.length > 0) {
+          const { error: e3 } = await supabase.from("math_question_tags").insert(links);
+          if (e3) throw new Error("知识点关联失败：" + e3.message);
+        }
+      }
+    } catch (err) {
+      await supabase.from("math_papers").delete().eq("id", paper.id);
+      throw err;
+    }
+
+    return { paperId: paper.id as string, count: data.questions.length };
+  });
