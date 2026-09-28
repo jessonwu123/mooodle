@@ -8,7 +8,7 @@ import { MathText } from "@/components/math-text";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { importCalcQuestions } from "@/lib/math-papers.functions";
 
-type CalcTag = { id: string; name: string };
+type CalcTag = { id: string; name: string; parent_id?: string | null };
 
 export function CalcImportDialog({
   tags,
@@ -138,8 +138,12 @@ export function CalcImportDialog({
                  <div className="space-y-2 rounded-md border p-3">
                    <div className="text-sm font-medium">本次统一标签（可多选）</div>
                    {tags.length > 0 ? (
-                     <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto">
-                       {tags.map((tag) => {
+                     <div className="max-h-44 space-y-2 overflow-y-auto">
+                       {tags.filter((tag) => !tag.parent_id).map((parent) => (
+                         <div key={parent.id} className="space-y-1">
+                           <div className="text-xs font-medium text-muted-foreground">{parent.name}</div>
+                           <div className="flex flex-wrap gap-2 pl-2">
+                       {[parent, ...tags.filter((tag) => tag.parent_id === parent.id)].map((tag) => {
                          const checked = selectedTagIds.has(tag.id);
                          return (
                            <label
@@ -161,6 +165,9 @@ export function CalcImportDialog({
                            </label>
                          );
                        })}
+                           </div>
+                         </div>
+                       ))}
                      </div>
                    ) : (
                      <p className="text-xs text-muted-foreground">请先在计算练习中创建知识点标签。</p>

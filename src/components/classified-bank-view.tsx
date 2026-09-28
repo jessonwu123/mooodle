@@ -31,6 +31,7 @@ type TagRow = {
   category: string;
   color: string | null;
   description: string | null;
+  parent_id: string | null;
 };
 
 type QuestionRow = {
@@ -52,7 +53,7 @@ type QuestionRow = {
 
 type PaperRow = { id: string; year: number; name: string };
 
-type DraftRow = { name: string; description: string };
+type DraftRow = { name: string; description: string; parentId: string | null };
 
 export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
   const isCalc = variant === "calc";
@@ -80,13 +81,13 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
 
   // Create (batch) dialog state
   const [createOpen, setCreateOpen] = useState(false);
-  const [drafts, setDrafts] = useState<DraftRow[]>([{ name: "", description: "" }]);
+  const [drafts, setDrafts] = useState<DraftRow[]>([{ name: "", description: "", parentId: null }]);
   const [saving, setSaving] = useState(false);
 
   // Edit (single) dialog state
   const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState<TagRow | null>(null);
-  const [editForm, setEditForm] = useState({ name: "", description: "" });
+  const [editForm, setEditForm] = useState({ name: "", description: "", parentId: null as string | null });
 
   // Per-question tag popover
   const [openTagPopoverFor, setOpenTagPopoverFor] = useState<string | null>(null);
@@ -205,6 +206,12 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
     tags.forEach((t) => (m[t.id] = t));
     return m;
   }, [tags]);
+  const rootTags = useMemo(() => tags.filter((t) => !t.parent_id), [tags]);
+  const childTags = (parentId: string) => tags.filter((t) => t.parent_id === parentId);
+  const expandedTagIds = (id: string) => {
+    const children = childTags(id).map((t) => t.id);
+    return children.length ? [id, ...children] : [id];
+  };
 
   // Stats: count questions per tag
   const tagCounts = useMemo(() => {
@@ -229,10 +236,10 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
     if (selectedTags.size === 0) return questions;
     return questions.filter((q) => {
       const tids = qTagMap[q.id] ?? [];
-      if (filterMode === "any") return tids.some((t) => selectedTags.has(t));
-      return Array.from(selectedTags).every((t) => tids.includes(t));
+      if (filterMode === "any") return Array.from(selectedTags).some((id) => expandedTagIds(id).some((t) => tids.includes(t)));
+      return Array.from(selectedTags).every((id) => expandedTagIds(id).some((t) => tids.includes(t)));
     });
-  }, [questions, qTagMap, selectedTags, filterMode, showUntagged]);
+  }, [questions, qTagMap, selectedTags, filterMode, showUntagged, tags]);
 
   const filteredTags = useMemo(() => {
     const kw = tagSearch.trim().toLowerCase();
@@ -261,23 +268,23 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
 
   // Tag CRUD handlers
   const openCreate = () => {
-    setDrafts([{ name: "", description: "" }]);
+    setDrafts([{ name: "", description: "", parentId: null }]);
     setCreateOpen(true);
   };
   const openEdit = (t: TagRow) => {
     setEditing(t);
-    setEditForm({ name: t.name, description: t.description ?? "" });
+    setEditForm({ name: t.name, description: t.description ?? "", parentId: t.parent_id });
     setEditOpen(true);
   };
   const updateDraft = (idx: number, patch: Partial<DraftRow>) =>
     setDrafts((rows) => rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
-  const addDraft = () => setDrafts((rows) => [...rows, { name: "", description: "" }]);
+  const addDraft = () => setDrafts((rows) => [...rows, { name: "", description: "", parentId: null }]);
   const removeDraft = (idx: number) =>
     setDrafts((rows) => (rows.length === 1 ? rows : rows.filter((_, i) => i !== idx)));
 
   const handleCreateBatch = async () => {
     const valid = drafts
-      .map((d) => ({ name: d.name.trim(), description: d.description.trim() }))
+      .map((d) => ({ name: d.name.trim(), description: d.description.trim(), parentId: d.parentId }))
       .filter((d) => d.name.length > 0);
     if (valid.length === 0) {
       toast.error("请至少输入一个知识点名称");
@@ -289,7 +296,7 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
     for (const d of valid) {
       try {
         await createTagFn({
-          data: { name: d.name, category: isCalc ? "calc" : "knowledge", color: null, description: d.description || null },
+          data: { name: d.name, category: isCalc ? "calc" : "knowledge", color: null, description: d.description || null, parentId: isCalc ? d.parentId : null },
         });
         ok++;
       } catch (e: any) {
@@ -317,6 +324,7 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
           category: editing.category,
           color: editing.color,
           description: editForm.description.trim() || null,
+          parentId: isCalc ? editForm.parentId : null,
         },
       });
       toast.success("已更新");
@@ -328,6 +336,10 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
   };
 
   const handleDelete = async (t: TagRow) => {
+    if (tags.some((candidate) => candidate.parent_id === t.id)) {
+      toast.error("请先删除或移动该一级标签下的二级标签");
+      return;
+    }
     if (!confirm(`确定删除「${t.name}」？所有题目上的该标签也会被移除。`)) return;
     try {
       await deleteTagFn({ data: { id: t.id } });

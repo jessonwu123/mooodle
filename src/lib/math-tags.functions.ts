@@ -7,6 +7,7 @@ const TagInput = z.object({
   category: z.string().min(1).max(40).default("knowledge"),
   color: z.string().max(20).nullable().optional(),
   description: z.string().max(500).nullable().optional(),
+  parentId: z.string().uuid().nullable().optional(),
 });
 
 async function assertAdmin(context: { supabase: any; userId: string }) {
@@ -22,7 +23,7 @@ export const listTags = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("math_tags")
-      .select("id, name, category, color, description, created_at")
+      .select("id, name, category, color, description, parent_id, created_at")
       .order("category", { ascending: true })
       .order("name", { ascending: true });
     if (error) throw new Error(error.message);
@@ -41,6 +42,7 @@ export const createTag = createServerFn({ method: "POST" })
         category: data.category,
         color: data.color ?? null,
         description: data.description ?? null,
+        parent_id: data.parentId ?? null,
       })
       .select("id")
       .single();
@@ -58,6 +60,7 @@ export const updateTag = createServerFn({ method: "POST" })
         category: z.string().min(1).max(40),
         color: z.string().max(20).nullable().optional(),
         description: z.string().max(500).nullable().optional(),
+        parentId: z.string().uuid().nullable().optional(),
       })
       .parse(d),
   )
@@ -70,6 +73,7 @@ export const updateTag = createServerFn({ method: "POST" })
         category: data.category,
         color: data.color ?? null,
         description: data.description ?? null,
+        parent_id: data.parentId ?? null,
       })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
