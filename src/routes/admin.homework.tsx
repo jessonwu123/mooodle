@@ -42,6 +42,7 @@ type Q = {
   correct_answer: string | null;
   image_path: string | null;
   options_image_path: string | null;
+  answer_type: string | null;
 };
 
 const BUCKET = "math-question-images";
@@ -127,7 +128,7 @@ function HomeworkPage() {
     return m;
   }, [questions]);
   const paperList = useMemo(
-    () => Object.values(papers).filter((p) => source === "all" || paperSource[p.id] === source).sort((a, b) => (b.year ?? 0) - (a.year ?? 0) || a.name.localeCompare(b.name)),
+    () => Object.values(papers).filter((p) => paperSource[p.id] !== "calc" && source !== "calc").sort((a, b) => (b.year ?? 0) - (a.year ?? 0) || a.name.localeCompare(b.name)),
     [papers, source, paperSource],
   );
 
