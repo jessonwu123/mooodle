@@ -531,32 +531,60 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
                 {tags.length === 0 ? "还没有知识点，点击右上角「管理知识点」添加。" : "没有匹配的知识点"}
               </div>
             ) : (
-              tagGroups.map(({ parent, children }) => (
-                <div key={parent.id}>
-                  {[parent, ...children].map((tag) => {
-                    const checked = selectedTags.has(tag.id);
-                    const count = tagCounts[tag.id] ?? 0;
-                    const isChild = tag.parent_id === parent.id;
-                    return (
-                      <label
-                        key={tag.id}
-                        className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted ${checked ? "bg-muted" : ""} ${isChild ? "ml-5" : "font-medium"}`}
-                      >
-                        <Checkbox checked={checked} onCheckedChange={() => toggleSelectTag(tag.id)} />
-                        <span className="flex-1 truncate" title={tag.description ?? undefined}>
-                          {tag.name}
-                        </span>
-                        <Badge
-                          variant={count > 0 ? "secondary" : "outline"}
-                          className="h-5 min-w-[2rem] justify-center px-1.5 text-[10px]"
+              tagGroups.map(({ parent, children }) => {
+                const collapsed = collapsedGroupIds.has(parent.id);
+                const groupTagIds = [parent, ...children];
+                return (
+                  <div key={parent.id}>
+                    {groupTagIds.map((tag) => {
+                      const checked = selectedTags.has(tag.id);
+                      const count = tagCounts[tag.id] ?? 0;
+                      const isChild = tag.id !== parent.id;
+                      const hasChildren = tag.id === parent.id && children.length > 0;
+                      if (isChild && collapsed) return null;
+                      return (
+                        <label
+                          key={tag.id}
+                          className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted ${checked ? "bg-muted" : ""} ${isChild ? "ml-5" : "font-medium"}`}
                         >
-                          {count}
-                        </Badge>
-                      </label>
-                    );
-                  })}
-                </div>
-              ))
+                          <Checkbox checked={checked} onCheckedChange={() => toggleSelectTag(tag.id)} />
+                          <span className="flex-1 truncate" title={tag.description ?? undefined}>
+                            {tag.name}
+                          </span>
+                          <Badge
+                            variant={count > 0 ? "secondary" : "outline"}
+                            className="h-5 min-w-[2rem] justify-center px-1.5 text-[10px]"
+                          >
+                            {count}
+                          </Badge>
+                          {hasChildren && (
+                            <button
+                              type="button"
+                              aria-label={collapsed ? "展开二级标签" : "折叠二级标签"}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setCollapsedGroupIds((prev) => {
+                                  const n = new Set(prev);
+                                  if (n.has(parent.id)) n.delete(parent.id);
+                                  else n.add(parent.id);
+                                  return n;
+                                });
+                              }}
+                              className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            >
+                              {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </button>
+                          )}
+                          {hasChildren && collapsed && children.length > 0 && (
+                            <span className="text-[10px] text-muted-foreground">{children.length}</span>
+                          )}
+                        </label>
+                      );
+                    })}
+                  </div>
+                );
+              })
             )}
           </div>
         </Card>
