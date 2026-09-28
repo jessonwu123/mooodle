@@ -136,6 +136,14 @@ function HomeworkPage() {
       [n[i], n[j]] = [n[j]!, n[i]!];
       return n;
     });
+  const reorder = (from: number, to: number) =>
+    setSelected((s) => {
+      if (from === to || from < 0 || to < 0 || from >= s.length || to >= s.length) return s;
+      const n = [...s];
+      const [id] = n.splice(from, 1);
+      n.splice(to, 0, id!);
+      return n;
+    });
   const toggleSet = (set: Set<string>, id: string, fn: (s: Set<string>) => void) => {
     const n = new Set(set);
     n.has(id) ? n.delete(id) : n.add(id);
