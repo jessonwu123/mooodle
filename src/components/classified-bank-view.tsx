@@ -315,7 +315,12 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
         ok++;
       } catch (e: any) {
         fail++;
-        toast.error(`「${d.name}」创建失败：${e?.message ?? "未知错误"}`);
+        const msg = String(e?.message ?? "");
+        toast.error(
+          msg.includes("duplicate key") || msg.includes("unique constraint")
+            ? `「${d.name}」已存在，不能重复创建。如需把它放到某个一级标签下，请在列表中编辑该标签并选择父级`
+            : `「${d.name}」创建失败：${msg || "未知错误"}`,
+        );
       }
     }
     setSaving(false);
