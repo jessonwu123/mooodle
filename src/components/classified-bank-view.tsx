@@ -614,8 +614,9 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
                        {!isCalc && <span>·</span>}
                        {!isCalc && <span>第 {q.question_number} 题</span>}
                       {q.correct_answer && (
-                        <span className="rounded bg-green-100 px-1.5 py-0.5 text-[11px] text-green-700">
-                          答案 {q.correct_answer}
+                        <span className="inline-flex items-center gap-1 rounded bg-green-100 px-1.5 py-0.5 text-[11px] text-green-700">
+                          <span>答案</span>
+                          <MathText text={q.correct_answer} />
                         </span>
                       )}
                       {q.stem_render_mode === "image" && (
