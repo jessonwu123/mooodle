@@ -75,6 +75,7 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
   const [filterMode, setFilterMode] = useState<"any" | "all">("any");
   const [showUntagged, setShowUntagged] = useState(false);
+  const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
   const [tagSearch, setTagSearch] = useState("");
 
   // Manage dialog
