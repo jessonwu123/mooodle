@@ -345,7 +345,7 @@ function TargetedPanel({ studentId, onStart }: { studentId: string; onStart: (qu
   const listFn = useServerFn(listPracticeTags);
   const loadFn = useServerFn(loadTargetedQuestions);
   const [loading, setLoading] = useState(true);
-  const [tags, setTags] = useState<Array<{ id: string; name: string; category: string; count: number }>>([]);
+  const [tags, setTags] = useState<Array<{ id: string; name: string; category: string; count: number; parent_id: string | null }>>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [limit, setLimit] = useState(10);
   const [busy, setBusy] = useState(false);
@@ -374,6 +374,9 @@ function TargetedPanel({ studentId, onStart }: { studentId: string; onStart: (qu
     return Array.from(map.entries());
   }, [tags]);
 
+  const tagCount = (tag: (typeof tags)[number]) =>
+    tag.count + tags.filter((child) => child.parent_id === tag.id).reduce((sum, child) => sum + child.count, 0);
+
   const toggle = (id: string) =>
     setSelected((p) => {
       const n = new Set(p);
@@ -396,24 +399,26 @@ function TargetedPanel({ studentId, onStart }: { studentId: string; onStart: (qu
               <div key={cat}>
                 <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{cat}</div>
                 <div className="flex flex-wrap gap-2">
-                  {ts.map((t) => {
+                   {ts.sort((a, b) => Number(Boolean(a.parent_id)) - Number(Boolean(b.parent_id))).map((t) => {
                     const isSel = selected.has(t.id);
-                    const disabled = t.count === 0;
+                     const count = tagCount(t);
+                     const disabled = count === 0;
                     return (
                       <button
                         key={t.id}
                         type="button"
                         disabled={disabled}
                         onClick={() => toggle(t.id)}
-                        className={[
+                         className={[
                           "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
                           isSel ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent",
                           disabled ? "cursor-not-allowed opacity-40" : "",
+                           t.parent_id ? "ml-3" : "",
                         ].join(" ")}
                       >
                         <Checkbox checked={isSel} className="pointer-events-none h-3.5 w-3.5" />
-                        {t.name}
-                        <span className="text-[10px] text-muted-foreground">({t.count})</span>
+                         {t.parent_id ? `└ ${t.name}` : t.name}
+                         <span className="text-[10px] text-muted-foreground">({count})</span>
                       </button>
                     );
                   })}

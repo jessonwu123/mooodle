@@ -27,7 +27,7 @@ export const Route = createFileRoute("/admin/homework")({
   }),
 });
 
-type Tag = { id: string; name: string; category: string };
+type Tag = { id: string; name: string; category: string; parent_id: string | null };
 type Paper = { id: string; year: number | null; name: string };
 type Q = {
   id: string;
@@ -122,6 +122,7 @@ function HomeworkPage() {
 
   const qById = useMemo(() => Object.fromEntries(questions.map((q) => [q.id, q])), [questions]);
   const tagById = useMemo(() => Object.fromEntries(tags.map((t) => [t.id, t])), [tags]);
+  const calcChildren = (parentId: string) => tags.filter((tag) => tag.parent_id === parentId).map((tag) => tag.id);
   const paperSource = useMemo(() => {
     const m: Record<string, "exam" | "calc"> = {};
     questions.forEach((q: any) => { m[q.paper_id] = q.answer_type === "计算" ? "calc" : "exam"; });
@@ -137,13 +138,13 @@ function HomeworkPage() {
     return questions
       .filter((q: any) => (source === "all" ? true : source === "calc" ? q.answer_type === "计算" : q.answer_type !== "计算"))
       .filter((q) => (paperFilter.size ? paperFilter.has(q.paper_id) : true))
-      .filter((q) => (tagFilter.size ? (qTags[q.id] ?? []).some((t) => tagFilter.has(t)) : true))
+      .filter((q) => tagFilter.size ? Array.from(tagFilter).some((id) => [id, ...calcChildren(id)].some((tagId) => (qTags[q.id] ?? []).includes(tagId))) : true)
       .filter((q) => (kw ? q.stem.toLowerCase().includes(kw) : true))
       .sort((a, b) => {
         const pa = papers[a.paper_id], pb = papers[b.paper_id];
         return (pb?.year ?? 0) - (pa?.year ?? 0) || (pa?.name ?? "").localeCompare(pb?.name ?? "") || a.question_number - b.question_number;
       });
-  }, [questions, paperFilter, tagFilter, keyword, qTags, papers, source]);
+  }, [questions, paperFilter, tagFilter, keyword, qTags, papers, source, tags]);
 
   const selSet = useMemo(() => new Set(selected), [selected]);
   const toggleSel = (id: string) =>
@@ -295,14 +296,17 @@ function HomeworkPage() {
                 <Input value={tagSearch} onChange={(e) => setTagSearch(e.target.value)} placeholder="搜索知识点" className="h-7 max-w-40 text-xs" />
               </div>
               <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto">
-                {visibleTags.map((t) => (
+                {visibleTags
+                  .filter((tag) => !tag.parent_id)
+                  .flatMap((parent) => [parent, ...visibleTags.filter((tag) => tag.parent_id === parent.id)])
+                  .map((t) => (
                   <Badge
                     key={t.id}
                     variant={tagFilter.has(t.id) ? "default" : "secondary"}
-                    className="cursor-pointer"
+                    className={`cursor-pointer ${t.parent_id ? "ml-3" : "font-semibold"}`}
                     onClick={() => toggleSet(tagFilter, t.id, setTagFilter)}
                   >
-                    {t.name}
+                    {t.parent_id ? `└ ${t.name}` : t.name}
                   </Badge>
                 ))}
                 {!visibleTags.length && <span className="text-xs text-muted-foreground">暂无知识点</span>}
