@@ -11,7 +11,6 @@ import { importCalcQuestions } from "@/lib/math-papers.functions";
 export function CalcImportDialog({ onImported }: { onImported?: () => void }) {
   type CalcRow = { stem: string; answer: string; tags: string[] };
   const [calcOpen, setCalcOpen] = useState(false);
-  const [calcName, setCalcName] = useState("计算题集");
   const [calcText, setCalcText] = useState("");
   const [calcRows, setCalcRows] = useState<CalcRow[]>([]);
   const [calcImporting, setCalcImporting] = useState(false);
@@ -63,14 +62,12 @@ export function CalcImportDialog({ onImported }: { onImported?: () => void }) {
   };
 
   const handleCalcImport = async () => {
-    if (!calcName.trim()) return toast.error("请填写题集名称");
     if (calcRows.length === 0) return toast.error("没有可导入的题目");
     setCalcImporting(true);
     try {
       const { count } = await importCalcQuestions({
         data: {
           folderId: null,
-          name: calcName.trim(),
           questions: calcRows.map((r) => ({
             stem: r.stem,
             answer: r.answer || null,
@@ -78,7 +75,7 @@ export function CalcImportDialog({ onImported }: { onImported?: () => void }) {
           })),
         },
       });
-      toast.success(`已导入 ${count} 道题到「${calcName.trim()}」`);
+      toast.success(`已导入 ${count} 道计算题`);
       setCalcOpen(false);
       setCalcText("");
       setCalcRows([]);
@@ -102,12 +99,6 @@ export function CalcImportDialog({ onImported }: { onImported?: () => void }) {
               </DialogHeader>
               <div className="space-y-3">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Input
-                    value={calcName}
-                    onChange={(e) => setCalcName(e.target.value)}
-                    placeholder="题集名称，如：小数计算专项"
-                    className="max-w-60"
-                  />
                   <Button
                     variant="outline"
                     size="sm"
@@ -147,7 +138,6 @@ export function CalcImportDialog({ onImported }: { onImported?: () => void }) {
                     <div className="max-h-64 overflow-y-auto divide-y">
                       {calcRows.slice(0, 20).map((r, i) => (
                         <div key={i} className="flex items-start gap-3 px-3 py-2 text-sm">
-                          <span className="w-8 shrink-0 text-muted-foreground">{i + 1}.</span>
                           <div className="min-w-0 flex-1">
                             <MathText text={r.stem} />
                           </div>
