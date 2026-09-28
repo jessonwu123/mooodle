@@ -108,11 +108,6 @@ export const listPracticePapers = createServerFn({ method: "POST" })
     const folderIds = await resolveAccessibleFolders(context, data.studentId);
     if (folderIds.length === 0) return { papers: [] };
     const admin = await getAdmin();
-    const { data: childTags } = await admin
-      .from("math_tags")
-      .select("id")
-      .in("parent_id", data.tagIds);
-    const expandedTagIds = Array.from(new Set([...data.tagIds, ...(childTags ?? []).map((tag: any) => tag.id as string)]));
     const { data: rows, error } = await admin
       .from("math_papers")
       .select("id, year, name, kind, question_count")
@@ -213,6 +208,13 @@ export const loadTargetedQuestions = createServerFn({ method: "POST" })
     const folderIds = await resolveAccessibleFolders(context, data.studentId);
     if (folderIds.length === 0) throw new Error("没有可访问的题目");
     const admin = await getAdmin();
+    const { data: childTags } = await admin
+      .from("math_tags")
+      .select("id")
+      .in("parent_id", data.tagIds);
+    const expandedTagIds = Array.from(
+      new Set([...data.tagIds, ...(childTags ?? []).map((tag: any) => tag.id as string)]),
+    );
     const { data: papers } = await admin
       .from("math_papers")
       .select("id")
