@@ -74,6 +74,7 @@ function HomeworkPage() {
   const [title, setTitle] = useState("课后作业");
   const [withAnswers, setWithAnswers] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [renderData, setRenderData] = useState<{ qs: Q[]; imgs: Record<string, string> } | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
