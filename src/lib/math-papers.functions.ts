@@ -571,7 +571,8 @@ export const importCalcQuestions = createServerFn({ method: "POST" })
       context.supabase.rpc("has_role", { _user_id: context.userId, _role: "teacher" }),
     ]);
     if (!isAdmin && !isTeacher) throw new Error("仅教师或管理员可执行");
-    const { supabase } = context;
+    // 已验证教师/管理员身份；题库表的写策略仅管理员，这里用服务端客户端执行写入
+    const { supabaseAdmin: supabase } = await import("@/integrations/supabase/client.server");
 
     const { data: paper, error: e0 } = await supabase
       .from("math_papers")
