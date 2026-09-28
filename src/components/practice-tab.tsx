@@ -374,6 +374,9 @@ function TargetedPanel({ studentId, onStart }: { studentId: string; onStart: (qu
     return Array.from(map.entries());
   }, [tags]);
 
+  const tagCount = (tag: (typeof tags)[number]) =>
+    tag.count + tags.filter((child) => child.parent_id === tag.id).reduce((sum, child) => sum + child.count, 0);
+
   const toggle = (id: string) =>
     setSelected((p) => {
       const n = new Set(p);
@@ -398,7 +401,8 @@ function TargetedPanel({ studentId, onStart }: { studentId: string; onStart: (qu
                 <div className="flex flex-wrap gap-2">
                    {ts.sort((a, b) => Number(Boolean(a.parent_id)) - Number(Boolean(b.parent_id))).map((t) => {
                     const isSel = selected.has(t.id);
-                    const disabled = t.count === 0;
+                     const count = tagCount(t);
+                     const disabled = count === 0;
                     return (
                       <button
                         key={t.id}
@@ -414,7 +418,7 @@ function TargetedPanel({ studentId, onStart }: { studentId: string; onStart: (qu
                       >
                         <Checkbox checked={isSel} className="pointer-events-none h-3.5 w-3.5" />
                          {t.parent_id ? `└ ${t.name}` : t.name}
-                        <span className="text-[10px] text-muted-foreground">({t.count})</span>
+                         <span className="text-[10px] text-muted-foreground">({count})</span>
                       </button>
                     );
                   })}

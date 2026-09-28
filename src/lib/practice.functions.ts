@@ -108,6 +108,11 @@ export const listPracticePapers = createServerFn({ method: "POST" })
     const folderIds = await resolveAccessibleFolders(context, data.studentId);
     if (folderIds.length === 0) return { papers: [] };
     const admin = await getAdmin();
+    const { data: childTags } = await admin
+      .from("math_tags")
+      .select("id")
+      .in("parent_id", data.tagIds);
+    const expandedTagIds = Array.from(new Set([...data.tagIds, ...(childTags ?? []).map((tag: any) => tag.id as string)]));
     const { data: rows, error } = await admin
       .from("math_papers")
       .select("id, year, name, kind, question_count")
@@ -218,7 +223,7 @@ export const loadTargetedQuestions = createServerFn({ method: "POST" })
     const { data: rels } = await admin
       .from("math_question_tags")
       .select("question_id, tag_id")
-      .in("tag_id", data.tagIds);
+      .in("tag_id", expandedTagIds);
     const candidateIds = Array.from(new Set((rels ?? []).map((r: any) => r.question_id as string)));
     if (candidateIds.length === 0) throw new Error("所选知识点暂无题目");
     // restrict to accessible papers
