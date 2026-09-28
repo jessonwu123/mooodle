@@ -574,7 +574,7 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
                 return (
                   <div key={q.id} className="rounded-lg border bg-card p-4 text-sm">
                     <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      {paper && (
+                       {!isCalc && paper && (
                         <Link
                           to="/admin/question-bank/$paperId"
                           params={{ paperId: paper.id }}
@@ -583,8 +583,8 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
                           {paper.name}
                         </Link>
                       )}
-                      <span>·</span>
-                      <span>第 {q.question_number} 题</span>
+                       {!isCalc && <span>·</span>}
+                       {!isCalc && <span>第 {q.question_number} 题</span>}
                       {q.correct_answer && (
                         <span className="rounded bg-green-100 px-1.5 py-0.5 text-[11px] text-green-700">
                           答案 {q.correct_answer}
@@ -601,7 +601,9 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
                           onClick={() =>
                             setOriginalDialog({
                               open: true,
-                              title: `${paper ? paper.name + " · " : ""}第 ${q.question_number} 题 · 原题`,
+                               title: isCalc
+                                 ? "原题"
+                                 : `${paper ? paper.name + " · " : ""}第 ${q.question_number} 题 · 原题`,
                               questionId: q.id,
                               stemPath: q.image_path,
                               optionsPath: q.options_image_path,

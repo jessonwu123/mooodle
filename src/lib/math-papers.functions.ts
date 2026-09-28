@@ -549,7 +549,6 @@ export const bulkUpdateQuestionAnswers = createServerFn({ method: "POST" })
 // ===== 批量导入计算题（纯文字题，无 PDF）=====
 const ImportCalcInput = z.object({
   folderId: z.string().uuid().nullable().optional(),
-  name: z.string().min(1).max(200),
   questions: z
     .array(
       z.object({
@@ -578,7 +577,7 @@ export const importCalcQuestions = createServerFn({ method: "POST" })
       .from("math_papers")
       .insert({
         year: null,
-        name: data.name,
+        name: "计算练习",
         pdf_path: null,
         answer_pdf_path: null,
         folder_id: data.folderId ?? null,

@@ -42,6 +42,7 @@ type Q = {
   correct_answer: string | null;
   image_path: string | null;
   options_image_path: string | null;
+  answer_type: string | null;
 };
 
 const BUCKET = "math-question-images";
@@ -127,7 +128,7 @@ function HomeworkPage() {
     return m;
   }, [questions]);
   const paperList = useMemo(
-    () => Object.values(papers).filter((p) => source === "all" || paperSource[p.id] === source).sort((a, b) => (b.year ?? 0) - (a.year ?? 0) || a.name.localeCompare(b.name)),
+    () => Object.values(papers).filter((p) => paperSource[p.id] !== "calc" && source !== "calc").sort((a, b) => (b.year ?? 0) - (a.year ?? 0) || a.name.localeCompare(b.name)),
     [papers, source, paperSource],
   );
 
@@ -173,6 +174,8 @@ function HomeworkPage() {
     const p = papers[id];
     return p ? `${p.year ? p.year + " " : ""}${p.name}` : "";
   };
+
+  const isCalcQuestion = (q: Q) => q.answer_type === "计算";
 
   const handleExport = async () => {
     if (!selected.length) return toast.error("请先勾选题目");
@@ -271,7 +274,7 @@ function HomeworkPage() {
                 </Button>
               ))}
             </div>
-            <div>
+            {source !== "calc" && <div>
               <Label className="mb-1.5 block text-xs text-muted-foreground">题库（不选 = 全部）</Label>
               <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto">
                 {paperList.map((p) => (
@@ -285,7 +288,7 @@ function HomeworkPage() {
                   </Badge>
                 ))}
               </div>
-            </div>
+            </div>}
             <div>
               <div className="mb-1.5 flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground">知识点（不选 = 全部）</Label>
@@ -338,7 +341,9 @@ function HomeworkPage() {
                   <Checkbox checked={selSet.has(q.id)} className="mt-1" onClick={(e) => e.stopPropagation()} onCheckedChange={() => toggleSel(q.id)} />
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                      <span className="whitespace-nowrap">{paperLabel(q.paper_id)} · 第 {q.question_number} 题</span>
+                      {!isCalcQuestion(q) && (
+                        <span className="whitespace-nowrap">{paperLabel(q.paper_id)} · 第 {q.question_number} 题</span>
+                      )}
                       {q.image_path && <Badge variant="outline" className="text-[10px]">有原题截图</Badge>}
                       {(qTags[q.id] ?? []).map((t) => tagById[t] && (
                         <Badge key={t} variant="secondary" className="text-[10px]">{tagById[t]!.name}</Badge>
@@ -395,7 +400,9 @@ function HomeworkPage() {
                 >
                   <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span className="w-5 shrink-0 font-medium">{i + 1}.</span>
-                  <span className="min-w-0 flex-1 truncate">{paperLabel(q.paper_id)} 第{q.question_number}题</span>
+                   <span className="min-w-0 flex-1 truncate">
+                     {isCalcQuestion(q) ? <MathText text={q.stem} /> : `${paperLabel(q.paper_id)} 第${q.question_number}题`}
+                   </span>
                   <button
                     className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
                     disabled={i === 0}
