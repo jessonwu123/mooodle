@@ -566,11 +566,11 @@ export const importCalcQuestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ImportCalcInput.parse(d))
   .handler(async ({ data, context }) => {
-    const { data: isAdmin } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (!isAdmin) throw new Error("仅管理员可执行");
+    const [{ data: isAdmin }, { data: isTeacher }] = await Promise.all([
+      context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" }),
+      context.supabase.rpc("has_role", { _user_id: context.userId, _role: "teacher" }),
+    ]);
+    if (!isAdmin && !isTeacher) throw new Error("仅教师或管理员可执行");
     const { supabase } = context;
 
     const { data: paper, error: e0 } = await supabase
