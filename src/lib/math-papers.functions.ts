@@ -613,16 +613,19 @@ export const importCalcQuestions = createServerFn({ method: "POST" })
       if (allNames.length > 0 && inserted?.length) {
         const { data: existing } = await supabase
           .from("math_tags")
-          .select("id, name")
+          .select("id, name, category")
           .in("name", allNames);
+        const sorted = [...(existing ?? [])].sort(
+          (a: any, b: any) => (a.category === "calc" ? 1 : 0) - (b.category === "calc" ? 1 : 0),
+        );
         const tagIdByName = new Map<string, string>(
-          (existing ?? []).map((t: any) => [t.name, t.id]),
+          sorted.map((t: any) => [t.name, t.id]),
         );
         const missing = allNames.filter((n) => !tagIdByName.has(n));
         if (missing.length > 0) {
           const { data: created, error: e2 } = await supabase
             .from("math_tags")
-            .insert(missing.map((n) => ({ name: n, category: "knowledge" })))
+            .insert(missing.map((n) => ({ name: n, category: "calc" })))
             .select("id, name");
           if (e2) throw new Error("知识点创建失败：" + e2.message);
           for (const t of created ?? []) tagIdByName.set((t as any).name, (t as any).id);
