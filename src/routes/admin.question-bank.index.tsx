@@ -224,6 +224,89 @@ function QuestionBankPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<string>("");
 
+  // 批量导入计算题
+  type CalcRow = { stem: string; answer: string; tags: string[] };
+  const [calcOpen, setCalcOpen] = useState(false);
+  const [calcName, setCalcName] = useState("计算题集");
+  const [calcText, setCalcText] = useState("");
+  const [calcRows, setCalcRows] = useState<CalcRow[]>([]);
+  const [calcImporting, setCalcImporting] = useState(false);
+  const calcFileRef = useRef<HTMLInputElement | null>(null);
+
+  const parseCalcLines = (text: string): CalcRow[] => {
+    const rows: CalcRow[] = [];
+    for (const raw of text.split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line) continue;
+      const parts = line.split(/\||｜|\t/).map((s) => s.trim());
+      const stem = parts[0] ?? "";
+      if (!stem || stem === "题干" || stem === "题目") continue;
+      rows.push({
+        stem,
+        answer: parts[1] ?? "",
+        tags: (parts[2] ?? "")
+          .split(/[,，、;；]/)
+          .map((s) => s.trim())
+          .filter(Boolean),
+      });
+    }
+    return rows;
+  };
+
+  const handleCalcTextChange = (text: string) => {
+    setCalcText(text);
+    setCalcRows(parseCalcLines(text));
+  };
+
+  const handleCalcFile = async (file: File) => {
+    try {
+      const XLSX = await import("xlsx");
+      const wb = XLSX.read(await file.arrayBuffer());
+      const sheet = wb.Sheets[wb.SheetNames[0]!];
+      const grid = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, {
+        header: 1,
+        defval: "",
+      });
+      const lines = grid
+        .map((r) => r.map((c) => String(c ?? "").trim()).join("|"))
+        .join("\n");
+      setCalcText(lines);
+      setCalcRows(parseCalcLines(lines));
+      toast.success(`已读取 ${file.name}`);
+    } catch (err) {
+      toast.error("文件读取失败：" + (err instanceof Error ? err.message : ""));
+    }
+  };
+
+  const handleCalcImport = async () => {
+    if (!calcName.trim()) return toast.error("请填写题集名称");
+    if (calcRows.length === 0) return toast.error("没有可导入的题目");
+    setCalcImporting(true);
+    try {
+      const { count } = await importCalcQuestions({
+        data: {
+          folderId: currentFolderId,
+          name: calcName.trim(),
+          questions: calcRows.map((r) => ({
+            stem: r.stem,
+            answer: r.answer || null,
+            tags: r.tags,
+          })),
+        },
+      });
+      toast.success(`已导入 ${count} 道题到「${calcName.trim()}」`);
+      setCalcOpen(false);
+      setCalcText("");
+      setCalcRows([]);
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "导入失败");
+    } finally {
+      setCalcImporting(false);
+    }
+  };
+
+
 
   const subfolders = useMemo(
     () => allFolders.filter((f) => f.parent_id === currentFolderId),
