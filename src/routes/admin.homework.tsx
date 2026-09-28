@@ -65,6 +65,7 @@ function HomeworkPage() {
   const [questions, setQuestions] = useState<Q[]>([]);
   const [qTags, setQTags] = useState<Record<string, string[]>>({});
 
+  const [source, setSource] = useState<"all" | "exam" | "calc">("all");
   const [paperFilter, setPaperFilter] = useState<Set<string>>(new Set());
   const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
   const [keyword, setKeyword] = useState("");
@@ -85,7 +86,7 @@ function HomeworkPage() {
           fetchTags(),
           supabase
             .from("math_questions")
-            .select("id, paper_id, question_number, stem, option_a, option_b, option_c, option_d, option_e, correct_answer, image_path, options_image_path")
+            .select("id, paper_id, question_number, stem, option_a, option_b, option_c, option_d, option_e, correct_answer, image_path, options_image_path, answer_type")
             .order("question_number"),
           supabase.from("math_papers").select("id, year, name").order("year", { ascending: false }),
           supabase.from("math_question_tags").select("question_id, tag_id"),
@@ -108,14 +109,20 @@ function HomeworkPage() {
 
   const qById = useMemo(() => Object.fromEntries(questions.map((q) => [q.id, q])), [questions]);
   const tagById = useMemo(() => Object.fromEntries(tags.map((t) => [t.id, t])), [tags]);
+  const paperSource = useMemo(() => {
+    const m: Record<string, "exam" | "calc"> = {};
+    questions.forEach((q: any) => { m[q.paper_id] = q.answer_type === "计算" ? "calc" : "exam"; });
+    return m;
+  }, [questions]);
   const paperList = useMemo(
-    () => Object.values(papers).sort((a, b) => (b.year ?? 0) - (a.year ?? 0) || a.name.localeCompare(b.name)),
-    [papers],
+    () => Object.values(papers).filter((p) => source === "all" || paperSource[p.id] === source).sort((a, b) => (b.year ?? 0) - (a.year ?? 0) || a.name.localeCompare(b.name)),
+    [papers, source, paperSource],
   );
 
   const filtered = useMemo(() => {
     const kw = keyword.trim().toLowerCase();
     return questions
+      .filter((q: any) => (source === "all" ? true : source === "calc" ? q.answer_type === "计算" : q.answer_type !== "计算"))
       .filter((q) => (paperFilter.size ? paperFilter.has(q.paper_id) : true))
       .filter((q) => (tagFilter.size ? (qTags[q.id] ?? []).some((t) => tagFilter.has(t)) : true))
       .filter((q) => (kw ? q.stem.toLowerCase().includes(kw) : true))
@@ -123,7 +130,7 @@ function HomeworkPage() {
         const pa = papers[a.paper_id], pb = papers[b.paper_id];
         return (pb?.year ?? 0) - (pa?.year ?? 0) || (pa?.name ?? "").localeCompare(pb?.name ?? "") || a.question_number - b.question_number;
       });
-  }, [questions, paperFilter, tagFilter, keyword, qTags, papers]);
+  }, [questions, paperFilter, tagFilter, keyword, qTags, papers, source]);
 
   const selSet = useMemo(() => new Set(selected), [selected]);
   const toggleSel = (id: string) =>
@@ -225,7 +232,7 @@ function HomeworkPage() {
     }
   };
 
-  const visibleTags = tags.filter((t) => t.name.toLowerCase().includes(tagSearch.trim().toLowerCase()));
+  const visibleTags = tags.filter((t: any) => source === "all" || (source === "calc" ? t.category === "calc" : t.category !== "calc")).filter((t) => t.name.toLowerCase().includes(tagSearch.trim().toLowerCase()));
 
   return (
     <div className="space-y-4">
@@ -245,6 +252,13 @@ function HomeworkPage() {
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4 min-w-0">
           <Card className="space-y-3 p-4">
+            <div className="flex flex-wrap gap-1.5">
+              {([["all", "全部"], ["exam", "题库"], ["calc", "计算练习"]] as const).map(([k, l]) => (
+                <Button key={k} size="sm" variant={source === k ? "default" : "outline"} onClick={() => { setSource(k); setPaperFilter(new Set()); setTagFilter(new Set()); }}>
+                  {l}
+                </Button>
+              ))}
+            </div>
             <div>
               <Label className="mb-1.5 block text-xs text-muted-foreground">题库（不选 = 全部）</Label>
               <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto">
