@@ -11,7 +11,7 @@ import {
   type CourseInfo,
   generateLessonOccurrences,
   lessonKey,
-  WEEKDAY_LABELS,
+  WEEKDAY_LABELS_MON,
 } from "@/lib/course-schedule";
 
 interface Props {
@@ -29,14 +29,14 @@ interface Item {
   end: Date | null;
   title: string;
   hours: number;
-  tone: "recurring" | "single" | "imported";
+  tone: "recurring" | "single" | "imported" | "cancelled";
   groupKey: string;
   groupLabel: string;
 }
 
 function startOfWeek(d: Date) {
   const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  x.setDate(x.getDate() - x.getDay());
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
   return x;
 }
 function startOfMonth(d: Date) {
@@ -58,6 +58,7 @@ function fmt(d: Date) {
 
 export function TeacherScheduleView({ teacherId, teacherLabel }: Props) {
   const [items, setItems] = useState<Item[]>([]);
+  const [cancelledItems, setCancelledItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"week" | "month">("month");
   const [anchor, setAnchor] = useState(new Date());
@@ -176,6 +177,31 @@ export function TeacherScheduleView({ teacherId, teacherLabel }: Props) {
 
     out.sort((a, b) => a.date.getTime() - b.date.getTime());
     setItems(out);
+
+    const cancelledOut: Item[] = [];
+    for (const s of students) {
+      for (const o of generateLessonOccurrences(s)) {
+        if (!cancelled.has(lessonKey(o.date))) continue;
+        let end: Date | null = null;
+        if (o.slot.end_time) {
+          const [h, m] = o.slot.end_time.split(":").map(Number);
+          const e = new Date(o.date);
+          e.setHours(h, m, 0, 0);
+          end = e;
+        }
+        cancelledOut.push({
+          date: o.date,
+          end,
+          title: s.name,
+          hours: 0,
+          tone: "cancelled",
+          groupKey: s.id,
+          groupLabel: s.name,
+        });
+      }
+    }
+    cancelledOut.sort((a, b) => a.date.getTime() - b.date.getTime());
+    setCancelledItems(cancelledOut);
     setLoading(false);
   }, [teacherId]);
 
@@ -286,7 +312,7 @@ export function TeacherScheduleView({ teacherId, teacherLabel }: Props) {
       ) : (
         <div className="-mx-4 overflow-x-auto px-4">
           <div className="grid min-w-[770px] grid-cols-[repeat(7,minmax(110px,1fr))] gap-2">
-            {WEEKDAY_LABELS.map((w) => (
+            {WEEKDAY_LABELS_MON.map((w) => (
               <div
                 key={w}
                 className="px-2 py-1 text-center text-xs font-medium text-muted-foreground"
@@ -295,7 +321,11 @@ export function TeacherScheduleView({ teacherId, teacherLabel }: Props) {
               </div>
             ))}
             {days.map((d, i) => {
-              const dayItems = items.filter((o) => sameDay(o.date, d));
+              const nowTs = Date.now();
+              const dayItems = [
+                ...items.filter((o) => sameDay(o.date, d)),
+                ...cancelledItems.filter((o) => sameDay(o.date, d)),
+              ].sort((a, b) => a.date.getTime() - b.date.getTime());
               const inCurrentRange = d >= rangeStart && d < rangeEnd;
               const isToday = sameDay(d, new Date());
               return (
@@ -305,14 +335,30 @@ export function TeacherScheduleView({ teacherId, teacherLabel }: Props) {
                     inCurrentRange
                       ? "border-border bg-card"
                       : "border-border/40 bg-muted/20 text-muted-foreground"
-                  } ${isToday ? "ring-2 ring-primary" : ""}`}
+                  } ${isToday ? "bg-primary/5 ring-2 ring-primary" : ""}`}
                 >
                   <div className="mb-1 text-xs font-medium">{d.getDate()}</div>
                   <div className="space-y-1">
                     {dayItems.map((o, j) => {
                       const time = `${fmt(o.date)}${o.end ? `-${fmt(o.end)}` : ""}`;
-                      const tone =
-                        o.tone === "recurring"
+                      if (o.tone === "cancelled") {
+                        return (
+                          <div
+                            key={`c-${j}`}
+                            className="rounded-md bg-muted px-1.5 py-1 text-[11px] text-muted-foreground"
+                            title={`${o.title} ${time}（已请假）`}
+                          >
+                            <div className="font-medium whitespace-nowrap">{time}</div>
+                            <div className="truncate line-through decoration-muted-foreground/50">
+                              {o.title} · 已请假
+                            </div>
+                          </div>
+                        );
+                      }
+                      const past = (o.end ?? o.date).getTime() < nowTs;
+                      const tone = past
+                        ? "bg-muted/60 text-muted-foreground"
+                        : o.tone === "recurring"
                           ? "bg-primary/10 text-primary"
                           : o.tone === "single"
                             ? "bg-sky-100 text-sky-800"

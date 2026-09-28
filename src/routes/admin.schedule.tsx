@@ -34,7 +34,7 @@ import {
   type CourseInfo,
   type ScheduleSlot,
   generateLessonOccurrences,
-  WEEKDAY_LABELS,
+  WEEKDAY_LABELS_MON,
   lessonKey,
   lessonFee,
 } from "@/lib/course-schedule";
@@ -114,7 +114,7 @@ const OTHER_KEY = "__other__";
 function startOfWeek(d: Date) {
 
   const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  x.setDate(x.getDate() - x.getDay());
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
   return x;
 }
 function startOfMonth(d: Date) {
@@ -288,6 +288,18 @@ function SchedulePage() {
     return out.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [students, cancelled]);
 
+  const cancelledOccurrences: Occurrence[] = useMemo(() => {
+    const out: Occurrence[] = [];
+    for (const s of students) {
+      for (const o of generateLessonOccurrences(s)) {
+        if (cancelled.has(`${s.id}|${lessonKey(o.date)}`)) {
+          out.push({ kind: "recurring", date: o.date, slot: o.slot, student: s });
+        }
+      }
+    }
+    return out.sort((a, b) => a.date.getTime() - b.date.getTime());
+  }, [students, cancelled]);
+
   const singleOccurrences: SingleOccurrence[] = useMemo(() => {
     const nameById = new Map(students.map((s) => [s.id, s.name] as const));
     return singles
@@ -359,6 +371,9 @@ function SchedulePage() {
   const importedInRange = importedOccurrences.filter(
     (o) => o.date >= rangeStart && o.date < rangeEnd && !hidden.has(IMPORTED_KEY),
   );
+  const cancelledInRange = cancelledOccurrences.filter(
+    (o) => o.date >= rangeStart && o.date < rangeEnd && !hidden.has(o.student.id),
+  );
 
 
   const orgFee = useMemo(
@@ -385,6 +400,43 @@ function SchedulePage() {
   }, [inRange, singleInRange, orgFee, orgRates.base_salary]);
 
   const monthlyIncome = incomeParts.total;
+
+  const nextLessonLabel = useMemo(() => {
+    const now = Date.now();
+    const cands: Array<{ start: Date; end: Date | null; label: string }> = [];
+    for (const o of occurrences) {
+      let end: Date | null = null;
+      if (o.slot.end_time) {
+        const [eh, em] = o.slot.end_time.split(":").map(Number);
+        end = new Date(o.date);
+        end.setHours(eh, em, 0, 0);
+      }
+      cands.push({ start: o.date, end, label: o.student.name });
+    }
+    for (const o of singleOccurrences) {
+      cands.push({
+        start: o.date,
+        end: o.end,
+        label: o.studentName ?? o.row.class_name ?? "单次课",
+      });
+    }
+    for (const o of importedOccurrences) {
+      const [eh, em] = o.end.split(":").map(Number);
+      const end = new Date(o.date);
+      end.setHours(eh, em, 0, 0);
+      cands.push({ start: o.date, end, label: o.className });
+    }
+    cands.sort((a, b) => a.start.getTime() - b.start.getTime());
+    const next = cands.find((c) => (c.end ?? c.start).getTime() >= now);
+    if (!next) return null;
+    const p = (n: number) => String(n).padStart(2, "0");
+    const dstr = `${next.start.getMonth() + 1}月${next.start.getDate()}日`;
+    const wk = `周${"日一二三四五六"[next.start.getDay()]}`;
+    const tstr = `${p(next.start.getHours())}:${p(next.start.getMinutes())}${
+      next.end ? `-${p(next.end.getHours())}:${p(next.end.getMinutes())}` : ""
+    }`;
+    return `${dstr}（${wk}）${tstr} · ${next.label}`;
+  }, [occurrences, singleOccurrences, importedOccurrences]);
 
   const totalHours = useMemo(() => {
     let sum = 0;
@@ -612,6 +664,12 @@ function SchedulePage() {
             {view === "week" ? "本周" : "本月"}总课时{" "}
             <span className="font-semibold text-foreground">{totalHours}</span> 小时
           </div>
+          {nextLessonLabel && (
+            <div className="mt-1 text-sm text-muted-foreground">
+              下一节课{" "}
+              <span className="font-medium text-foreground">{nextLessonLabel}</span>
+            </div>
+          )}
           <Popover>
             <PopoverTrigger asChild>
               <button
@@ -812,7 +870,7 @@ function SchedulePage() {
         </div>
       ) : (
         <div className="-mx-4 overflow-x-auto px-4"><div className="grid min-w-[770px] grid-cols-[repeat(7,minmax(110px,1fr))] gap-2">
-          {WEEKDAY_LABELS.map((w) => (
+          {WEEKDAY_LABELS_MON.map((w) => (
             <div
               key={w}
               className="px-2 py-1 text-center text-xs font-medium text-muted-foreground"
@@ -825,6 +883,7 @@ function SchedulePage() {
               | { t: number; kind: "r"; o: Occurrence }
               | { t: number; kind: "s"; o: SingleOccurrence }
               | { t: number; kind: "i"; o: ImportedOccurrence }
+              | { t: number; kind: "c"; o: Occurrence }
             > = [
               ...inRange
                 .filter((o) => sameDay(o.date, d))
@@ -835,6 +894,9 @@ function SchedulePage() {
               ...importedInRange
                 .filter((o) => sameDay(o.date, d))
                 .map((o) => ({ t: o.date.getTime(), kind: "i" as const, o })),
+              ...cancelledInRange
+                .filter((o) => sameDay(o.date, d))
+                .map((o) => ({ t: o.date.getTime(), kind: "c" as const, o })),
             ].sort((a, b) => a.t - b.t);
             const inCurrentRange = d >= rangeStart && d < rangeEnd;
             const isToday = sameDay(d, new Date());
@@ -845,20 +907,50 @@ function SchedulePage() {
                   inCurrentRange
                     ? "border-border bg-card"
                     : "border-border/40 bg-muted/20 text-muted-foreground"
-                } ${isToday ? "ring-2 ring-primary" : ""}`}
+                } ${isToday ? "bg-primary/5 ring-2 ring-primary" : ""}`}
               >
                 <div className="mb-1 text-xs font-medium">{d.getDate()}</div>
                 <div className="space-y-1">
                   {dayItems.map((item, j) => {
+                    const nowTs = Date.now();
+                    if (item.kind === "c") {
+                      const o = item.o;
+                      const time = `${o.slot.start_time?.slice(0, 5) ?? ""}${o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}`;
+                      return (
+                        <div
+                          key={`c-${j}`}
+                          className="block w-full rounded-md bg-muted px-1.5 py-1 text-left text-[11px] text-muted-foreground"
+                          title={`${o.student.name} ${time}（已请假）`}
+                        >
+                          <div className="font-medium whitespace-nowrap">{time}</div>
+                          <div className="truncate line-through decoration-muted-foreground/50">
+                            {o.student.name} · 已请假
+                          </div>
+                        </div>
+                      );
+                    }
                     if (item.kind === "r") {
                       const o = item.o;
                       const time = `${o.slot.start_time?.slice(0, 5) ?? ""}${o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}`;
+                      const endDate = o.slot.end_time
+                        ? (() => {
+                            const [eh, em] = o.slot.end_time!.split(":").map(Number);
+                            const e = new Date(o.date);
+                            e.setHours(eh, em, 0, 0);
+                            return e;
+                          })()
+                        : o.date;
+                      const past = endDate.getTime() < nowTs;
                       return (
                         <button
                           key={`r-${j}`}
                           type="button"
                           onClick={() => setDetailFor(o)}
-                          className="block w-full rounded-md bg-primary/10 px-1.5 py-1 text-left text-[11px] text-primary hover:bg-primary/20"
+                          className={`block w-full rounded-md px-1.5 py-1 text-left text-[11px] ${
+                            past
+                              ? "bg-muted/60 text-muted-foreground"
+                              : "bg-primary/10 text-primary hover:bg-primary/20"
+                          }`}
                           title={`${o.student.name} ${time}`}
                         >
                           <div className="font-medium whitespace-nowrap">{time}</div>
@@ -869,12 +961,17 @@ function SchedulePage() {
                     if (item.kind === "s") {
                       const o = item.o;
                       const time = `${o.row.start_time.slice(0, 5)}-${o.row.end_time.slice(0, 5)}`;
+                      const past = (o.end ?? o.date).getTime() < nowTs;
                       return (
                         <button
                           key={`s-${o.row.id}`}
                           type="button"
                           onClick={() => setDetailFor(o)}
-                          className="block w-full rounded-md bg-sky-100 px-1.5 py-1 text-left text-[11px] text-sky-800 hover:bg-sky-200"
+                          className={`block w-full rounded-md px-1.5 py-1 text-left text-[11px] ${
+                            past
+                              ? "bg-muted/60 text-muted-foreground"
+                              : "bg-sky-100 text-sky-800 hover:bg-sky-200"
+                          }`}
                           title={`${o.studentName ?? o.row.class_name ?? ""} ${time}`}
                         >
                           <div className="font-medium whitespace-nowrap">{time}</div>
@@ -885,12 +982,20 @@ function SchedulePage() {
                       );
                     }
                     const o = item.o;
+                    const [ieh, iem] = o.end.split(":").map(Number);
+                    const iEnd = new Date(o.date);
+                    iEnd.setHours(ieh, iem, 0, 0);
+                    const past = iEnd.getTime() < nowTs;
                     return (
                       <button
                         key={`i-${o.id}`}
                         type="button"
                         onClick={() => setDetailFor(o)}
-                        className="block w-full rounded-md bg-amber-100 px-1.5 py-1 text-left text-[11px] text-amber-800 hover:bg-amber-200"
+                        className={`block w-full rounded-md px-1.5 py-1 text-left text-[11px] ${
+                          past
+                            ? "bg-muted/60 text-muted-foreground"
+                            : "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                        }`}
                         title={`${o.className} ${o.start}-${o.end}`}
                       >
                         <div className="font-medium whitespace-nowrap">
@@ -911,7 +1016,10 @@ function SchedulePage() {
       )}
 
       {!loading &&
-        (inRange.length > 0 || singleInRange.length > 0 || importedInRange.length > 0) && (
+        (inRange.length > 0 ||
+          singleInRange.length > 0 ||
+          importedInRange.length > 0 ||
+          cancelledInRange.length > 0) && (
           <div className="mt-8">
             <h2 className="mb-3 text-base font-semibold text-foreground">课程列表</h2>
             <div className="space-y-2">
@@ -919,17 +1027,29 @@ function SchedulePage() {
                 ...inRange.map((o) => ({ t: o.date.getTime(), kind: "r" as const, o })),
                 ...singleInRange.map((o) => ({ t: o.date.getTime(), kind: "s" as const, o })),
                 ...importedInRange.map((o) => ({ t: o.date.getTime(), kind: "i" as const, o })),
+                ...cancelledInRange.map((o) => ({ t: o.date.getTime(), kind: "c" as const, o })),
               ])
                 .sort((a, b) => a.t - b.t)
                 .map((item, idx) => {
                   if (item.kind === "r") {
                     const o = item.o;
+                    const endDate = o.slot.end_time
+                      ? (() => {
+                          const [eh, em] = o.slot.end_time!.split(":").map(Number);
+                          const e = new Date(o.date);
+                          e.setHours(eh, em, 0, 0);
+                          return e;
+                        })()
+                      : o.date;
+                    const past = endDate.getTime() < Date.now();
                     return (
                       <button
                         key={`r-${idx}`}
                         type="button"
                         onClick={() => setDetailFor(o)}
-                        className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-left shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-soft)]"
+                        className={`flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-left shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-soft)] ${
+                          past ? "opacity-60" : ""
+                        }`}
                       >
                         <div className="flex-1">
                           <div className="text-sm font-medium text-foreground">
@@ -948,14 +1068,44 @@ function SchedulePage() {
                       </button>
                     );
                   }
+                  if (item.kind === "c") {
+                    const o = item.o;
+                    return (
+                      <div
+                        key={`c-${idx}`}
+                        className="flex w-full items-center justify-between rounded-xl border border-border bg-muted/40 px-4 py-3 text-left"
+                      >
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-muted-foreground">
+                            {o.student.name}
+                            <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px]">
+                              已请假
+                            </span>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {o.date.toLocaleDateString("zh-CN", {
+                              month: "long",
+                              day: "numeric",
+                              weekday: "short",
+                            })}{" "}
+                            · {o.slot.start_time?.slice(0, 5)}
+                            {o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
                   if (item.kind === "s") {
                     const o = item.o;
+                    const past = (o.end ?? o.date).getTime() < Date.now();
                     return (
                       <button
                         key={`s-${o.row.id}`}
                         type="button"
                         onClick={() => setDetailFor(o)}
-                        className="flex w-full items-center justify-between rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-left hover:bg-sky-100"
+                        className={`flex w-full items-center justify-between rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-left hover:bg-sky-100 ${
+                          past ? "opacity-60" : ""
+                        }`}
                       >
                         <div className="flex-1">
                           <div className="text-sm font-medium text-sky-900">
@@ -977,12 +1127,18 @@ function SchedulePage() {
                     );
                   }
                   const o = item.o;
+                  const [ieh, iem] = o.end.split(":").map(Number);
+                  const iEnd = new Date(o.date);
+                  iEnd.setHours(ieh, iem, 0, 0);
+                  const past = iEnd.getTime() < Date.now();
                   return (
                     <button
                       key={`i-${o.id}`}
                       type="button"
                       onClick={() => setDetailFor(o)}
-                      className="flex w-full items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left hover:bg-amber-100"
+                      className={`flex w-full items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left hover:bg-amber-100 ${
+                        past ? "opacity-60" : ""
+                      }`}
                     >
                       <div className="flex-1">
                         <div className="text-sm font-medium text-amber-900">

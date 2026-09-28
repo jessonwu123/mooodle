@@ -22,7 +22,7 @@ export interface ExportEntry {
   groupLabel?: string;
 }
 
-const WEEKDAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+const WEEKDAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 
 function toISO(d: Date) {
   const p = (n: number) => String(n).padStart(2, "0");
@@ -34,7 +34,7 @@ function parseISO(s: string) {
 }
 function startOfWeek(d: Date) {
   const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  x.setDate(x.getDate() - x.getDay());
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
   return x;
 }
 function esc(s: string) {
@@ -340,7 +340,7 @@ export function ScheduleExportDialog({
             </div>
           )}
           <p className="text-xs text-muted-foreground">
-            表格每一行代表一周（周日至周六），当前范围共 {weeks.length} 周、
+            表格每一行代表一周（周一至周日），当前范围共 {weeks.length} 周、
             {lessonCount} 节课、{totalHours} 小时。点击导出将直接下载 PDF 文件。
           </p>
         </div>
