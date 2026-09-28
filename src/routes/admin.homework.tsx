@@ -346,16 +346,60 @@ function HomeworkPage() {
               const q = qById[id];
               if (!q) return null;
               return (
-                <div key={id} className="flex items-center gap-1 rounded border border-border/60 px-2 py-1 text-xs">
-                  <span className="w-5 font-medium">{i + 1}.</span>
+                <div
+                  key={id}
+                  draggable
+                  onDragStart={(e) => {
+                    setDragIndex(i);
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (dragIndex !== null) reorder(dragIndex, i);
+                    setDragIndex(null);
+                  }}
+                  onDragEnd={() => setDragIndex(null)}
+                  className={`flex cursor-grab items-center gap-1 rounded border border-border/60 px-1.5 py-1 text-xs active:cursor-grabbing ${
+                    dragIndex === i ? "opacity-50" : ""
+                  }`}
+                >
+                  <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="w-5 shrink-0 font-medium">{i + 1}.</span>
                   <span className="min-w-0 flex-1 truncate">{paperLabel(q.paper_id)} 第{q.question_number}题</span>
-                  <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={() => move(i, -1)}><ArrowUp className="h-3 w-3" /></button>
-                  <button className="p-0.5 text-muted-foreground hover:text-foreground" onClick={() => move(i, 1)}><ArrowDown className="h-3 w-3" /></button>
-                  <button className="p-0.5 text-muted-foreground hover:text-destructive" onClick={() => toggleSel(id)}><X className="h-3 w-3" /></button>
+                  <button
+                    className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+                    disabled={i === 0}
+                    aria-label="上移"
+                    onClick={() => move(i, -1)}
+                  >
+                    <ArrowUp className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+                    disabled={i === selected.length - 1}
+                    aria-label="下移"
+                    onClick={() => move(i, 1)}
+                  >
+                    <ArrowDown className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive"
+                    aria-label="移除"
+                    onClick={() => toggleSel(id)}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               );
             })}
             {!selected.length && <p className="text-xs text-muted-foreground">在左侧勾选题目</p>}
+            {selected.length > 1 && (
+              <p className="text-xs text-muted-foreground">拖动 ↕ 或用箭头调整顺序，导出按此顺序排列</p>
+            )}
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setSelected([])} disabled={!selected.length}>清空</Button>
