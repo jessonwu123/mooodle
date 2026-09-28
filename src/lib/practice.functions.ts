@@ -127,7 +127,7 @@ export const listPracticeTags = createServerFn({ method: "POST" })
     const admin = await getAdmin();
     const { data: tags } = await admin
       .from("math_tags")
-      .select("id, name, category, color")
+      .select("id, name, category, color, parent_id")
       .order("category", { ascending: true })
       .order("name", { ascending: true });
     if (folderIds.length === 0) {

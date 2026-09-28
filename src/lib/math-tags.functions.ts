@@ -35,6 +35,16 @@ export const createTag = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => TagInput.parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
+    if (data.parentId) {
+      const { data: parent, error: parentError } = await context.supabase
+        .from("math_tags")
+        .select("id, category, parent_id")
+        .eq("id", data.parentId)
+        .single();
+      if (parentError || !parent) throw new Error("所选一级标签不存在");
+      if (parent.parent_id) throw new Error("标签最多支持两级");
+      if (parent.category !== data.category) throw new Error("一级和二级标签必须属于同一分类");
+    }
     const { data: row, error } = await context.supabase
       .from("math_tags")
       .insert({
@@ -66,6 +76,17 @@ export const updateTag = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
+    if (data.parentId === data.id) throw new Error("标签不能归入自身");
+    if (data.parentId) {
+      const { data: parent, error: parentError } = await context.supabase
+        .from("math_tags")
+        .select("id, category, parent_id")
+        .eq("id", data.parentId)
+        .single();
+      if (parentError || !parent) throw new Error("所选一级标签不存在");
+      if (parent.parent_id) throw new Error("标签最多支持两级");
+      if (parent.category !== data.category) throw new Error("一级和二级标签必须属于同一分类");
+    }
     const { error } = await context.supabase
       .from("math_tags")
       .update({

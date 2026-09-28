@@ -296,7 +296,10 @@ function HomeworkPage() {
                 <Input value={tagSearch} onChange={(e) => setTagSearch(e.target.value)} placeholder="搜索知识点" className="h-7 max-w-40 text-xs" />
               </div>
               <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto">
-                {visibleTags.sort((a, b) => Number(Boolean(a.parent_id)) - Number(Boolean(b.parent_id))).map((t) => (
+                {visibleTags
+                  .filter((tag) => !tag.parent_id)
+                  .flatMap((parent) => [parent, ...visibleTags.filter((tag) => tag.parent_id === parent.id)])
+                  .map((t) => (
                   <Badge
                     key={t.id}
                     variant={tagFilter.has(t.id) ? "default" : "secondary"}
