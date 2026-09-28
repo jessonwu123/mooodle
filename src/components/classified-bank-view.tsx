@@ -55,7 +55,7 @@ type DraftRow = { name: string; description: string };
 
 export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
   const isCalc = variant === "calc";
-  const tagCategoryOk = (c: string) => (isCalc ? c === "calc" : c !== "calc");
+  const tagCategoryOk = (c: string) => (isCalc ? c === "calc" : true);
   const fetchTags = useServerFn(listTags);
   const createTagFn = useServerFn(createTag);
   const updateTagFn = useServerFn(updateTag);
@@ -123,15 +123,22 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
         supabase
           .from("math_questions")
           .select(
-            "id, paper_id, question_number, stem, option_a, option_b, option_c, option_d, option_e, correct_answer, stem_render_mode, options_render_mode, image_path, options_image_path",
+            "id, paper_id, question_number, stem, option_a, option_b, option_c, option_d, option_e, correct_answer, stem_render_mode, options_render_mode, image_path, options_image_path, answer_type",
           )
-          .filter("answer_type", isCalc ? "eq" : "neq", "计算")
           .order("question_number"),
         supabase.from("math_papers").select("id, year, name"),
         supabase.from("math_question_tags").select("question_id, tag_id"),
       ]);
       setTags(((tagsRes.tags ?? []) as TagRow[]).filter((t) => tagCategoryOk(t.category)));
-      const qs = (qRes.data ?? []) as QuestionRow[];
+      const calcTagIds = new Set(
+        ((tagsRes.tags ?? []) as TagRow[]).filter((t) => t.category === "calc").map((t) => t.id),
+      );
+      const calcLinked = new Set(
+        (linksRes.data ?? []).filter((l: any) => calcTagIds.has(l.tag_id)).map((l: any) => l.question_id),
+      );
+      const qs = ((qRes.data ?? []) as any[]).filter(
+        (q) => !isCalc || q.answer_type === "计算" || calcLinked.has(q.id),
+      ) as QuestionRow[];
       setQuestions(qs);
       const pmap: Record<string, PaperRow> = {};
       (pRes.data ?? []).forEach((p: any) => (pmap[p.id] = p));
