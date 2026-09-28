@@ -19,6 +19,24 @@ export interface CourseInfo {
 
 export const WEEKDAY_LABELS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 
+/** Monday-first weekday labels — grid order for calendars that start on Monday. */
+export const WEEKDAY_LABELS_MON = [
+  "周一",
+  "周二",
+  "周三",
+  "周四",
+  "周五",
+  "周六",
+  "周日",
+];
+
+/** Monday 00:00 of the week containing d (中国习惯：一周从周一开始). */
+export function startOfWeekMonday(d: Date) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return x;
+}
+
 export function totalLessonCount(
   c: Pick<CourseInfo, "total_hours" | "hours_per_lesson">,
 ): number {

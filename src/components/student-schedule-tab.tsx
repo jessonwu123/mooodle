@@ -31,7 +31,7 @@ import {
   type CourseInfo,
   generateLessonOccurrences,
   lessonKey,
-  WEEKDAY_LABELS,
+  WEEKDAY_LABELS_MON,
 } from "@/lib/course-schedule";
 
 interface Props {
@@ -90,7 +90,7 @@ function startOfMonth(d: Date) {
 }
 function startOfWeek(d: Date) {
   const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  x.setDate(x.getDate() - x.getDay());
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
   return x;
 }
 function sameDay(a: Date, b: Date) {
@@ -477,7 +477,7 @@ export function StudentScheduleTab({ studentId }: Props) {
         </div>
       ) : (
         <div className="-mx-4 overflow-x-auto px-4"><div className="grid min-w-[770px] grid-cols-[repeat(7,minmax(110px,1fr))] gap-2">
-          {WEEKDAY_LABELS.map((w) => (
+          {WEEKDAY_LABELS_MON.map((w) => (
             <div
               key={w}
               className="px-2 py-1 text-center text-xs font-medium text-muted-foreground"
