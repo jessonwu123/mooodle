@@ -242,14 +242,23 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
     });
   }, [questions, qTagMap, selectedTags, filterMode, showUntagged, tags]);
 
-  const filteredTags = useMemo(() => {
+  const tagGroups = useMemo(() => {
     const kw = tagSearch.trim().toLowerCase();
-    if (!kw) return tags;
-    return tags.filter(
-      (t) =>
-        t.name.toLowerCase().includes(kw) ||
-        (t.description ?? "").toLowerCase().includes(kw),
-    );
+    const matches = (tag: TagRow) =>
+      !kw ||
+      tag.name.toLowerCase().includes(kw) ||
+      (tag.description ?? "").toLowerCase().includes(kw);
+    const tagIds = new Set(tags.map((tag) => tag.id));
+    const roots = tags.filter((tag) => !tag.parent_id || !tagIds.has(tag.parent_id));
+
+    return roots
+      .map((parent) => {
+        const children = tags.filter((tag) => tag.parent_id === parent.id);
+        const parentMatches = matches(parent);
+        const visibleChildren = parentMatches ? children : children.filter(matches);
+        return { parent, children: visibleChildren, visible: parentMatches || visibleChildren.length > 0 };
+      })
+      .filter((group) => group.visible);
   }, [tags, tagSearch]);
 
   const toggleSelectTag = (id: string) => {
@@ -507,35 +516,37 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
             </button>
           </div>
           <div className="flex-1 space-y-0.5 overflow-y-auto pr-1">
-            {filteredTags.length === 0 ? (
+            {tagGroups.length === 0 ? (
               <div className="rounded border border-dashed p-4 text-center text-xs text-muted-foreground">
                 {tags.length === 0 ? "还没有知识点，点击右上角「管理知识点」添加。" : "没有匹配的知识点"}
               </div>
             ) : (
-              filteredTags.map((t) => {
-                const checked = selectedTags.has(t.id);
-                const count = tagCounts[t.id] ?? 0;
-                return (
-                  <label
-                    key={t.id}
-                    className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted ${checked ? "bg-muted" : ""} ${t.parent_id ? "ml-5" : "font-medium"}`}
-                  >
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={() => toggleSelectTag(t.id)}
-                    />
-                    <span className="flex-1 truncate" title={t.description ?? undefined}>
-                      {t.name}
-                    </span>
-                    <Badge
-                      variant={count > 0 ? "secondary" : "outline"}
-                      className="h-5 min-w-[2rem] justify-center px-1.5 text-[10px]"
-                    >
-                      {count}
-                    </Badge>
-                  </label>
-                );
-              })
+              tagGroups.map(({ parent, children }) => (
+                <div key={parent.id}>
+                  {[parent, ...children].map((tag) => {
+                    const checked = selectedTags.has(tag.id);
+                    const count = tagCounts[tag.id] ?? 0;
+                    const isChild = tag.parent_id === parent.id;
+                    return (
+                      <label
+                        key={tag.id}
+                        className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted ${checked ? "bg-muted" : ""} ${isChild ? "ml-5" : "font-medium"}`}
+                      >
+                        <Checkbox checked={checked} onCheckedChange={() => toggleSelectTag(tag.id)} />
+                        <span className="flex-1 truncate" title={tag.description ?? undefined}>
+                          {tag.name}
+                        </span>
+                        <Badge
+                          variant={count > 0 ? "secondary" : "outline"}
+                          className="h-5 min-w-[2rem] justify-center px-1.5 text-[10px]"
+                        >
+                          {count}
+                        </Badge>
+                      </label>
+                    );
+                  })}
+                </div>
+              ))
             )}
           </div>
         </Card>
