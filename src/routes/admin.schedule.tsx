@@ -1158,9 +1158,12 @@ function SchedulePage() {
                   if (item.kind === "c") {
                     const o = item.o;
                     return (
-                      <div
+                      <button
                         key={`c-${idx}`}
-                        className="flex w-full items-center justify-between rounded-xl border border-border bg-muted/40 px-4 py-3 text-left"
+                        type="button"
+                        onClick={() => restoreCancelled(o.student.id, o.date)}
+                        className="flex w-full items-center justify-between rounded-xl border border-border bg-muted/40 px-4 py-3 text-left hover:bg-muted/60"
+                        title="已请假，点击可恢复上课"
                       >
                         <div className="flex-1">
                           <div className="text-sm font-medium text-muted-foreground">
@@ -1179,7 +1182,40 @@ function SchedulePage() {
                             {o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}
                           </div>
                         </div>
-                      </div>
+                      </button>
+                    );
+                  }
+                  if (item.kind === "cs") {
+                    const o = item.o;
+                    const label = o.studentName ?? o.row.class_name ?? "单次课";
+                    return (
+                      <button
+                        key={`cs-${idx}`}
+                        type="button"
+                        onClick={() =>
+                          o.row.student_id &&
+                          restoreCancelled(o.row.student_id, o.date)
+                        }
+                        className="flex w-full items-center justify-between rounded-xl border border-border bg-muted/40 px-4 py-3 text-left hover:bg-muted/60"
+                        title="已请假，点击可恢复上课"
+                      >
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-muted-foreground">
+                            {label}
+                            <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px]">
+                              已请假
+                            </span>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {o.date.toLocaleDateString("zh-CN", {
+                              month: "long",
+                              day: "numeric",
+                              weekday: "short",
+                            })}{" "}
+                            · {o.row.start_time.slice(0, 5)}-{o.row.end_time.slice(0, 5)}
+                          </div>
+                        </div>
+                      </button>
                     );
                   }
                   if (item.kind === "s") {
