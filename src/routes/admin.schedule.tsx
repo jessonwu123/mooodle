@@ -394,6 +394,12 @@ function SchedulePage() {
   const cancelledInRange = cancelledOccurrences.filter(
     (o) => o.date >= rangeStart && o.date < rangeEnd && !hidden.has(o.student.id),
   );
+  const cancelledSinglesInRange = cancelledSingles.filter(
+    (o) =>
+      o.date >= rangeStart &&
+      o.date < rangeEnd &&
+      !hidden.has(o.row.student_id ?? OTHER_KEY),
+  );
 
 
   const orgFee = useMemo(
