@@ -85,10 +85,20 @@ function HomeworkPage() {
       try {
         const [t, q, p, l] = await Promise.all([
           fetchTags(),
-          supabase
-            .from("math_questions")
-            .select("id, paper_id, question_number, stem, option_a, option_b, option_c, option_d, option_e, correct_answer, image_path, options_image_path, answer_type")
-            .order("question_number"),
+          (async () => {
+            const all: any[] = [];
+            for (let from = 0; ; from += 1000) {
+              const { data } = await supabase
+                .from("math_questions")
+                .select("id, paper_id, question_number, stem, option_a, option_b, option_c, option_d, option_e, correct_answer, image_path, options_image_path, answer_type")
+                .order("question_number")
+                .order("id")
+                .range(from, from + 999);
+              all.push(...(data ?? []));
+              if (!data || data.length < 1000) break;
+            }
+            return { data: all };
+          })(),
           supabase.from("math_papers").select("id, year, name").order("year", { ascending: false }),
           (async () => {
             const all: any[] = [];
