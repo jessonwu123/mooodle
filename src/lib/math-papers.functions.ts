@@ -650,3 +650,53 @@ export const importCalcQuestions = createServerFn({ method: "POST" })
 
     return { paperId: paper.id as string, count: data.questions.length };
   });
+
+// ===== 修改 / 删除单道计算题 =====
+async function assertTeacherOrAdmin(context: { supabase: any; userId: string }) {
+  const [{ data: isAdmin }, { data: isTeacher }] = await Promise.all([
+    context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" }),
+    context.supabase.rpc("has_role", { _user_id: context.userId, _role: "teacher" }),
+  ]);
+  if (!isAdmin && !isTeacher) throw new Error("仅教师或管理员可执行");
+}
+
+export const updateCalcQuestion = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        questionId: z.string().uuid(),
+        stem: z.string().min(1).max(4000),
+        answer: z.string().max(2000).nullable().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertTeacherOrAdmin(context);
+    const { supabaseAdmin: supabase } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabase
+      .from("math_questions")
+      .update({
+        stem: data.stem,
+        correct_answer: data.answer?.trim() || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", data.questionId);
+    if (error) throw new Error("保存失败：" + error.message);
+    return { ok: true };
+  });
+
+export const deleteCalcQuestion = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ questionId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertTeacherOrAdmin(context);
+    const { supabaseAdmin: supabase } = await import("@/integrations/supabase/client.server");
+    // 先清理关联数据，再删题目本身
+    await supabase.from("math_question_tags").delete().eq("question_id", data.questionId);
+    await supabase.from("student_question_attempts").delete().eq("question_id", data.questionId);
+    await supabase.from("student_question_attempt_log").delete().eq("question_id", data.questionId);
+    const { error } = await supabase.from("math_questions").delete().eq("id", data.questionId);
+    if (error) throw new Error("删除失败：" + error.message);
+    return { ok: true };
+  });
