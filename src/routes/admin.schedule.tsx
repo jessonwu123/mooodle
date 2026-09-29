@@ -1380,6 +1380,13 @@ function SchedulePage() {
               studentOptions={students.map((s) => ({ id: s.id, name: s.name }))}
               editing={detailFor.row}
               title="课次详情（可编辑）"
+              onCancel={
+                detailFor.row.student_id
+                  ? async () => {
+                      await handleCancelSingle(detailFor.row);
+                    }
+                  : undefined
+              }
               onDelete={async () => {
                 await handleDeleteSingle(detailFor.row);
               }}
@@ -1425,7 +1432,7 @@ function SchedulePage() {
                 );
                 return true;
               }}
-              onDelete={async () => {
+              onCancel={async () => {
                 await handleCancelLesson(occ);
               }}
               onSaved={load}
