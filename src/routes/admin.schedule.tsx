@@ -300,7 +300,7 @@ function SchedulePage() {
     return out.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [students, cancelled]);
 
-  const singleOccurrences: SingleOccurrence[] = useMemo(() => {
+  const allSingleOccurrences: SingleOccurrence[] = useMemo(() => {
     const nameById = new Map(students.map((s) => [s.id, s.name] as const));
     return singles
       .map((row) => {
@@ -319,6 +319,26 @@ function SchedulePage() {
       })
       .sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [singles, students]);
+
+  const singleOccurrences = useMemo(
+    () =>
+      allSingleOccurrences.filter(
+        (o) =>
+          !o.row.student_id ||
+          !cancelled.has(`${o.row.student_id}|${lessonKey(o.date)}`),
+      ),
+    [allSingleOccurrences, cancelled],
+  );
+
+  const cancelledSingles = useMemo(
+    () =>
+      allSingleOccurrences.filter(
+        (o) =>
+          !!o.row.student_id &&
+          cancelled.has(`${o.row.student_id}|${lessonKey(o.date)}`),
+      ),
+    [allSingleOccurrences, cancelled],
+  );
 
   const importedOccurrences: ImportedOccurrence[] = useMemo(() => {
     return imported
@@ -373,6 +393,12 @@ function SchedulePage() {
   );
   const cancelledInRange = cancelledOccurrences.filter(
     (o) => o.date >= rangeStart && o.date < rangeEnd && !hidden.has(o.student.id),
+  );
+  const cancelledSinglesInRange = cancelledSingles.filter(
+    (o) =>
+      o.date >= rangeStart &&
+      o.date < rangeEnd &&
+      !hidden.has(o.row.student_id ?? OTHER_KEY),
   );
 
 
@@ -541,14 +567,47 @@ function SchedulePage() {
       created_by: session?.user.id ?? null,
     });
     if (error) {
-      toast.error("删除失败：" + error.message);
+      toast.error("请假失败：" + error.message);
       return;
     }
-    toast.success("已删除该节课");
+    toast.success("已标记请假");
     setCancelled((prev) =>
       new Set(prev).add(`${o.student.id}|${lessonKey(o.date)}`),
     );
     setDetailFor(null);
+  };
+
+  const handleCancelSingle = async (row: SingleLessonRow) => {
+    if (!row.student_id) return;
+    const dt = new Date(`${row.lesson_date}T${row.start_time.slice(0, 5)}`);
+    const { error } = await supabase.from("cancelled_lessons").insert({
+      student_id: row.student_id,
+      lesson_at: dt.toISOString(),
+      created_by: session?.user.id ?? null,
+    });
+    if (error) {
+      toast.error("请假失败：" + error.message);
+      return;
+    }
+    toast.success("已标记请假");
+    setCancelled((prev) => new Set(prev).add(`${row.student_id}|${lessonKey(dt)}`));
+    setDetailFor(null);
+    await load();
+  };
+
+  const restoreCancelled = async (studentId: string, date: Date) => {
+    if (!confirm("恢复这节课（取消请假）？")) return;
+    const { error } = await supabase
+      .from("cancelled_lessons")
+      .delete()
+      .eq("student_id", studentId)
+      .eq("lesson_at", date.toISOString());
+    if (error) {
+      toast.error("恢复失败：" + error.message);
+      return;
+    }
+    toast.success("已恢复上课");
+    await load();
   };
 
 
@@ -884,6 +943,7 @@ function SchedulePage() {
               | { t: number; kind: "s"; o: SingleOccurrence }
               | { t: number; kind: "i"; o: ImportedOccurrence }
               | { t: number; kind: "c"; o: Occurrence }
+              | { t: number; kind: "cs"; o: SingleOccurrence }
             > = [
               ...inRange
                 .filter((o) => sameDay(o.date, d))
@@ -897,6 +957,9 @@ function SchedulePage() {
               ...cancelledInRange
                 .filter((o) => sameDay(o.date, d))
                 .map((o) => ({ t: o.date.getTime(), kind: "c" as const, o })),
+              ...cancelledSinglesInRange
+                .filter((o) => sameDay(o.date, d))
+                .map((o) => ({ t: o.date.getTime(), kind: "cs" as const, o })),
             ].sort((a, b) => a.t - b.t);
             const inCurrentRange = d >= rangeStart && d < rangeEnd;
             const isToday = sameDay(d, new Date());
@@ -917,16 +980,40 @@ function SchedulePage() {
                       const o = item.o;
                       const time = `${o.slot.start_time?.slice(0, 5) ?? ""}${o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}`;
                       return (
-                        <div
+                        <button
                           key={`c-${j}`}
-                          className="block w-full rounded-md bg-muted px-1.5 py-1 text-left text-[11px] text-muted-foreground"
-                          title={`${o.student.name} ${time}（已请假）`}
+                          type="button"
+                          onClick={() => restoreCancelled(o.student.id, o.date)}
+                          className="block w-full rounded-md bg-muted px-1.5 py-1 text-left text-[11px] text-muted-foreground hover:bg-muted/80"
+                          title={`${o.student.name} ${time}（已请假，点击可恢复上课）`}
                         >
                           <div className="font-medium whitespace-nowrap">{time}</div>
                           <div className="truncate line-through decoration-muted-foreground/50">
                             {o.student.name} · 已请假
                           </div>
-                        </div>
+                        </button>
+                      );
+                    }
+                    if (item.kind === "cs") {
+                      const o = item.o;
+                      const time = `${o.row.start_time.slice(0, 5)}-${o.row.end_time.slice(0, 5)}`;
+                      const label = o.studentName ?? o.row.class_name ?? "单次课";
+                      return (
+                        <button
+                          key={`cs-${j}`}
+                          type="button"
+                          onClick={() =>
+                            o.row.student_id &&
+                            restoreCancelled(o.row.student_id, o.date)
+                          }
+                          className="block w-full rounded-md bg-muted px-1.5 py-1 text-left text-[11px] text-muted-foreground hover:bg-muted/80"
+                          title={`${label} ${time}（已请假，点击可恢复上课）`}
+                        >
+                          <div className="font-medium whitespace-nowrap">{time}</div>
+                          <div className="truncate line-through decoration-muted-foreground/50">
+                            {label} · 已请假
+                          </div>
+                        </button>
                       );
                     }
                     if (item.kind === "r") {
@@ -1019,7 +1106,8 @@ function SchedulePage() {
         (inRange.length > 0 ||
           singleInRange.length > 0 ||
           importedInRange.length > 0 ||
-          cancelledInRange.length > 0) && (
+          cancelledInRange.length > 0 ||
+          cancelledSinglesInRange.length > 0) && (
           <div className="mt-8">
             <h2 className="mb-3 text-base font-semibold text-foreground">课程列表</h2>
             <div className="space-y-2">
@@ -1028,6 +1116,7 @@ function SchedulePage() {
                 ...singleInRange.map((o) => ({ t: o.date.getTime(), kind: "s" as const, o })),
                 ...importedInRange.map((o) => ({ t: o.date.getTime(), kind: "i" as const, o })),
                 ...cancelledInRange.map((o) => ({ t: o.date.getTime(), kind: "c" as const, o })),
+                ...cancelledSinglesInRange.map((o) => ({ t: o.date.getTime(), kind: "cs" as const, o })),
               ])
                 .sort((a, b) => a.t - b.t)
                 .map((item, idx) => {
@@ -1071,9 +1160,12 @@ function SchedulePage() {
                   if (item.kind === "c") {
                     const o = item.o;
                     return (
-                      <div
+                      <button
                         key={`c-${idx}`}
-                        className="flex w-full items-center justify-between rounded-xl border border-border bg-muted/40 px-4 py-3 text-left"
+                        type="button"
+                        onClick={() => restoreCancelled(o.student.id, o.date)}
+                        className="flex w-full items-center justify-between rounded-xl border border-border bg-muted/40 px-4 py-3 text-left hover:bg-muted/60"
+                        title="已请假，点击可恢复上课"
                       >
                         <div className="flex-1">
                           <div className="text-sm font-medium text-muted-foreground">
@@ -1092,7 +1184,40 @@ function SchedulePage() {
                             {o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}
                           </div>
                         </div>
-                      </div>
+                      </button>
+                    );
+                  }
+                  if (item.kind === "cs") {
+                    const o = item.o;
+                    const label = o.studentName ?? o.row.class_name ?? "单次课";
+                    return (
+                      <button
+                        key={`cs-${idx}`}
+                        type="button"
+                        onClick={() =>
+                          o.row.student_id &&
+                          restoreCancelled(o.row.student_id, o.date)
+                        }
+                        className="flex w-full items-center justify-between rounded-xl border border-border bg-muted/40 px-4 py-3 text-left hover:bg-muted/60"
+                        title="已请假，点击可恢复上课"
+                      >
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-muted-foreground">
+                            {label}
+                            <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px]">
+                              已请假
+                            </span>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {o.date.toLocaleDateString("zh-CN", {
+                              month: "long",
+                              day: "numeric",
+                              weekday: "short",
+                            })}{" "}
+                            · {o.row.start_time.slice(0, 5)}-{o.row.end_time.slice(0, 5)}
+                          </div>
+                        </div>
+                      </button>
                     );
                   }
                   if (item.kind === "s") {
@@ -1255,6 +1380,13 @@ function SchedulePage() {
               studentOptions={students.map((s) => ({ id: s.id, name: s.name }))}
               editing={detailFor.row}
               title="课次详情（可编辑）"
+              onCancel={
+                detailFor.row.student_id
+                  ? async () => {
+                      await handleCancelSingle(detailFor.row);
+                    }
+                  : undefined
+              }
               onDelete={async () => {
                 await handleDeleteSingle(detailFor.row);
               }}
@@ -1300,7 +1432,7 @@ function SchedulePage() {
                 );
                 return true;
               }}
-              onDelete={async () => {
+              onCancel={async () => {
                 await handleCancelLesson(occ);
               }}
               onSaved={load}

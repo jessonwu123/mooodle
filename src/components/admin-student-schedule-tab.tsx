@@ -215,6 +215,7 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
       const [h, mm] = r.start_time.split(":").map(Number);
       const [eh, em] = r.end_time.split(":").map(Number);
       const start = new Date(y, m - 1, d, h, mm, 0);
+      if (cancelled.has(start.toISOString())) continue;
       const end = new Date(y, m - 1, d, eh, em, 0);
       const isSelfCreated = !!studentOwnerId && r.created_by !== studentOwnerId;
       const title =
