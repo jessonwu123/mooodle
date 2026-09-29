@@ -943,6 +943,7 @@ function SchedulePage() {
               | { t: number; kind: "s"; o: SingleOccurrence }
               | { t: number; kind: "i"; o: ImportedOccurrence }
               | { t: number; kind: "c"; o: Occurrence }
+              | { t: number; kind: "cs"; o: SingleOccurrence }
             > = [
               ...inRange
                 .filter((o) => sameDay(o.date, d))
@@ -956,6 +957,9 @@ function SchedulePage() {
               ...cancelledInRange
                 .filter((o) => sameDay(o.date, d))
                 .map((o) => ({ t: o.date.getTime(), kind: "c" as const, o })),
+              ...cancelledSinglesInRange
+                .filter((o) => sameDay(o.date, d))
+                .map((o) => ({ t: o.date.getTime(), kind: "cs" as const, o })),
             ].sort((a, b) => a.t - b.t);
             const inCurrentRange = d >= rangeStart && d < rangeEnd;
             const isToday = sameDay(d, new Date());
