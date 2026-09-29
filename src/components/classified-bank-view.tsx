@@ -22,6 +22,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { listTags, createTag, updateTag, deleteTag, setQuestionTags, autoTagByTags } from "@/lib/math-tags.functions";
+import { updateCalcQuestion, deleteCalcQuestion } from "@/lib/math-papers.functions";
 import { CalcImportDialog } from "@/components/calc-import-dialog";
 import { EditableQuestionImage } from "@/components/editable-question-image";
 
@@ -102,6 +103,58 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
   const [aiScope, setAiScope] = useState<"all" | "missing">("missing");
   const [aiSearch, setAiSearch] = useState("");
   const [aiRunning, setAiRunning] = useState(false);
+
+  // 修改 / 删除单题
+  const updateQuestionFn = useServerFn(updateCalcQuestion);
+  const deleteQuestionFn = useServerFn(deleteCalcQuestion);
+  const [editQOpen, setEditQOpen] = useState(false);
+  const [editQ, setEditQ] = useState<QuestionRow | null>(null);
+  const [editStem, setEditStem] = useState("");
+  const [editAnswer, setEditAnswer] = useState("");
+  const [savingQ, setSavingQ] = useState(false);
+  const [deletingQ, setDeletingQ] = useState<string | null>(null);
+
+  const openEditQuestion = (q: QuestionRow) => {
+    setEditQ(q);
+    setEditStem(q.stem);
+    setEditAnswer(q.correct_answer ?? "");
+    setEditQOpen(true);
+  };
+
+  const handleSaveQuestion = async () => {
+    if (!editQ) return;
+    if (!editStem.trim()) {
+      toast.error("题干不能为空");
+      return;
+    }
+    setSavingQ(true);
+    try {
+      await updateQuestionFn({
+        data: { questionId: editQ.id, stem: editStem.trim(), answer: editAnswer.trim() || null },
+      });
+      toast.success("已保存");
+      setEditQOpen(false);
+      await loadAll();
+    } catch (e: any) {
+      toast.error(e?.message ?? "保存失败");
+    } finally {
+      setSavingQ(false);
+    }
+  };
+
+  const handleDeleteQuestion = async (q: QuestionRow) => {
+    if (!window.confirm("确定删除这道题吗？删除后不可恢复。")) return;
+    setDeletingQ(q.id);
+    try {
+      await deleteQuestionFn({ data: { questionId: q.id } });
+      toast.success("已删除");
+      setQuestions((prev) => prev.filter((x) => x.id !== q.id));
+    } catch (e: any) {
+      toast.error(e?.message ?? "删除失败");
+    } finally {
+      setDeletingQ(null);
+    }
+  };
 
   const refreshTags = async () => {
     const r = await fetchTags();
