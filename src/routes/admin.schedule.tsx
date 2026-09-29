@@ -980,16 +980,40 @@ function SchedulePage() {
                       const o = item.o;
                       const time = `${o.slot.start_time?.slice(0, 5) ?? ""}${o.slot.end_time ? "-" + o.slot.end_time.slice(0, 5) : ""}`;
                       return (
-                        <div
+                        <button
                           key={`c-${j}`}
-                          className="block w-full rounded-md bg-muted px-1.5 py-1 text-left text-[11px] text-muted-foreground"
-                          title={`${o.student.name} ${time}（已请假）`}
+                          type="button"
+                          onClick={() => restoreCancelled(o.student.id, o.date)}
+                          className="block w-full rounded-md bg-muted px-1.5 py-1 text-left text-[11px] text-muted-foreground hover:bg-muted/80"
+                          title={`${o.student.name} ${time}（已请假，点击可恢复上课）`}
                         >
                           <div className="font-medium whitespace-nowrap">{time}</div>
                           <div className="truncate line-through decoration-muted-foreground/50">
                             {o.student.name} · 已请假
                           </div>
-                        </div>
+                        </button>
+                      );
+                    }
+                    if (item.kind === "cs") {
+                      const o = item.o;
+                      const time = `${o.row.start_time.slice(0, 5)}-${o.row.end_time.slice(0, 5)}`;
+                      const label = o.studentName ?? o.row.class_name ?? "单次课";
+                      return (
+                        <button
+                          key={`cs-${j}`}
+                          type="button"
+                          onClick={() =>
+                            o.row.student_id &&
+                            restoreCancelled(o.row.student_id, o.date)
+                          }
+                          className="block w-full rounded-md bg-muted px-1.5 py-1 text-left text-[11px] text-muted-foreground hover:bg-muted/80"
+                          title={`${label} ${time}（已请假，点击可恢复上课）`}
+                        >
+                          <div className="font-medium whitespace-nowrap">{time}</div>
+                          <div className="truncate line-through decoration-muted-foreground/50">
+                            {label} · 已请假
+                          </div>
+                        </button>
                       );
                     }
                     if (item.kind === "r") {
