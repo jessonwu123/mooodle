@@ -110,10 +110,12 @@ export function SingleLessonsPanel({ studentId }: Props) {
       const [y, m, d] = r.lesson_date.split("-").map((n) => parseInt(n, 10));
       const [h, mm] = r.start_time.split(":").map((n) => parseInt(n, 10));
       const [eh, em] = r.end_time.split(":").map((n) => parseInt(n, 10));
+      const date = new Date(y, (m ?? 1) - 1, d ?? 1, h ?? 0, mm ?? 0);
+      if (r.student_id && cancelled.has(lessonKey(date))) continue;
       out.push({
         kind: "single",
         key: `s-${r.id}`,
-        date: new Date(y, (m ?? 1) - 1, d ?? 1, h ?? 0, mm ?? 0),
+        date,
         end: new Date(y, (m ?? 1) - 1, d ?? 1, eh ?? 0, em ?? 0),
         row: r,
       });
@@ -149,10 +151,25 @@ export function SingleLessonsPanel({ studentId }: Props) {
       created_by: session?.user.id ?? null,
     });
     if (error) {
-      toast.error("删除失败：" + error.message);
+      toast.error("请假失败：" + error.message);
       return;
     }
-    toast.success("已删除该节课");
+    toast.success("已标记请假");
+    await load();
+  };
+
+  const handleCancelSingle = async (row: SingleLessonRow) => {
+    const dt = new Date(`${row.lesson_date}T${row.start_time.slice(0, 5)}`);
+    const { error } = await supabase.from("cancelled_lessons").insert({
+      student_id: studentId,
+      lesson_at: dt.toISOString(),
+      created_by: session?.user.id ?? null,
+    });
+    if (error) {
+      toast.error("请假失败：" + error.message);
+      return;
+    }
+    toast.success("已标记请假");
     await load();
   };
 
