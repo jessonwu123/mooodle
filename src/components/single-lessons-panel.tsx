@@ -611,10 +611,10 @@ export function SingleLessonsPanel({ studentId }: Props) {
                 }
               : undefined
           }
-          onDelete={
+          onCancel={
             editing
               ? async () => {
-                  await handleDeleteSingle(editing.id);
+                  await handleCancelSingle(editing);
                   setOpen(false);
                 }
               : recurringOverride
@@ -623,6 +623,14 @@ export function SingleLessonsPanel({ studentId }: Props) {
                     setOpen(false);
                   }
                 : undefined
+          }
+          onDelete={
+            editing
+              ? async () => {
+                  await handleDeleteSingle(editing.id);
+                  setOpen(false);
+                }
+              : undefined
           }
           onSaved={load}
         />
