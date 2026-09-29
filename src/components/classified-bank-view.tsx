@@ -22,6 +22,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { listTags, createTag, updateTag, deleteTag, setQuestionTags, autoTagByTags } from "@/lib/math-tags.functions";
+import { updateCalcQuestion, deleteCalcQuestion } from "@/lib/math-papers.functions";
 import { CalcImportDialog } from "@/components/calc-import-dialog";
 import { EditableQuestionImage } from "@/components/editable-question-image";
 
@@ -102,6 +103,58 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
   const [aiScope, setAiScope] = useState<"all" | "missing">("missing");
   const [aiSearch, setAiSearch] = useState("");
   const [aiRunning, setAiRunning] = useState(false);
+
+  // 修改 / 删除单题
+  const updateQuestionFn = useServerFn(updateCalcQuestion);
+  const deleteQuestionFn = useServerFn(deleteCalcQuestion);
+  const [editQOpen, setEditQOpen] = useState(false);
+  const [editQ, setEditQ] = useState<QuestionRow | null>(null);
+  const [editStem, setEditStem] = useState("");
+  const [editAnswer, setEditAnswer] = useState("");
+  const [savingQ, setSavingQ] = useState(false);
+  const [deletingQ, setDeletingQ] = useState<string | null>(null);
+
+  const openEditQuestion = (q: QuestionRow) => {
+    setEditQ(q);
+    setEditStem(q.stem);
+    setEditAnswer(q.correct_answer ?? "");
+    setEditQOpen(true);
+  };
+
+  const handleSaveQuestion = async () => {
+    if (!editQ) return;
+    if (!editStem.trim()) {
+      toast.error("题干不能为空");
+      return;
+    }
+    setSavingQ(true);
+    try {
+      await updateQuestionFn({
+        data: { questionId: editQ.id, stem: editStem.trim(), answer: editAnswer.trim() || null },
+      });
+      toast.success("已保存");
+      setEditQOpen(false);
+      await loadAll();
+    } catch (e: any) {
+      toast.error(e?.message ?? "保存失败");
+    } finally {
+      setSavingQ(false);
+    }
+  };
+
+  const handleDeleteQuestion = async (q: QuestionRow) => {
+    if (!window.confirm("确定删除这道题吗？删除后不可恢复。")) return;
+    setDeletingQ(q.id);
+    try {
+      await deleteQuestionFn({ data: { questionId: q.id } });
+      toast.success("已删除");
+      setQuestions((prev) => prev.filter((x) => x.id !== q.id));
+    } catch (e: any) {
+      toast.error(e?.message ?? "删除失败");
+    } finally {
+      setDeletingQ(null);
+    }
+  };
 
   const refreshTags = async () => {
     const r = await fetchTags();
@@ -666,30 +719,53 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
                           题干图片模式
                         </span>
                       )}
-                      {(q.image_path || q.options_image_path) && (
+                      <span className="ml-auto inline-flex items-center gap-1.5">
+                        {(q.image_path || q.options_image_path) && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOriginalDialog({
+                                open: true,
+                                 title: isCalc
+                                   ? "原题"
+                                   : `${paper ? paper.name + " · " : ""}第 ${q.question_number} 题 · 原题`,
+                                questionId: q.id,
+                                stemPath: q.image_path,
+                                optionsPath: q.options_image_path,
+                                stemUrl: q.image_path ? imageUrls[q.image_path] ?? null : null,
+                                optionsUrl: q.options_image_path
+                                  ? imageUrls[q.options_image_path] ?? null
+                                  : null,
+                              })
+                            }
+                            className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                          >
+                            <ImageIcon className="h-3 w-3" />
+                            查看原题
+                          </button>
+                        )}
                         <button
                           type="button"
-                          onClick={() =>
-                            setOriginalDialog({
-                              open: true,
-                               title: isCalc
-                                 ? "原题"
-                                 : `${paper ? paper.name + " · " : ""}第 ${q.question_number} 题 · 原题`,
-                              questionId: q.id,
-                              stemPath: q.image_path,
-                              optionsPath: q.options_image_path,
-                              stemUrl: q.image_path ? imageUrls[q.image_path] ?? null : null,
-                              optionsUrl: q.options_image_path
-                                ? imageUrls[q.options_image_path] ?? null
-                                : null,
-                            })
-                          }
-                          className="ml-auto inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                          onClick={() => openEditQuestion(q)}
+                          className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
                         >
-                          <ImageIcon className="h-3 w-3" />
-                          查看原题
+                          <Pencil className="h-3 w-3" />
+                          修改
                         </button>
-                      )}
+                        <button
+                          type="button"
+                          disabled={deletingQ === q.id}
+                          onClick={() => handleDeleteQuestion(q)}
+                          className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                        >
+                          {deletingQ === q.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3 w-3" />
+                          )}
+                          删除
+                        </button>
+                      </span>
                     </div>
                     <MathText
                       block
@@ -1171,6 +1247,44 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
               </>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 修改题目弹窗 */}
+      <Dialog open={editQOpen} onOpenChange={setEditQOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>修改题目</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>题干</Label>
+              <Textarea
+                value={editStem}
+                onChange={(e) => setEditStem(e.target.value)}
+                rows={5}
+                placeholder="支持 LaTeX 公式，如 $\frac{1}{2}$"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>答案（可留空）</Label>
+              <Textarea
+                value={editAnswer}
+                onChange={(e) => setEditAnswer(e.target.value)}
+                rows={2}
+                placeholder="支持 LaTeX 公式"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditQOpen(false)} disabled={savingQ}>
+              取消
+            </Button>
+            <Button onClick={handleSaveQuestion} disabled={savingQ}>
+              {savingQ && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+              保存
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
