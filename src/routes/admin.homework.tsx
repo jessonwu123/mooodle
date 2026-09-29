@@ -72,6 +72,7 @@ function HomeworkPage() {
   const [keyword, setKeyword] = useState("");
   const [tagSearch, setTagSearch] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
+  const [randomCount, setRandomCount] = useState("10");
 
   const [title, setTitle] = useState("课后作业");
   const [withAnswers, setWithAnswers] = useState(true);
@@ -330,7 +331,35 @@ function HomeworkPage() {
 
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>共 {filtered.length} 题</span>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                type="number"
+                min={1}
+                value={randomCount}
+                onChange={(e) => setRandomCount(e.target.value)}
+                className="h-8 w-16 text-xs"
+                aria-label="随机题数"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!filtered.length}
+                onClick={() => {
+                  const n = Math.floor(Number(randomCount));
+                  if (!n || n < 1) return toast.error("请输入有效题数");
+                  const pool = filtered.map((q) => q.id).filter((id) => !selected.includes(id));
+                  if (!pool.length) return toast.error("当前结果已全部选中");
+                  for (let i = pool.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [pool[i], pool[j]] = [pool[j]!, pool[i]!];
+                  }
+                  const pick = pool.slice(0, n);
+                  setSelected((s) => [...s, ...pick]);
+                  toast.success(pick.length < n ? `可选题目不足，已随机选择 ${pick.length} 题` : `已随机选择 ${pick.length} 题`);
+                }}
+              >
+                随机选择 {randomCount || "X"} 题
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
