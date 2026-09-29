@@ -1106,7 +1106,8 @@ function SchedulePage() {
         (inRange.length > 0 ||
           singleInRange.length > 0 ||
           importedInRange.length > 0 ||
-          cancelledInRange.length > 0) && (
+          cancelledInRange.length > 0 ||
+          cancelledSinglesInRange.length > 0) && (
           <div className="mt-8">
             <h2 className="mb-3 text-base font-semibold text-foreground">课程列表</h2>
             <div className="space-y-2">
@@ -1115,6 +1116,7 @@ function SchedulePage() {
                 ...singleInRange.map((o) => ({ t: o.date.getTime(), kind: "s" as const, o })),
                 ...importedInRange.map((o) => ({ t: o.date.getTime(), kind: "i" as const, o })),
                 ...cancelledInRange.map((o) => ({ t: o.date.getTime(), kind: "c" as const, o })),
+                ...cancelledSinglesInRange.map((o) => ({ t: o.date.getTime(), kind: "cs" as const, o })),
               ])
                 .sort((a, b) => a.t - b.t)
                 .map((item, idx) => {
