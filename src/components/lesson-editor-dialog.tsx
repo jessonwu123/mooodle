@@ -86,6 +86,7 @@ export function LessonEditorDialog({
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -292,21 +293,41 @@ export function LessonEditorDialog({
         </div>
 
         <DialogFooter className="sm:justify-between gap-2">
-          {onDelete ? (
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                setDeleting(true);
-                try {
-                  await onDelete();
-                } finally {
-                  setDeleting(false);
-                }
-              }}
-              disabled={busy || deleting}
-            >
-              {deleting ? "删除中..." : "删除"}
-            </Button>
+          {onDelete || onCancel ? (
+            <div className="flex gap-2">
+              {onCancel ? (
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    setCancelling(true);
+                    try {
+                      await onCancel();
+                    } finally {
+                      setCancelling(false);
+                    }
+                  }}
+                  disabled={busy || deleting || cancelling}
+                >
+                  {cancelling ? "请假中..." : "请假"}
+                </Button>
+              ) : null}
+              {onDelete ? (
+                <Button
+                  variant="destructive"
+                  onClick={async () => {
+                    setDeleting(true);
+                    try {
+                      await onDelete();
+                    } finally {
+                      setDeleting(false);
+                    }
+                  }}
+                  disabled={busy || deleting || cancelling}
+                >
+                  {deleting ? "删除中..." : "删除"}
+                </Button>
+              ) : null}
+            </div>
           ) : (
             <span />
           )}
