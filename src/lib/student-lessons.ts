@@ -74,8 +74,10 @@ export async function fetchStudentLessons(
     const [y, m, d] = r.lesson_date.split("-").map(Number);
     const [h, mm] = r.start_time.split(":").map(Number);
     const [eh, em] = r.end_time.split(":").map(Number);
+    const date = new Date(y, m - 1, d, h, mm);
+    if (cancelled.has(date.toISOString())) continue;
     out.push({
-      date: new Date(y, m - 1, d, h, mm),
+      date,
       end: new Date(y, m - 1, d, eh, em),
       className: r.class_name,
       kind: "single",

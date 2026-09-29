@@ -134,6 +134,7 @@ export function TeacherScheduleView({ teacherId, teacherLabel }: Props) {
       const [h, mm] = r.start_time.split(":").map(Number);
       const [eh, em] = r.end_time.split(":").map(Number);
       const start = new Date(y, m - 1, d, h, mm);
+      if (r.student_id && cancelled.has(start.toISOString())) continue;
       const end = new Date(y, m - 1, d, eh, em);
       const title =
         (r.student_id ? nameById.get(r.student_id) : null) ??
