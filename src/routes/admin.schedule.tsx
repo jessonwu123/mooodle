@@ -300,7 +300,7 @@ function SchedulePage() {
     return out.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [students, cancelled]);
 
-  const singleOccurrences: SingleOccurrence[] = useMemo(() => {
+  const allSingleOccurrences: SingleOccurrence[] = useMemo(() => {
     const nameById = new Map(students.map((s) => [s.id, s.name] as const));
     return singles
       .map((row) => {
@@ -319,6 +319,26 @@ function SchedulePage() {
       })
       .sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [singles, students]);
+
+  const singleOccurrences = useMemo(
+    () =>
+      allSingleOccurrences.filter(
+        (o) =>
+          !o.row.student_id ||
+          !cancelled.has(`${o.row.student_id}|${lessonKey(o.date)}`),
+      ),
+    [allSingleOccurrences, cancelled],
+  );
+
+  const cancelledSingles = useMemo(
+    () =>
+      allSingleOccurrences.filter(
+        (o) =>
+          !!o.row.student_id &&
+          cancelled.has(`${o.row.student_id}|${lessonKey(o.date)}`),
+      ),
+    [allSingleOccurrences, cancelled],
+  );
 
   const importedOccurrences: ImportedOccurrence[] = useMemo(() => {
     return imported
