@@ -1249,6 +1249,44 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 修改题目弹窗 */}
+      <Dialog open={editQOpen} onOpenChange={setEditQOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>修改题目</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>题干</Label>
+              <Textarea
+                value={editStem}
+                onChange={(e) => setEditStem(e.target.value)}
+                rows={5}
+                placeholder="支持 LaTeX 公式，如 $\frac{1}{2}$"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>答案（可留空）</Label>
+              <Textarea
+                value={editAnswer}
+                onChange={(e) => setEditAnswer(e.target.value)}
+                rows={2}
+                placeholder="支持 LaTeX 公式"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditQOpen(false)} disabled={savingQ}>
+              取消
+            </Button>
+            <Button onClick={handleSaveQuestion} disabled={savingQ}>
+              {savingQ && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
