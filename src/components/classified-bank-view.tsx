@@ -719,30 +719,53 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
                           题干图片模式
                         </span>
                       )}
-                      {(q.image_path || q.options_image_path) && (
+                      <span className="ml-auto inline-flex items-center gap-1.5">
+                        {(q.image_path || q.options_image_path) && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOriginalDialog({
+                                open: true,
+                                 title: isCalc
+                                   ? "原题"
+                                   : `${paper ? paper.name + " · " : ""}第 ${q.question_number} 题 · 原题`,
+                                questionId: q.id,
+                                stemPath: q.image_path,
+                                optionsPath: q.options_image_path,
+                                stemUrl: q.image_path ? imageUrls[q.image_path] ?? null : null,
+                                optionsUrl: q.options_image_path
+                                  ? imageUrls[q.options_image_path] ?? null
+                                  : null,
+                              })
+                            }
+                            className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                          >
+                            <ImageIcon className="h-3 w-3" />
+                            查看原题
+                          </button>
+                        )}
                         <button
                           type="button"
-                          onClick={() =>
-                            setOriginalDialog({
-                              open: true,
-                               title: isCalc
-                                 ? "原题"
-                                 : `${paper ? paper.name + " · " : ""}第 ${q.question_number} 题 · 原题`,
-                              questionId: q.id,
-                              stemPath: q.image_path,
-                              optionsPath: q.options_image_path,
-                              stemUrl: q.image_path ? imageUrls[q.image_path] ?? null : null,
-                              optionsUrl: q.options_image_path
-                                ? imageUrls[q.options_image_path] ?? null
-                                : null,
-                            })
-                          }
-                          className="ml-auto inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                          onClick={() => openEditQuestion(q)}
+                          className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
                         >
-                          <ImageIcon className="h-3 w-3" />
-                          查看原题
+                          <Pencil className="h-3 w-3" />
+                          修改
                         </button>
-                      )}
+                        <button
+                          type="button"
+                          disabled={deletingQ === q.id}
+                          onClick={() => handleDeleteQuestion(q)}
+                          className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                        >
+                          {deletingQ === q.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3 w-3" />
+                          )}
+                          删除
+                        </button>
+                      </span>
                     </div>
                     <MathText
                       block
