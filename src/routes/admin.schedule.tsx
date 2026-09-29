@@ -541,14 +541,47 @@ function SchedulePage() {
       created_by: session?.user.id ?? null,
     });
     if (error) {
-      toast.error("删除失败：" + error.message);
+      toast.error("请假失败：" + error.message);
       return;
     }
-    toast.success("已删除该节课");
+    toast.success("已标记请假");
     setCancelled((prev) =>
       new Set(prev).add(`${o.student.id}|${lessonKey(o.date)}`),
     );
     setDetailFor(null);
+  };
+
+  const handleCancelSingle = async (row: SingleLessonRow) => {
+    if (!row.student_id) return;
+    const dt = new Date(`${row.lesson_date}T${row.start_time.slice(0, 5)}`);
+    const { error } = await supabase.from("cancelled_lessons").insert({
+      student_id: row.student_id,
+      lesson_at: dt.toISOString(),
+      created_by: session?.user.id ?? null,
+    });
+    if (error) {
+      toast.error("请假失败：" + error.message);
+      return;
+    }
+    toast.success("已标记请假");
+    setCancelled((prev) => new Set(prev).add(`${row.student_id}|${lessonKey(dt)}`));
+    setDetailFor(null);
+    await load();
+  };
+
+  const restoreCancelled = async (studentId: string, date: Date) => {
+    if (!confirm("恢复这节课（取消请假）？")) return;
+    const { error } = await supabase
+      .from("cancelled_lessons")
+      .delete()
+      .eq("student_id", studentId)
+      .eq("lesson_at", date.toISOString());
+    if (error) {
+      toast.error("恢复失败：" + error.message);
+      return;
+    }
+    toast.success("已恢复上课");
+    await load();
   };
 
 
