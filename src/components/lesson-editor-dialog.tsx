@@ -54,6 +54,8 @@ interface Props {
   title?: string;
   /** If provided, show a Delete button that calls this. */
   onDelete?: () => Promise<void> | void;
+  /** If provided, show a 请假 button that marks this occurrence cancelled (shows as 已请假). */
+  onCancel?: () => Promise<void> | void;
   onSaved: () => void;
 }
 
@@ -70,6 +72,7 @@ export function LessonEditorDialog({
   beforeSave,
   title,
   onDelete,
+  onCancel,
   onSaved,
 }: Props) {
   const [mode, setMode] = useState<"student" | "custom">("student");
