@@ -578,7 +578,6 @@ function SchedulePage() {
   };
 
   const handleCancelSingle = async (row: SingleLessonRow) => {
-    if (!row.student_id) return;
     const dt = new Date(`${row.lesson_date}T${row.start_time.slice(0, 5)}`);
     const { error } = await supabase.from("cancelled_lessons").insert({
       student_id: row.student_id,
@@ -590,9 +589,30 @@ function SchedulePage() {
       return;
     }
     toast.success("已标记请假");
-    setCancelled((prev) => new Set(prev).add(`${row.student_id}|${lessonKey(dt)}`));
+    setCancelled((prev) =>
+      new Set(prev).add(`${row.student_id ?? ""}|${lessonKey(dt)}`),
+    );
     setDetailFor(null);
     await load();
+  };
+
+  const handleDeleteRecurring = async (o: Occurrence) => {
+    if (!confirm("确认删除这一次固定课次？删除后不会再显示，也不会标记为请假。")) return;
+    const { error } = await supabase.from("cancelled_lessons").insert({
+      student_id: o.student.id,
+      lesson_at: o.date.toISOString(),
+      created_by: session?.user.id ?? null,
+      kind: "deleted",
+    });
+    if (error) {
+      toast.error("删除失败：" + error.message);
+      return;
+    }
+    toast.success("已删除该课次");
+    setDeletedOcc((prev) =>
+      new Set(prev).add(`${o.student.id}|${lessonKey(o.date)}`),
+    );
+    setDetailFor(null);
   };
 
   const restoreCancelled = async (studentId: string, date: Date) => {
@@ -1380,13 +1400,9 @@ function SchedulePage() {
               studentOptions={students.map((s) => ({ id: s.id, name: s.name }))}
               editing={detailFor.row}
               title="课次详情（可编辑）"
-              onCancel={
-                detailFor.row.student_id
-                  ? async () => {
-                      await handleCancelSingle(detailFor.row);
-                    }
-                  : undefined
-              }
+              onCancel={async () => {
+                await handleCancelSingle(detailFor.row);
+              }}
               onDelete={async () => {
                 await handleDeleteSingle(detailFor.row);
               }}
@@ -1434,6 +1450,9 @@ function SchedulePage() {
               }}
               onCancel={async () => {
                 await handleCancelLesson(occ);
+              }}
+              onDelete={async () => {
+                await handleDeleteRecurring(occ);
               }}
               onSaved={load}
             />
