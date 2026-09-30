@@ -284,12 +284,12 @@ function SchedulePage() {
     for (const s of students) {
       for (const o of generateLessonOccurrences(s)) {
         const key = `${s.id}|${lessonKey(o.date)}`;
-        if (cancelled.has(key)) continue;
+        if (cancelled.has(key) || deletedOcc.has(key)) continue;
         out.push({ kind: "recurring", date: o.date, slot: o.slot, student: s });
       }
     }
     return out.sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [students, cancelled]);
+  }, [students, cancelled, deletedOcc]);
 
   const cancelledOccurrences: Occurrence[] = useMemo(() => {
     const out: Occurrence[] = [];
@@ -325,20 +325,17 @@ function SchedulePage() {
 
   const singleOccurrences = useMemo(
     () =>
-      allSingleOccurrences.filter(
-        (o) =>
-          !o.row.student_id ||
-          !cancelled.has(`${o.row.student_id}|${lessonKey(o.date)}`),
-      ),
-    [allSingleOccurrences, cancelled],
+      allSingleOccurrences.filter((o) => {
+        const key = `${o.row.student_id ?? ""}|${lessonKey(o.date)}`;
+        return !cancelled.has(key) && !deletedOcc.has(key);
+      }),
+    [allSingleOccurrences, cancelled, deletedOcc],
   );
 
   const cancelledSingles = useMemo(
     () =>
-      allSingleOccurrences.filter(
-        (o) =>
-          !!o.row.student_id &&
-          cancelled.has(`${o.row.student_id}|${lessonKey(o.date)}`),
+      allSingleOccurrences.filter((o) =>
+        cancelled.has(`${o.row.student_id ?? ""}|${lessonKey(o.date)}`),
       ),
     [allSingleOccurrences, cancelled],
   );
