@@ -135,6 +135,7 @@ export const listMathPapersInFolder = createServerFn({ method: "POST" })
     const q = context.supabase
       .from("math_papers")
       .select("id, year, name, question_count, created_at, kind, folder_id")
+      .neq("kind", "calc")
       .order("created_at", { ascending: false });
     const { data: rows, error } = data.folderId
       ? await q.eq("folder_id", data.folderId)

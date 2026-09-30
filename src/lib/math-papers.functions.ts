@@ -573,27 +573,28 @@ export const importCalcQuestions = createServerFn({ method: "POST" })
     // 已验证教师/管理员身份；题库表的写策略仅管理员，这里用服务端客户端执行写入
     const { supabaseAdmin: supabase } = await import("@/integrations/supabase/client.server");
 
-    const { data: paper, error: e0 } = await supabase
-      .from("math_papers")
-      .insert({
-        year: null,
-        name: "计算练习",
-        pdf_path: null,
-        answer_pdf_path: null,
-        folder_id: data.folderId ?? null,
-        kind: "paper",
-        question_count: data.questions.length,
-        uploaded_by: context.userId,
-      })
-      .select("id")
-      .single();
-    if (e0 || !paper) throw new Error(e0?.message || "题集创建失败");
+    // 计算题统一存放在一个隐藏的容器（kind="calc"），不在原始题库中显示为试卷
+    let { data: paper } = await supabase
+      .from("math_papers").select("id").eq("kind", "calc").limit(1).maybeSingle();
+    if (!paper) {
+      const { data: created, error: e0 } = await supabase
+        .from("math_papers")
+        .insert({ year: null, name: "计算练习题库", pdf_path: null, answer_pdf_path: null, folder_id: null, kind: "calc", question_count: 0, uploaded_by: context.userId })
+        .select("id").single();
+      if (e0 || !created) throw new Error(e0?.message || "题库创建失败");
+      paper = created;
+    }
+    const { data: maxRow } = await supabase
+      .from("math_questions").select("question_number").eq("paper_id", paper.id)
+      .order("question_number", { ascending: false }).limit(1).maybeSingle();
+    const baseNo = (maxRow as any)?.question_number ?? 0;
+    let insertedIds: string[] = [];
 
     try {
       const rows = data.questions.map((q, i) => ({
         paper_id: paper.id,
         year: null,
-        question_number: i + 1,
+        question_number: baseNo + i + 1,
         stem: q.stem,
         correct_answer: q.answer?.trim() || null,
         answer_type: "计算",
@@ -606,6 +607,7 @@ export const importCalcQuestions = createServerFn({ method: "POST" })
         .insert(rows)
         .select("id");
       if (e1) throw new Error("题目写入失败：" + e1.message);
+      insertedIds = (inserted ?? []).map((r: any) => r.id);
 
       // 知识点标签：按名称查找，不存在的自动创建，再关联到题目
       const allNames = [...new Set(data.questions.flatMap((q) => q.tags ?? []))];
@@ -644,7 +646,7 @@ export const importCalcQuestions = createServerFn({ method: "POST" })
         }
       }
     } catch (err) {
-      await supabase.from("math_papers").delete().eq("id", paper.id);
+      if (insertedIds.length) await supabase.from("math_questions").delete().in("id", insertedIds);
       throw err;
     }
 
