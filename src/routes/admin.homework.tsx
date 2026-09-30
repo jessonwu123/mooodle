@@ -140,7 +140,7 @@ function HomeworkPage() {
     return m;
   }, [questions]);
   const paperList = useMemo(
-    () => Object.values(papers).filter((p) => paperSource[p.id] !== "calc" && source !== "calc").sort((a, b) => (b.year ?? 0) - (a.year ?? 0) || a.name.localeCompare(b.name)),
+    () => Object.values(papers).filter((p) => paperSource[p.id] === "exam" && source !== "calc").sort((a, b) => (b.year ?? 0) - (a.year ?? 0) || a.name.localeCompare(b.name)),
     [papers, source, paperSource],
   );
 
