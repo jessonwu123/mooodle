@@ -15,6 +15,13 @@
       "when": 1790745613235,
       "tag": "0001_cancelled_lessons_kind_and_nullable_student",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790755547277,
+      "tag": "0002_allow_calc_practice_mode",
+      "breakpoints": true
     }
   ]
 }

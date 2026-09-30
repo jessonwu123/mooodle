@@ -16,7 +16,11 @@ import {
   loadAiQuestions,
   submitPracticeAttempts,
   getPracticeStats,
+  listCalcPracticeTags,
+  loadCalcPracticeQuestions,
 } from "@/lib/practice.functions";
+import { MathInput } from "@/components/math-input";
+import { Calculator } from "lucide-react";
 
 type Q = {
   id: string;
@@ -48,6 +52,8 @@ function QuestionCard({
   onSelect,
   graded,
   locked,
+  active = false,
+  onActivate,
 }: {
   q: Q;
   index: number;
@@ -55,7 +61,10 @@ function QuestionCard({
   onSelect: (v: string) => void;
   graded?: Graded;
   locked: boolean;
+  active?: boolean;
+  onActivate?: () => void;
 }) {
+  const isCalc = q.answer_type === "计算";
   const options: Array<{ letter: string; text: string | null }> = [
     { letter: "A", text: q.option_a },
     { letter: "B", text: q.option_b },
@@ -93,7 +102,7 @@ function QuestionCard({
             </span>
           ) : (
             <span className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-rose-600">
-              <XCircle className="h-3.5 w-3.5" />答错（正确答案 {graded.correct_answer || "?"}）
+              <XCircle className="h-3.5 w-3.5" />答错（正确答案 {isCalc ? <MathText text={graded.correct_answer.includes("$") ? graded.correct_answer : `$${graded.correct_answer}$`} /> : graded.correct_answer || "?"}）
             </span>
           ))}
       </div>
@@ -115,7 +124,15 @@ function QuestionCard({
         )}
       </div>
 
-      {optsImg ? (
+      {isCalc ? (
+        <MathInput
+          value={selected ?? ""}
+          onChange={onSelect}
+          disabled={locked}
+          active={active}
+          onFocus={() => onActivate?.()}
+        />
+      ) : optsImg ? (
         <div className="mb-3">
           <img src={q.options_image_url!} alt="选项" className="max-h-60 rounded-lg border" />
           <div className="mt-2 grid grid-cols-5 gap-2">
@@ -183,12 +200,13 @@ function PracticeRunner({
   onExit,
 }: {
   studentId: string;
-  mode: "paper" | "targeted" | "ai";
+  mode: "paper" | "targeted" | "ai" | "calc";
   paperId?: string | null;
   tagIds?: string[];
   questions: Q[];
   onExit: () => void;
 }) {
+  const [activeId, setActiveId] = useState<string | null>(questions[0]?.id ?? null);
   const submitFn = useServerFn(submitPracticeAttempts);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -201,7 +219,7 @@ function PracticeRunner({
   }, [graded]);
 
   const handleSubmit = async () => {
-    const incomplete = questions.filter((q) => !answers[q.id]);
+    const incomplete = questions.filter((q) => !answers[q.id]?.trim());
     if (incomplete.length > 0) {
       const ok = window.confirm(`还有 ${incomplete.length} 题未作答，确认提交吗？`);
       if (!ok) return;
@@ -242,7 +260,7 @@ function PracticeRunner({
           </div>
         ) : (
           <div className="text-sm text-muted-foreground">
-            已作答 {Object.keys(answers).length}/{questions.length}
+            已作答 {Object.values(answers).filter((v) => v.trim()).length}/{questions.length}
           </div>
         )}
       </div>
@@ -257,6 +275,8 @@ function PracticeRunner({
             onSelect={(v) => setAnswers((p) => ({ ...p, [q.id]: v }))}
             graded={gradedMap.get(q.id)}
             locked={!!graded}
+            active={activeId === q.id}
+            onActivate={() => setActiveId(q.id)}
           />
         ))}
       </div>
@@ -541,6 +561,124 @@ function AiPanel({
   );
 }
 
+function CalcPanel({ studentId, onStart }: { studentId: string; onStart: (questions: Q[], tagIds: string[]) => void }) {
+  const listFn = useServerFn(listCalcPracticeTags);
+  const loadFn = useServerFn(loadCalcPracticeQuestions);
+  const [tags, setTags] = useState<Array<{ id: string; name: string; parent_id: string | null; count: number }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [limit, setLimit] = useState(10);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await listFn({ data: { studentId } });
+        setTags(res.tags as any);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "加载失败");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [studentId, listFn]);
+
+  const roots = tags.filter((t) => !t.parent_id);
+  const childrenOf = (id: string) => tags.filter((t) => t.parent_id === id);
+  const toggle = (t: { id: string; parent_id: string | null }) =>
+    setSelected((p) => {
+      const n = new Set(p);
+      const kids = t.parent_id ? [] : childrenOf(t.id).map((c) => c.id);
+      if (n.has(t.id)) { n.delete(t.id); kids.forEach((k) => n.delete(k)); }
+      else { n.add(t.id); kids.forEach((k) => n.add(k)); }
+      return n;
+    });
+
+  if (loading) return <div className="py-10 text-center text-muted-foreground"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></div>;
+
+  const chip = (t: { id: string; name: string; parent_id: string | null; count: number }) => {
+    const isSel = selected.has(t.id);
+    return (
+      <button
+        key={t.id}
+        type="button"
+        disabled={t.count === 0}
+        onClick={() => toggle(t)}
+        className={[
+          "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+          isSel ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent",
+          t.count === 0 ? "cursor-not-allowed opacity-40" : "",
+        ].join(" ")}
+      >
+        <Checkbox checked={isSel} className="pointer-events-none h-3.5 w-3.5" />
+        {t.name}
+        <span className="text-[10px] text-muted-foreground">({t.count})</span>
+      </button>
+    );
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-2xl border border-border bg-card p-4">
+        <div className="mb-1 text-sm font-semibold text-foreground">选择计算题知识点</div>
+        <p className="mb-3 text-xs text-muted-foreground">计算题为填空题，用下方数学键盘输入答案，提交后自动判断对错。</p>
+        {roots.length === 0 ? (
+          <div className="text-sm text-muted-foreground">暂无计算题</div>
+        ) : (
+          <div className="space-y-3">
+            {roots.map((r) => (
+              <div key={r.id} className="space-y-2">
+                {chip(r)}
+                {childrenOf(r.id).length > 0 && (
+                  <div className="ml-5 flex flex-wrap gap-2">{childrenOf(r.id).map(chip)}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card p-4">
+        <div className="mb-3 text-sm font-semibold text-foreground">题目数量</div>
+        <div className="flex flex-wrap items-center gap-2">
+          {[5, 10, 20, 30].map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setLimit(n)}
+              className={[
+                "rounded-lg border px-3 py-1.5 text-sm",
+                limit === n ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent",
+              ].join(" ")}
+            >
+              {n} 题
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <Button
+        disabled={busy || selected.size === 0}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            const ids = Array.from(selected);
+            const res = await loadFn({ data: { studentId, tagIds: ids, limit } });
+            onStart(res.questions, ids);
+          } catch (e) {
+            toast.error(e instanceof Error ? e.message : "加载失败");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        开始计算练习
+      </Button>
+    </div>
+  );
+}
+
 // ---------- main ----------
 
 export function PracticeTab({ studentId }: { studentId: string }) {
@@ -548,7 +686,7 @@ export function PracticeTab({ studentId }: { studentId: string }) {
   const [stats, setStats] = useState<{ doneCount: number; totalWrong: number; aiUnlocked: boolean; aiThreshold: number } | null>(null);
   const [active, setActive] = useState<
     | { kind: "menu" }
-    | { kind: "run"; mode: "paper" | "targeted" | "ai"; paperId?: string | null; tagIds?: string[]; questions: Q[] }
+    | { kind: "run"; mode: "paper" | "targeted" | "ai" | "calc"; paperId?: string | null; tagIds?: string[]; questions: Q[] }
   >({ kind: "menu" });
 
   const refreshStats = useCallback(async () => {
@@ -585,12 +723,15 @@ export function PracticeTab({ studentId }: { studentId: string }) {
 
 
       <Tabs defaultValue="paper" className="w-full">
-        <TabsList className="grid w-full max-w-xl grid-cols-3">
+        <TabsList className="grid w-full max-w-2xl grid-cols-4">
           <TabsTrigger value="paper">
             <BookOpen className="mr-1.5 h-4 w-4" />历年真题
           </TabsTrigger>
           <TabsTrigger value="targeted">
             <Target className="mr-1.5 h-4 w-4" />针对性练习
+          </TabsTrigger>
+          <TabsTrigger value="calc">
+            <Calculator className="mr-1.5 h-4 w-4" />计算练习
           </TabsTrigger>
           <TabsTrigger value="ai">
             <Sparkles className="mr-1.5 h-4 w-4" />AI 刷题
@@ -607,6 +748,12 @@ export function PracticeTab({ studentId }: { studentId: string }) {
           <TargetedPanel
             studentId={studentId}
             onStart={(questions, tagIds) => setActive({ kind: "run", mode: "targeted", tagIds, questions })}
+          />
+        </TabsContent>
+        <TabsContent value="calc" className="mt-4">
+          <CalcPanel
+            studentId={studentId}
+            onStart={(questions, tagIds) => setActive({ kind: "run", mode: "calc", tagIds, questions })}
           />
         </TabsContent>
         <TabsContent value="ai" className="mt-4">

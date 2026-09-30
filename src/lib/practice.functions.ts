@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { gradeCalcAnswer } from "./calc-grade";
 
 type SupaCtx = { supabase: any; userId: string };
 
@@ -371,20 +372,92 @@ export const loadAiQuestions = createServerFn({ method: "POST" })
     return { questions, weakTags: weakTagIds.slice(0, 5) };
   });
 
+// ---------- 计算练习（填空题） ----------
+
+export const listCalcPracticeTags = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ studentId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await resolveAccessibleFolders(context, data.studentId);
+    const admin = await getAdmin();
+    const { data: tags } = await admin
+      .from("math_tags")
+      .select("id, name, category, color, parent_id")
+      .eq("category", "calc")
+      .order("name", { ascending: true });
+    const tagIds = (tags ?? []).map((t: any) => t.id as string);
+    const counts = new Map<string, number>();
+    if (tagIds.length > 0) {
+      for (let from = 0; ; from += 1000) {
+        const { data: rels } = await admin
+          .from("math_question_tags")
+          .select("tag_id")
+          .in("tag_id", tagIds)
+          .range(from, from + 999);
+        for (const r of rels ?? []) counts.set(r.tag_id, (counts.get(r.tag_id) ?? 0) + 1);
+        if (!rels || rels.length < 1000) break;
+      }
+    }
+    return { tags: (tags ?? []).map((t: any) => ({ ...t, count: counts.get(t.id) ?? 0 })) };
+  });
+
+export const loadCalcPracticeQuestions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        studentId: z.string().uuid(),
+        tagIds: z.array(z.string().uuid()).min(1),
+        limit: z.number().int().min(1).max(50),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await resolveAccessibleFolders(context, data.studentId);
+    const admin = await getAdmin();
+    const pool = new Set<string>();
+    for (let from = 0; ; from += 1000) {
+      const { data: rels } = await admin
+        .from("math_question_tags")
+        .select("question_id")
+        .in("tag_id", data.tagIds)
+        .range(from, from + 999);
+      for (const r of rels ?? []) pool.add(r.question_id as string);
+      if (!rels || rels.length < 1000) break;
+    }
+    const ids = Array.from(pool);
+    const calcIds: string[] = [];
+    for (let i = 0; i < ids.length; i += 300) {
+      const { data: rows } = await admin
+        .from("math_questions")
+        .select("id")
+        .in("id", ids.slice(i, i + 300))
+        .eq("answer_type", "计算");
+      for (const r of rows ?? []) calcIds.push(r.id as string);
+    }
+    if (calcIds.length === 0) throw new Error("所选知识点暂无计算题");
+    for (let i = calcIds.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [calcIds[i], calcIds[j]] = [calcIds[j], calcIds[i]];
+    }
+    const questions = await loadQuestions(calcIds.slice(0, data.limit));
+    return { questions };
+  });
+
 export const submitPracticeAttempts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
         studentId: z.string().uuid(),
-        mode: z.enum(["paper", "targeted", "ai"]),
+        mode: z.enum(["paper", "targeted", "ai", "calc"]),
         paperId: z.string().uuid().nullable().optional(),
         tagIds: z.array(z.string().uuid()).optional().default([]),
         answers: z
           .array(
             z.object({
               question_id: z.string().uuid(),
-              answer: z.string().nullable(),
+              answer: z.string().max(500).nullable(),
             }),
           )
           .min(1),
@@ -396,14 +469,23 @@ export const submitPracticeAttempts = createServerFn({ method: "POST" })
     const ids = data.answers.map((a) => a.question_id);
     const { data: rows } = await admin
       .from("math_questions")
-      .select("id, correct_answer")
+      .select("id, correct_answer, answer_type")
       .in("id", ids);
-    const correctMap = new Map<string, string | null>(
-      (rows ?? []).map((r: any) => [r.id, (r.correct_answer ?? "").toString().trim().toUpperCase()]),
-    );
+    const rowMap = new Map<string, any>((rows ?? []).map((r: any) => [r.id, r]));
 
     const graded = data.answers.map((a) => {
-      const expected = correctMap.get(a.question_id) ?? "";
+      const row = rowMap.get(a.question_id);
+      if (row?.answer_type === "计算") {
+        const expected = (row.correct_answer ?? "").toString().trim();
+        const given = (a.answer ?? "").trim();
+        return {
+          question_id: a.question_id,
+          answer: given,
+          is_correct: gradeCalcAnswer(given, expected),
+          correct_answer: expected,
+        };
+      }
+      const expected = (row?.correct_answer ?? "").toString().trim().toUpperCase();
       const given = (a.answer ?? "").trim().toUpperCase();
       const is_correct = !!expected && given === expected;
       return { question_id: a.question_id, answer: given, is_correct, correct_answer: expected };
