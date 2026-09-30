@@ -1,0 +1,2 @@
+ALTER TABLE public.math_papers DROP CONSTRAINT math_papers_kind_check;
+ALTER TABLE public.math_papers ADD CONSTRAINT math_papers_kind_check CHECK (kind = ANY (ARRAY['paper'::text, 'answer'::text, 'calc'::text]));
