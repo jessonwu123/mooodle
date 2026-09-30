@@ -198,6 +198,7 @@ function SchedulePage() {
   const { session } = useAuth();
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [cancelled, setCancelled] = useState<Set<string>>(new Set());
+  const [deletedOcc, setDeletedOcc] = useState<Set<string>>(new Set());
   const [imported, setImported] = useState<ImportedLesson[]>([]);
   const [singles, setSingles] = useState<SingleLessonRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -249,7 +250,7 @@ function SchedulePage() {
             "id, name, total_hours, hours_per_lesson, hourly_rate, schedule_start_date, schedule_slots, schedule_frequency_weeks, schedule_weekday, schedule_start_time, schedule_end_time",
           )
           .eq("created_by", session.user.id),
-        supabase.from("cancelled_lessons").select("student_id, lesson_at"),
+        supabase.from("cancelled_lessons").select("student_id, lesson_at, kind"),
         supabase
           .from("imported_lessons")
           .select("id, lesson_date, start_time, end_time, class_name")
@@ -261,12 +262,14 @@ function SchedulePage() {
       ]);
     setStudents((studs ?? []) as unknown as StudentRow[]);
     const set = new Set<string>();
+    const delSet = new Set<string>();
     for (const c of cancels ?? []) {
-      set.add(
-        `${c.student_id}|${new Date(c.lesson_at as string).toISOString()}`,
-      );
+      const key = `${c.student_id ?? ""}|${new Date(c.lesson_at as string).toISOString()}`;
+      if ((c as { kind?: string }).kind === "deleted") delSet.add(key);
+      else set.add(key);
     }
     setCancelled(set);
+    setDeletedOcc(delSet);
     setImported((imps ?? []) as ImportedLesson[]);
     setSingles((sngs ?? []) as SingleLessonRow[]);
     setLoading(false);
