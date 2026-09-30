@@ -198,6 +198,7 @@ function SchedulePage() {
   const { session } = useAuth();
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [cancelled, setCancelled] = useState<Set<string>>(new Set());
+  const [deletedOcc, setDeletedOcc] = useState<Set<string>>(new Set());
   const [imported, setImported] = useState<ImportedLesson[]>([]);
   const [singles, setSingles] = useState<SingleLessonRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -249,7 +250,7 @@ function SchedulePage() {
             "id, name, total_hours, hours_per_lesson, hourly_rate, schedule_start_date, schedule_slots, schedule_frequency_weeks, schedule_weekday, schedule_start_time, schedule_end_time",
           )
           .eq("created_by", session.user.id),
-        supabase.from("cancelled_lessons").select("student_id, lesson_at"),
+        supabase.from("cancelled_lessons").select("student_id, lesson_at, kind"),
         supabase
           .from("imported_lessons")
           .select("id, lesson_date, start_time, end_time, class_name")
@@ -261,12 +262,14 @@ function SchedulePage() {
       ]);
     setStudents((studs ?? []) as unknown as StudentRow[]);
     const set = new Set<string>();
+    const delSet = new Set<string>();
     for (const c of cancels ?? []) {
-      set.add(
-        `${c.student_id}|${new Date(c.lesson_at as string).toISOString()}`,
-      );
+      const key = `${c.student_id ?? ""}|${new Date(c.lesson_at as string).toISOString()}`;
+      if ((c as { kind?: string }).kind === "deleted") delSet.add(key);
+      else set.add(key);
     }
     setCancelled(set);
+    setDeletedOcc(delSet);
     setImported((imps ?? []) as ImportedLesson[]);
     setSingles((sngs ?? []) as SingleLessonRow[]);
     setLoading(false);
@@ -281,12 +284,12 @@ function SchedulePage() {
     for (const s of students) {
       for (const o of generateLessonOccurrences(s)) {
         const key = `${s.id}|${lessonKey(o.date)}`;
-        if (cancelled.has(key)) continue;
+        if (cancelled.has(key) || deletedOcc.has(key)) continue;
         out.push({ kind: "recurring", date: o.date, slot: o.slot, student: s });
       }
     }
     return out.sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [students, cancelled]);
+  }, [students, cancelled, deletedOcc]);
 
   const cancelledOccurrences: Occurrence[] = useMemo(() => {
     const out: Occurrence[] = [];
@@ -322,20 +325,17 @@ function SchedulePage() {
 
   const singleOccurrences = useMemo(
     () =>
-      allSingleOccurrences.filter(
-        (o) =>
-          !o.row.student_id ||
-          !cancelled.has(`${o.row.student_id}|${lessonKey(o.date)}`),
-      ),
-    [allSingleOccurrences, cancelled],
+      allSingleOccurrences.filter((o) => {
+        const key = `${o.row.student_id ?? ""}|${lessonKey(o.date)}`;
+        return !cancelled.has(key) && !deletedOcc.has(key);
+      }),
+    [allSingleOccurrences, cancelled, deletedOcc],
   );
 
   const cancelledSingles = useMemo(
     () =>
-      allSingleOccurrences.filter(
-        (o) =>
-          !!o.row.student_id &&
-          cancelled.has(`${o.row.student_id}|${lessonKey(o.date)}`),
+      allSingleOccurrences.filter((o) =>
+        cancelled.has(`${o.row.student_id ?? ""}|${lessonKey(o.date)}`),
       ),
     [allSingleOccurrences, cancelled],
   );
@@ -578,7 +578,6 @@ function SchedulePage() {
   };
 
   const handleCancelSingle = async (row: SingleLessonRow) => {
-    if (!row.student_id) return;
     const dt = new Date(`${row.lesson_date}T${row.start_time.slice(0, 5)}`);
     const { error } = await supabase.from("cancelled_lessons").insert({
       student_id: row.student_id,
@@ -590,18 +589,40 @@ function SchedulePage() {
       return;
     }
     toast.success("已标记请假");
-    setCancelled((prev) => new Set(prev).add(`${row.student_id}|${lessonKey(dt)}`));
+    setCancelled((prev) =>
+      new Set(prev).add(`${row.student_id ?? ""}|${lessonKey(dt)}`),
+    );
     setDetailFor(null);
     await load();
   };
 
-  const restoreCancelled = async (studentId: string, date: Date) => {
+  const handleDeleteRecurring = async (o: Occurrence) => {
+    if (!confirm("确认删除这一次固定课次？删除后不会再显示，也不会标记为请假。")) return;
+    const { error } = await supabase.from("cancelled_lessons").insert({
+      student_id: o.student.id,
+      lesson_at: o.date.toISOString(),
+      created_by: session?.user.id ?? null,
+      kind: "deleted",
+    });
+    if (error) {
+      toast.error("删除失败：" + error.message);
+      return;
+    }
+    toast.success("已删除该课次");
+    setDeletedOcc((prev) =>
+      new Set(prev).add(`${o.student.id}|${lessonKey(o.date)}`),
+    );
+    setDetailFor(null);
+  };
+
+  const restoreCancelled = async (studentId: string | null, date: Date) => {
     if (!confirm("恢复这节课（取消请假）？")) return;
-    const { error } = await supabase
+    let q = supabase
       .from("cancelled_lessons")
       .delete()
-      .eq("student_id", studentId)
       .eq("lesson_at", date.toISOString());
+    q = studentId ? q.eq("student_id", studentId) : q.is("student_id", null);
+    const { error } = await q;
     if (error) {
       toast.error("恢复失败：" + error.message);
       return;
@@ -1380,13 +1401,9 @@ function SchedulePage() {
               studentOptions={students.map((s) => ({ id: s.id, name: s.name }))}
               editing={detailFor.row}
               title="课次详情（可编辑）"
-              onCancel={
-                detailFor.row.student_id
-                  ? async () => {
-                      await handleCancelSingle(detailFor.row);
-                    }
-                  : undefined
-              }
+              onCancel={async () => {
+                await handleCancelSingle(detailFor.row);
+              }}
               onDelete={async () => {
                 await handleDeleteSingle(detailFor.row);
               }}
@@ -1434,6 +1451,9 @@ function SchedulePage() {
               }}
               onCancel={async () => {
                 await handleCancelLesson(occ);
+              }}
+              onDelete={async () => {
+                await handleDeleteRecurring(occ);
               }}
               onSaved={load}
             />
