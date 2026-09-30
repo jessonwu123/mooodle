@@ -43,7 +43,7 @@ function loadMathlive() {
   if (!mathliveLoaded) {
     mathliveLoaded = import("mathlive").then((m: any) => {
       const MFE = m.MathfieldElement;
-      MFE.fontsDirectory = "https://cdn.jsdelivr.net/npm/mathlive@0.107.0/fonts/";
+      MFE.fontsDirectory = "https://cdn.jsdelivr.net/npm/mathlive@0.110.0/fonts/";
       MFE.soundsDirectory = null;
     });
   }
