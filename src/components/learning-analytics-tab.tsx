@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactElement } from "react";
+import { TagAccuracyPanel } from "@/components/tag-accuracy-panel";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -134,7 +135,7 @@ function fmtDateTime(d: string) {
   });
 }
 
-export function LearningAnalyticsTab({
+function LearningAnalyticsInner({
   studentId,
   isOwnerView = false,
 }: {
@@ -625,6 +626,15 @@ function StatCard({
     <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className={`mt-1 text-2xl font-bold ${color}`}>{value}</div>
+    </div>
+  );
+}
+
+export function LearningAnalyticsTab(props: { studentId: string; isOwnerView?: boolean }) {
+  return (
+    <div className="space-y-6">
+      <TagAccuracyPanel studentId={props.studentId} />
+      <LearningAnalyticsInner {...props} />
     </div>
   );
 }

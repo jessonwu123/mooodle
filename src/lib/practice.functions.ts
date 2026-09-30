@@ -605,3 +605,71 @@ export const listPracticeHistory = createServerFn({ method: "POST" })
   });
 
 
+
+// ---------- 各知识点正确率 ----------
+export const getTagAccuracy = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ studentId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const admin = await getAdmin();
+    const { data: student } = await admin
+      .from("students")
+      .select("id, auth_user_id")
+      .eq("id", data.studentId)
+      .maybeSingle();
+    if (!student) throw new Error("学生不存在");
+    if (student.auth_user_id !== context.userId) {
+      const { data: isAdmin } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
+      const { data: isTeacher } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "teacher" });
+      if (!isAdmin && !isTeacher) throw new Error("无权访问");
+    }
+    if (!student.auth_user_id) return { tags: [] };
+    const logs: Array<{ question_id: string; is_correct: boolean }> = [];
+    for (let from = 0; ; from += 1000) {
+      const { data: rows } = await admin
+        .from("student_question_attempt_log")
+        .select("question_id, is_correct")
+        .eq("user_id", student.auth_user_id)
+        .range(from, from + 999);
+      logs.push(...((rows ?? []) as any));
+      if (!rows || rows.length < 1000) break;
+    }
+    if (logs.length === 0) return { tags: [] };
+    const qIds = Array.from(new Set(logs.map((l) => l.question_id)));
+    const qTags = new Map<string, Set<string>>();
+    for (let i = 0; i < qIds.length; i += 300) {
+      const { data: rels } = await admin
+        .from("math_question_tags")
+        .select("question_id, tag_id")
+        .in("question_id", qIds.slice(i, i + 300));
+      for (const r of rels ?? []) {
+        if (!qTags.has(r.question_id)) qTags.set(r.question_id, new Set());
+        qTags.get(r.question_id)!.add(r.tag_id);
+      }
+    }
+    const { data: tags } = await admin.from("math_tags").select("id, name, category, parent_id");
+    const tagMap = new Map((tags ?? []).map((t: any) => [t.id, t]));
+    const stat = new Map<string, { total: number; correct: number }>();
+    for (const l of logs) {
+      const direct = qTags.get(l.question_id) ?? new Set<string>();
+      const all = new Set(direct);
+      for (const t of direct) {
+        const p = tagMap.get(t)?.parent_id;
+        if (p) all.add(p); // 二级标签汇总到一级
+      }
+      for (const t of all) {
+        const s = stat.get(t) ?? { total: 0, correct: 0 };
+        s.total++;
+        if (l.is_correct) s.correct++;
+        stat.set(t, s);
+      }
+    }
+    return {
+      tags: Array.from(stat.entries())
+        .filter(([id]) => tagMap.has(id))
+        .map(([id, s]) => {
+          const t: any = tagMap.get(id);
+          return { id, name: t.name, category: t.category, parent_id: t.parent_id, total: s.total, correct: s.correct };
+        }),
+    };
+  });
