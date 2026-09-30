@@ -534,10 +534,24 @@ function HomeworkPage() {
               <div data-block="break" />
               <div data-block="answers" style={{ padding: "8px 4px", fontSize: 15 }}>
                 <div style={{ fontSize: 20, fontWeight: 700, textAlign: "center", marginBottom: 12 }}>参考答案</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
-                  {renderData.qs.map((q, i) => (
-                    <div key={q.id}>{i + 1}. <MathText text={q.correct_answer || "—"} /></div>
-                  ))}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 24px" }}>
+                  {renderData.qs.map((q, i) => {
+                    const raw = (q.correct_answer ?? "").toString().trim();
+                    const letter = raw.replace(/[()（）\s.]/g, "").toUpperCase();
+                    const isChoice = !isCalcQuestion(q) && /^[A-E]$/.test(letter);
+                    return (
+                      <div key={q.id} style={{ minWidth: isChoice ? 70 : 160 }}>
+                        <span style={{ fontWeight: 600 }}>{i + 1}. </span>
+                        {isChoice ? (
+                          <span style={{ fontWeight: 700 }}>{letter}</span>
+                        ) : raw ? (
+                          <MathText text={raw} />
+                        ) : (
+                          <span>—</span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </>
