@@ -615,13 +615,14 @@ function SchedulePage() {
     setDetailFor(null);
   };
 
-  const restoreCancelled = async (studentId: string, date: Date) => {
+  const restoreCancelled = async (studentId: string | null, date: Date) => {
     if (!confirm("恢复这节课（取消请假）？")) return;
-    const { error } = await supabase
+    let q = supabase
       .from("cancelled_lessons")
       .delete()
-      .eq("student_id", studentId)
       .eq("lesson_at", date.toISOString());
+    q = studentId ? q.eq("student_id", studentId) : q.is("student_id", null);
+    const { error } = await q;
     if (error) {
       toast.error("恢复失败：" + error.message);
       return;
