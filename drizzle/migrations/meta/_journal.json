@@ -8,6 +8,13 @@
       "when": 1790595615335,
       "tag": "0000_add_math_tag_hierarchy",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790745613235,
+      "tag": "0001_cancelled_lessons_kind_and_nullable_student",
+      "breakpoints": true
     }
   ]
 }
