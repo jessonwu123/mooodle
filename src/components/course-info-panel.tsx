@@ -98,7 +98,7 @@ export function CourseInfoPanel({ studentId }: Props) {
       setSingles((sng ?? []) as SingleLessonLite[]);
       const set = new Set<string>();
       for (const cn of cans ?? []) {
-        set.add(new Date(cn.lesson_at as string).toISOString());
+        { const k = new Date(cn.lesson_at as string).toISOString(); set.add(k); if ((cn as { kind?: string }).kind !== "deleted") set.add("L:" + k); }
       }
       setCancelled(set);
       setLoading(false);
