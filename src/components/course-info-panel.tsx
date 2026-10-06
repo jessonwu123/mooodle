@@ -65,7 +65,7 @@ export function CourseInfoPanel({ studentId }: Props) {
           .from("single_lessons")
           .select("id, lesson_date, start_time, end_time, hours_per_lesson, hourly_rate")
           .eq("student_id", studentId),
-        supabase.from("cancelled_lessons").select("lesson_at").eq("student_id", studentId),
+        supabase.from("cancelled_lessons").select("lesson_at, kind").eq("student_id", studentId),
       ]);
       if (data) {
         const initial: CourseInfo = {
@@ -98,7 +98,7 @@ export function CourseInfoPanel({ studentId }: Props) {
       setSingles((sng ?? []) as SingleLessonLite[]);
       const set = new Set<string>();
       for (const cn of cans ?? []) {
-        set.add(new Date(cn.lesson_at as string).toISOString());
+        { const k = new Date(cn.lesson_at as string).toISOString(); set.add(k); if ((cn as { kind?: string }).kind !== "deleted") set.add("L:" + k); }
       }
       setCancelled(set);
       setLoading(false);
@@ -121,7 +121,7 @@ export function CourseInfoPanel({ studentId }: Props) {
       const [y, m, d] = s.lesson_date.split("-").map(Number);
       const [h, mm] = s.start_time.split(":").map(Number);
       const dt = new Date(y, (m ?? 1) - 1, d ?? 1, h ?? 0, mm ?? 0);
-      if (cancelled.has(dt.toISOString())) continue;
+      if (cancelled.has("L:" + dt.toISOString())) continue;
       const hours =
         s.hours_per_lesson != null && s.hours_per_lesson > 0
           ? Number(s.hours_per_lesson)

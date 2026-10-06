@@ -327,9 +327,10 @@ function SchedulePage() {
     () =>
       allSingleOccurrences.filter((o) => {
         const key = `${o.row.student_id ?? ""}|${lessonKey(o.date)}`;
-        return !cancelled.has(key) && !deletedOcc.has(key);
+        // 「删除」标记只作用于固定课次，不隐藏同一时间新加的单次课
+        return !cancelled.has(key);
       }),
-    [allSingleOccurrences, cancelled, deletedOcc],
+    [allSingleOccurrences, cancelled],
   );
 
   const cancelledSingles = useMemo(

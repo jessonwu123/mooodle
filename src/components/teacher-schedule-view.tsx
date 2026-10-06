@@ -84,14 +84,14 @@ export function TeacherScheduleView({ teacherId, teacherLabel }: Props) {
         studentIds.length
           ? supabase
               .from("cancelled_lessons")
-              .select("lesson_at, student_id")
+              .select("lesson_at, student_id, kind")
               .in("student_id", studentIds)
           : Promise.resolve({ data: [] as { lesson_at: string }[] }),
       ]);
 
     const cancelled = new Set<string>();
     for (const c of (cans ?? []) as { lesson_at: string }[]) {
-      cancelled.add(new Date(c.lesson_at).toISOString());
+      { const k = new Date(c.lesson_at).toISOString(); cancelled.add(k); if ((c as { kind?: string }).kind !== "deleted") cancelled.add("L:" + k); }
     }
 
     const out: Item[] = [];
@@ -134,7 +134,7 @@ export function TeacherScheduleView({ teacherId, teacherLabel }: Props) {
       const [h, mm] = r.start_time.split(":").map(Number);
       const [eh, em] = r.end_time.split(":").map(Number);
       const start = new Date(y, m - 1, d, h, mm);
-      if (r.student_id && cancelled.has(start.toISOString())) continue;
+      if (r.student_id && cancelled.has("L:" + start.toISOString())) continue;
       const end = new Date(y, m - 1, d, eh, em);
       const title =
         (r.student_id ? nameById.get(r.student_id) : null) ??
