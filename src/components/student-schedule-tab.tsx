@@ -147,7 +147,7 @@ export function StudentScheduleTab({ studentId }: Props) {
           .order("lesson_date", { ascending: false }),
         supabase
           .from("cancelled_lessons")
-          .select("lesson_at")
+          .select("lesson_at, kind")
           .eq("student_id", studentId),
         supabase.rpc("get_my_teacher_info"),
         supabase

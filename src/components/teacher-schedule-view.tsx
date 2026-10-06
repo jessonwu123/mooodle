@@ -84,7 +84,7 @@ export function TeacherScheduleView({ teacherId, teacherLabel }: Props) {
         studentIds.length
           ? supabase
               .from("cancelled_lessons")
-              .select("lesson_at, student_id")
+              .select("lesson_at, student_id, kind")
               .in("student_id", studentIds)
           : Promise.resolve({ data: [] as { lesson_at: string }[] }),
       ]);

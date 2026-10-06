@@ -87,7 +87,7 @@ export function SingleLessonsPanel({ studentId }: Props) {
         .maybeSingle(),
       supabase
         .from("cancelled_lessons")
-        .select("lesson_at")
+        .select("lesson_at, kind")
         .eq("student_id", studentId),
     ]);
     setSingles((sng ?? []) as SingleLessonRow[]);

@@ -65,7 +65,7 @@ export function CourseInfoPanel({ studentId }: Props) {
           .from("single_lessons")
           .select("id, lesson_date, start_time, end_time, hours_per_lesson, hourly_rate")
           .eq("student_id", studentId),
-        supabase.from("cancelled_lessons").select("lesson_at").eq("student_id", studentId),
+        supabase.from("cancelled_lessons").select("lesson_at, kind").eq("student_id", studentId),
       ]);
       if (data) {
         const initial: CourseInfo = {

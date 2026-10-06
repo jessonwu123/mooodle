@@ -121,7 +121,7 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
         .order("lesson_date", { ascending: false }),
       supabase
         .from("cancelled_lessons")
-        .select("lesson_at")
+        .select("lesson_at, kind")
         .eq("student_id", studentId),
     ]);
     setCourse(stu ? (stu as unknown as CourseInfo) : null);

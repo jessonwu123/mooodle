@@ -35,7 +35,7 @@ export async function fetchStudentLessons(
       .maybeSingle(),
     supabase
       .from("cancelled_lessons")
-      .select("lesson_at")
+      .select("lesson_at, kind")
       .eq("student_id", studentId),
   ]);
 
