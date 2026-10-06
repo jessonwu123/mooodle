@@ -9,35 +9,30 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as McpRouteImport } from './routes/mcp'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AdminIndexRouteImport } from './routes/admin.index'
-import { Route as StudentIdRouteImport } from './routes/student.$id'
-import { Route as AdminScheduleRouteImport } from './routes/admin.schedule'
-import { Route as AdminHomeworkRouteImport } from './routes/admin.homework'
-import { Route as AdminClassifiedBankRouteImport } from './routes/admin.classified-bank'
-import { Route as AdminCalcPracticeRouteImport } from './routes/admin.calc-practice'
-import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as McpRouteImport } from './routes/mcp'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
-import { Route as AdminTeachersIndexRouteImport } from './routes/admin.teachers.index'
-import { Route as AdminQuestionBankIndexRouteImport } from './routes/admin.question-bank.index'
-import { Route as AdminTeachersTeacherIdRouteImport } from './routes/admin.teachers.$teacherId'
-import { Route as AdminStudentIdRouteImport } from './routes/admin.student.$id'
-import { Route as AdminQuestionBankPaperIdRouteImport } from './routes/admin.question-bank.$paperId'
-import { Route as AdminAnalysisIdRouteImport } from './routes/admin.analysis.$id'
-import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
+import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminCalcPracticeRouteImport } from './routes/admin.calc-practice'
+import { Route as AdminClassifiedBankRouteImport } from './routes/admin.classified-bank'
+import { Route as AdminHomeworkRouteImport } from './routes/admin.homework'
+import { Route as AdminScheduleRouteImport } from './routes/admin.schedule'
+import { Route as StudentIdRouteImport } from './routes/student.$id'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
+import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
+import { Route as AdminAnalysisIdRouteImport } from './routes/admin.analysis.$id'
+import { Route as AdminQuestionBankIndexRouteImport } from './routes/admin.question-bank.index'
+import { Route as AdminQuestionBankPaperIdRouteImport } from './routes/admin.question-bank.$paperId'
+import { Route as AdminStudentIdRouteImport } from './routes/admin.student.$id'
+import { Route as AdminTeachersIndexRouteImport } from './routes/admin.teachers.index'
+import { Route as AdminTeachersTeacherIdRouteImport } from './routes/admin.teachers.$teacherId'
 
-const McpRoute = McpRouteImport.update({
-  id: '/mcp',
-  path: '/mcp',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -45,34 +40,31 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Char91DotmcpChar93ListToolsRoute =
+  Char91DotmcpChar93ListToolsRouteImport.update({
+    id: '/.mcp/list-tools',
+    path: '/.mcp/list-tools',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const Char91DotwellKnownChar93OauthProtectedResourceRoute =
+  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
+    id: '/.well-known/oauth-protected-resource',
+    path: '/.well-known/oauth-protected-resource',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AdminRoute,
-} as any)
-const StudentIdRoute = StudentIdRouteImport.update({
-  id: '/student/$id',
-  path: '/student/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminScheduleRoute = AdminScheduleRouteImport.update({
-  id: '/schedule',
-  path: '/schedule',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminHomeworkRoute = AdminHomeworkRouteImport.update({
-  id: '/homework',
-  path: '/homework',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminClassifiedBankRoute = AdminClassifiedBankRouteImport.update({
-  id: '/classified-bank',
-  path: '/classified-bank',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminCalcPracticeRoute = AdminCalcPracticeRouteImport.update({
@@ -80,36 +72,45 @@ const AdminCalcPracticeRoute = AdminCalcPracticeRouteImport.update({
   path: '/calc-practice',
   getParentRoute: () => AdminRoute,
 } as any)
-const Char91DotwellKnownChar93OauthProtectedResourceRoute =
-  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
-    id: '/.well-known/oauth-protected-resource',
-    path: '/.well-known/oauth-protected-resource',
+const AdminClassifiedBankRoute = AdminClassifiedBankRouteImport.update({
+  id: '/classified-bank',
+  path: '/classified-bank',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminHomeworkRoute = AdminHomeworkRouteImport.update({
+  id: '/homework',
+  path: '/homework',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminScheduleRoute = AdminScheduleRouteImport.update({
+  id: '/schedule',
+  path: '/schedule',
+  getParentRoute: () => AdminRoute,
+} as any)
+const StudentIdRoute = StudentIdRouteImport.update({
+  id: '/student/$id',
+  path: '/student/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
+  id: '/.lovable/oauth/consent',
+  path: '/.lovable/oauth/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Char91DotmcpChar93InvokeToolToolRoute =
+  Char91DotmcpChar93InvokeToolToolRouteImport.update({
+    id: '/.mcp/invoke-tool/$tool',
+    path: '/.mcp/invoke-tool/$tool',
     getParentRoute: () => rootRouteImport,
   } as any)
-const Char91DotmcpChar93ListToolsRoute =
-  Char91DotmcpChar93ListToolsRouteImport.update({
-    id: '/.mcp/list-tools',
-    path: '/.mcp/list-tools',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const AdminTeachersIndexRoute = AdminTeachersIndexRouteImport.update({
-  id: '/teachers/',
-  path: '/teachers/',
+const AdminAnalysisIdRoute = AdminAnalysisIdRouteImport.update({
+  id: '/analysis/$id',
+  path: '/analysis/$id',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminQuestionBankIndexRoute = AdminQuestionBankIndexRouteImport.update({
   id: '/question-bank/',
   path: '/question-bank/',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminTeachersTeacherIdRoute = AdminTeachersTeacherIdRouteImport.update({
-  id: '/teachers/$teacherId',
-  path: '/teachers/$teacherId',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminStudentIdRoute = AdminStudentIdRouteImport.update({
-  id: '/student/$id',
-  path: '/student/$id',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminQuestionBankPaperIdRoute =
@@ -118,21 +119,20 @@ const AdminQuestionBankPaperIdRoute =
     path: '/question-bank/$paperId',
     getParentRoute: () => AdminRoute,
   } as any)
-const AdminAnalysisIdRoute = AdminAnalysisIdRouteImport.update({
-  id: '/analysis/$id',
-  path: '/analysis/$id',
+const AdminStudentIdRoute = AdminStudentIdRouteImport.update({
+  id: '/student/$id',
+  path: '/student/$id',
   getParentRoute: () => AdminRoute,
 } as any)
-const Char91DotmcpChar93InvokeToolToolRoute =
-  Char91DotmcpChar93InvokeToolToolRouteImport.update({
-    id: '/.mcp/invoke-tool/$tool',
-    path: '/.mcp/invoke-tool/$tool',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
-  id: '/.lovable/oauth/consent',
-  path: '/.lovable/oauth/consent',
-  getParentRoute: () => rootRouteImport,
+const AdminTeachersIndexRoute = AdminTeachersIndexRouteImport.update({
+  id: '/teachers/',
+  path: '/teachers/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminTeachersTeacherIdRoute = AdminTeachersTeacherIdRouteImport.update({
+  id: '/teachers/$teacherId',
+  path: '/teachers/$teacherId',
+  getParentRoute: () => AdminRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -283,18 +283,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/mcp': {
-      id: '/mcp'
-      path: '/mcp'
-      fullPath: '/mcp'
-      preLoaderRoute: typeof McpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -304,60 +297,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/': {
-      id: '/admin/'
-      path: '/'
-      fullPath: '/admin/'
-      preLoaderRoute: typeof AdminIndexRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/student/$id': {
-      id: '/student/$id'
-      path: '/student/$id'
-      fullPath: '/student/$id'
-      preLoaderRoute: typeof StudentIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/schedule': {
-      id: '/admin/schedule'
-      path: '/schedule'
-      fullPath: '/admin/schedule'
-      preLoaderRoute: typeof AdminScheduleRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/homework': {
-      id: '/admin/homework'
-      path: '/homework'
-      fullPath: '/admin/homework'
-      preLoaderRoute: typeof AdminHomeworkRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/classified-bank': {
-      id: '/admin/classified-bank'
-      path: '/classified-bank'
-      fullPath: '/admin/classified-bank'
-      preLoaderRoute: typeof AdminClassifiedBankRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/calc-practice': {
-      id: '/admin/calc-practice'
-      path: '/calc-practice'
-      fullPath: '/admin/calc-practice'
-      preLoaderRoute: typeof AdminCalcPracticeRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/.well-known/oauth-protected-resource': {
-      id: '/.well-known/oauth-protected-resource'
-      path: '/.well-known/oauth-protected-resource'
-      fullPath: '/.well-known/oauth-protected-resource'
-      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/.mcp/list-tools': {
@@ -367,11 +318,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/teachers/': {
-      id: '/admin/teachers/'
-      path: '/teachers'
-      fullPath: '/admin/teachers/'
-      preLoaderRoute: typeof AdminTeachersIndexRouteImport
+    '/.well-known/oauth-protected-resource': {
+      id: '/.well-known/oauth-protected-resource'
+      path: '/.well-known/oauth-protected-resource'
+      fullPath: '/.well-known/oauth-protected-resource'
+      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/calc-practice': {
+      id: '/admin/calc-practice'
+      path: '/calc-practice'
+      fullPath: '/admin/calc-practice'
+      preLoaderRoute: typeof AdminCalcPracticeRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/classified-bank': {
+      id: '/admin/classified-bank'
+      path: '/classified-bank'
+      fullPath: '/admin/classified-bank'
+      preLoaderRoute: typeof AdminClassifiedBankRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/homework': {
+      id: '/admin/homework'
+      path: '/homework'
+      fullPath: '/admin/homework'
+      preLoaderRoute: typeof AdminHomeworkRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/schedule': {
+      id: '/admin/schedule'
+      path: '/schedule'
+      fullPath: '/admin/schedule'
+      preLoaderRoute: typeof AdminScheduleRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/student/$id': {
+      id: '/student/$id'
+      path: '/student/$id'
+      fullPath: '/student/$id'
+      preLoaderRoute: typeof StudentIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.lovable/oauth/consent': {
+      id: '/.lovable/oauth/consent'
+      path: '/.lovable/oauth/consent'
+      fullPath: '/.lovable/oauth/consent'
+      preLoaderRoute: typeof DotlovableOauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.mcp/invoke-tool/$tool': {
+      id: '/.mcp/invoke-tool/$tool'
+      path: '/.mcp/invoke-tool/$tool'
+      fullPath: '/.mcp/invoke-tool/$tool'
+      preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/analysis/$id': {
+      id: '/admin/analysis/$id'
+      path: '/analysis/$id'
+      fullPath: '/admin/analysis/$id'
+      preLoaderRoute: typeof AdminAnalysisIdRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/question-bank/': {
@@ -381,11 +395,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminQuestionBankIndexRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/teachers/$teacherId': {
-      id: '/admin/teachers/$teacherId'
-      path: '/teachers/$teacherId'
-      fullPath: '/admin/teachers/$teacherId'
-      preLoaderRoute: typeof AdminTeachersTeacherIdRouteImport
+    '/admin/question-bank/$paperId': {
+      id: '/admin/question-bank/$paperId'
+      path: '/question-bank/$paperId'
+      fullPath: '/admin/question-bank/$paperId'
+      preLoaderRoute: typeof AdminQuestionBankPaperIdRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/student/$id': {
@@ -395,33 +409,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminStudentIdRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/question-bank/$paperId': {
-      id: '/admin/question-bank/$paperId'
-      path: '/question-bank/$paperId'
-      fullPath: '/admin/question-bank/$paperId'
-      preLoaderRoute: typeof AdminQuestionBankPaperIdRouteImport
+    '/admin/teachers/': {
+      id: '/admin/teachers/'
+      path: '/teachers'
+      fullPath: '/admin/teachers/'
+      preLoaderRoute: typeof AdminTeachersIndexRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/analysis/$id': {
-      id: '/admin/analysis/$id'
-      path: '/analysis/$id'
-      fullPath: '/admin/analysis/$id'
-      preLoaderRoute: typeof AdminAnalysisIdRouteImport
+    '/admin/teachers/$teacherId': {
+      id: '/admin/teachers/$teacherId'
+      path: '/teachers/$teacherId'
+      fullPath: '/admin/teachers/$teacherId'
+      preLoaderRoute: typeof AdminTeachersTeacherIdRouteImport
       parentRoute: typeof AdminRoute
-    }
-    '/.mcp/invoke-tool/$tool': {
-      id: '/.mcp/invoke-tool/$tool'
-      path: '/.mcp/invoke-tool/$tool'
-      fullPath: '/.mcp/invoke-tool/$tool'
-      preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/.lovable/oauth/consent': {
-      id: '/.lovable/oauth/consent'
-      path: '/.lovable/oauth/consent'
-      fullPath: '/.lovable/oauth/consent'
-      preLoaderRoute: typeof DotlovableOauthConsentRouteImport
-      parentRoute: typeof rootRouteImport
     }
   }
 }
