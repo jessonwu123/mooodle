@@ -94,7 +94,7 @@ export function SingleLessonsPanel({ studentId }: Props) {
     setCourse(stu ? (stu as unknown as CourseInfo) : null);
     const set = new Set<string>();
     for (const c of cans ?? []) {
-      set.add(new Date(c.lesson_at as string).toISOString());
+      { const k = new Date(c.lesson_at as string).toISOString(); set.add(k); if ((c as { kind?: string }).kind !== "deleted") set.add("L:" + k); }
     }
     setCancelled(set);
     setLoading(false);
@@ -111,7 +111,7 @@ export function SingleLessonsPanel({ studentId }: Props) {
       const [h, mm] = r.start_time.split(":").map((n) => parseInt(n, 10));
       const [eh, em] = r.end_time.split(":").map((n) => parseInt(n, 10));
       const date = new Date(y, (m ?? 1) - 1, d ?? 1, h ?? 0, mm ?? 0);
-      if (r.student_id && cancelled.has(lessonKey(date))) continue;
+      if (r.student_id && cancelled.has("L:" + lessonKey(date))) continue;
       out.push({
         kind: "single",
         key: `s-${r.id}`,

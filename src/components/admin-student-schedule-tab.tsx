@@ -129,7 +129,7 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
     setSingles((sng ?? []) as SingleRow[]);
     const set = new Set<string>();
     for (const c of cans ?? []) {
-      set.add(new Date(c.lesson_at as string).toISOString());
+      { const k = new Date(c.lesson_at as string).toISOString(); set.add(k); if ((c as { kind?: string }).kind !== "deleted") set.add("L:" + k); }
     }
     setCancelled(set);
 
@@ -215,7 +215,7 @@ export function AdminStudentScheduleTab({ studentId }: Props) {
       const [h, mm] = r.start_time.split(":").map(Number);
       const [eh, em] = r.end_time.split(":").map(Number);
       const start = new Date(y, m - 1, d, h, mm, 0);
-      if (cancelled.has(start.toISOString())) continue;
+      if (cancelled.has("L:" + start.toISOString())) continue;
       const end = new Date(y, m - 1, d, eh, em, 0);
       const isSelfCreated = !!studentOwnerId && r.created_by !== studentOwnerId;
       const title =

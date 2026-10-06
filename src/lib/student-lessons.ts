@@ -41,7 +41,7 @@ export async function fetchStudentLessons(
 
   const cancelled = new Set<string>();
   for (const c of cans ?? []) {
-    cancelled.add(new Date((c as { lesson_at: string }).lesson_at).toISOString());
+    { const k = new Date((c as { lesson_at: string }).lesson_at).toISOString(); cancelled.add(k); if ((c as { kind?: string }).kind !== "deleted") cancelled.add("L:" + k); }
   }
 
   const out: {
@@ -75,7 +75,7 @@ export async function fetchStudentLessons(
     const [h, mm] = r.start_time.split(":").map(Number);
     const [eh, em] = r.end_time.split(":").map(Number);
     const date = new Date(y, m - 1, d, h, mm);
-    if (cancelled.has(date.toISOString())) continue;
+    if (cancelled.has("L:" + date.toISOString())) continue;
     out.push({
       date,
       end: new Date(y, m - 1, d, eh, em),

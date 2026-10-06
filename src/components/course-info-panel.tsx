@@ -121,7 +121,7 @@ export function CourseInfoPanel({ studentId }: Props) {
       const [y, m, d] = s.lesson_date.split("-").map(Number);
       const [h, mm] = s.start_time.split(":").map(Number);
       const dt = new Date(y, (m ?? 1) - 1, d ?? 1, h ?? 0, mm ?? 0);
-      if (cancelled.has(dt.toISOString())) continue;
+      if (cancelled.has("L:" + dt.toISOString())) continue;
       const hours =
         s.hours_per_lesson != null && s.hours_per_lesson > 0
           ? Number(s.hours_per_lesson)
