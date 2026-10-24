@@ -235,18 +235,7 @@ ${JSON.stringify(compact, null, 2)}
 - 不要重复罗列原始数据数字，重在洞察和建议。
 - 不要输出 JSON 或代码块，直接输出 Markdown 正文。`;
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Lovable-API-Key": apiKey,
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.4,
-      }),
-    });
+    const resp = await (await import("./ai/astra-chat.server")).astraChat(apiKey, { messages: [{ role: "user", content: prompt }] as any, json: false });
     if (!resp.ok) {
       const t = await resp.text();
       if (resp.status === 429) throw new Error("AI 调用过于频繁，请稍后再试");

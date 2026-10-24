@@ -75,20 +75,7 @@ export const extractSolutionsForPaper = createServerFn({ method: "POST" })
       },
     ];
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Lovable-API-Key": apiKey,
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages,
-        response_format: { type: "json_object" },
-        temperature: 0,
-        max_tokens: 48000,
-      }),
-    });
+    const resp = await (await import("./ai/astra-chat.server")).astraChat(apiKey, { messages: messages as any, json: true });
     if (!resp.ok) {
       const t = await resp.text();
       if (resp.status === 429) throw new Error("AI 调用过于频繁，请稍后再试");
@@ -279,17 +266,7 @@ async function translateBatchToZh(
 { "translations": [ { "number": 1, "zh": "..." }, ... ] }
 
 ${payload}`;
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Lovable-API-Key": apiKey },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        temperature: 0,
-        max_tokens: 16000,
-      }),
-    });
+    const resp = await (await import("./ai/astra-chat.server")).astraChat(apiKey, { messages: [{ role: "user", content: prompt }] as any, json: true });
     if (!resp.ok) continue; // best-effort
     const j = await resp.json();
     const c = j.choices?.[0]?.message?.content;

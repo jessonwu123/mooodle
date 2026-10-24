@@ -223,20 +223,7 @@ ${JSON.stringify(qPayload)}
 请只返回严格 JSON：
 { "assignments": [ { "question_id": "<uuid>", "tag_ids": ["<uuid>", ...] }, ... ] }`;
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Lovable-API-Key": apiKey,
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        temperature: 0,
-        max_tokens: 16000,
-      }),
-    });
+    const resp = await (await import("./ai/astra-chat.server")).astraChat(apiKey, { messages: [{ role: "user", content: prompt }] as any, json: true });
     if (!resp.ok) {
       const t = await resp.text();
       if (resp.status === 429) throw new Error("AI 调用过于频繁，请稍后再试");
@@ -388,20 +375,7 @@ ${JSON.stringify(qPayload)}
 请只返回严格 JSON：
 { "assignments": [ { "question_id": "<uuid>", "tag_ids": ["<uuid>", ...] }, ... ] }`;
 
-      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Lovable-API-Key": apiKey,
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [{ role: "user", content: prompt }],
-          response_format: { type: "json_object" },
-          temperature: 0,
-          max_tokens: 16000,
-        }),
-      });
+      const resp = await (await import("./ai/astra-chat.server")).astraChat(apiKey, { messages: [{ role: "user", content: prompt }] as any, json: true });
       if (!resp.ok) {
         const t = await resp.text();
         if (resp.status === 429) throw new Error("AI 调用过于频繁，请稍后再试");
