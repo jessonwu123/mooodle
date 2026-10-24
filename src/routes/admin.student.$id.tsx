@@ -35,8 +35,17 @@ import { LearningAnalyticsTab } from "@/components/learning-analytics-tab";
 import { AdminStudentScheduleTab } from "@/components/admin-student-schedule-tab";
 import { fetchStudentLessons, type StudentLessonOption } from "@/lib/student-lessons";
 import type { AssessmentTimestamps } from "@/lib/assessment-updates";
+import { MeetingNotesImport } from "@/components/meeting-notes-import";
 
 export const Route = createFileRoute("/admin/student/$id")({
+  head: () => ({ meta: [
+    { title: "学生课堂档案管理 · 课堂档案" },
+    { name: "description", content: "管理学生课节、课堂评分和课堂总结。" },
+    { property: "og:title", content: "学生课堂档案管理 · 课堂档案" },
+    { property: "og:description", content: "管理学生课节、课堂评分和课堂总结。" },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: ManageStudent,
 });
 
@@ -456,6 +465,7 @@ function ManageStudent() {
 
                   <div className="space-y-2">
                     <Label htmlFor="summary">课堂总结</Label>
+                    <MeetingNotesImport summary={summary} onImport={setSummary} disabled={busy} />
                     <Textarea
                       id="summary"
                       rows={4}
