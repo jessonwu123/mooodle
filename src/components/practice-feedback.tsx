@@ -8,6 +8,7 @@ export function PracticeFeedback({ sessionId }: { sessionId: string }) {
   const [content, setContent] = useState("");
   const [message, setMessage] = useState("");
   const [remaining, setRemaining] = useState<number | null>(null);
+  const [scope, setScope] = useState<string>("daily");
   const [busy, setBusy] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
   useEffect(() => {
@@ -20,7 +21,7 @@ export function PracticeFeedback({ sessionId }: { sessionId: string }) {
         const response = await fetch("/api/practice-feedback", { method: "POST", signal: abort.signal, headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` }, body: JSON.stringify({ sessionId }) });
         if (!response.headers.get("Content-Type")?.includes("ndjson")) {
           const result = await response.json();
-          setContent(result.content ?? ""); setMessage(result.error ?? result.message ?? ""); setRemaining(result.remaining ?? null);
+          setContent(result.content ?? ""); setMessage(result.error ?? result.message ?? ""); setRemaining(result.remaining ?? null); if (result.scope) setScope(result.scope);
           return;
         }
         const reader = response.body?.getReader();
@@ -33,7 +34,7 @@ export function PracticeFeedback({ sessionId }: { sessionId: string }) {
           for (const line of lines) {
             if (!line.trim()) continue;
             const event = JSON.parse(line);
-            if (event.type === "start") setRemaining(event.remaining);
+            if (event.type === "start") { setRemaining(event.remaining); if (event.scope) setScope(event.scope); }
             if (event.type === "text") setContent((previous) => previous + event.text);
             if (event.type === "error") setMessage(event.message);
           }
@@ -49,7 +50,7 @@ export function PracticeFeedback({ sessionId }: { sessionId: string }) {
   return <section className="space-y-3 border-y border-border py-5" aria-label="AI 错因分析">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h3 className="flex items-center gap-2 font-semibold"><Sparkles className="h-4 w-4 text-primary" />AI 错因分析</h3>
-      {remaining !== null && <span className="text-sm text-muted-foreground">今日剩余 {remaining}/10 次</span>}
+      {remaining !== null && <span className="text-sm text-muted-foreground">{scope === "lifetime" ? "真题卷总剩余" : "今日剩余"} {remaining}/10 次</span>}
     </div>
     {busy && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />正在分析本次错题…<Button size="sm" variant="ghost" onClick={() => { abortRef.current?.abort(); setBusy(false); setMessage("分析已停止，逐题批改结果已保留。"); }}>停止</Button></div>}
     {content && <MathText block text={content.replace(/^#{1,6}\s*/gm, "").replace(/\*\*/g, "").replace(/\$\$[\s\S]+?\$\$|\$([^$]+?)\$/g, (match, formula: string | undefined) => formula?.includes("\n") ? `$$${formula}$$` : match)} className="whitespace-pre-line break-words text-sm leading-7 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden" />}

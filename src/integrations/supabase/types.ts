@@ -710,6 +710,24 @@ export type Database = {
           },
         ]
       }
+      practice_ai_lifetime_usage: {
+        Row: {
+          updated_at: string
+          used: number
+          user_id: string
+        }
+        Insert: {
+          updated_at?: string
+          used?: number
+          user_id: string
+        }
+        Update: {
+          updated_at?: string
+          used?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       practice_hint_daily_views: {
         Row: {
           created_at: string
@@ -1350,6 +1368,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_limited_practice_ai_analysis: {
+        Args: { p_session_id: string; p_user_id: string }
+        Returns: number
+      }
       claim_practice_ai_analysis: {
         Args: { p_session_id: string; p_user_id: string }
         Returns: number

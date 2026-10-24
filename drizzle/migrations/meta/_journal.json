@@ -78,6 +78,13 @@
       "when": 1792833942748,
       "tag": "0010_teacher_invites_and_student_access",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792834770443,
+      "tag": "0011_limited_student_lifetime_ai_quota",
+      "breakpoints": true
     }
   ]
 }
