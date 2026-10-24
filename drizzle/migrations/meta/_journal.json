@@ -57,6 +57,13 @@
       "when": 1792825535344,
       "tag": "0007_add_question_practice_hints",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792827500406,
+      "tag": "0008_record_exam_hint_generation_batches",
+      "breakpoints": true
     }
   ]
 }
