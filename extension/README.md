@@ -1,5 +1,7 @@
 # 腾讯会议纪要存档
 
+> v1.2.0：在插件中保存 mooodle 教师账号密码后，打开插件自动登录并读取当日课次，无需打开 mooodle 页面；存档在插件内确认。
+
 1. 解压 ZIP。
 2. Chrome 打开 chrome://extensions，Edge 打开 edge://extensions。
 3. 开启「开发者模式」，点击「加载已解压的扩展程序」，选择含 manifest.json 的文件夹。
