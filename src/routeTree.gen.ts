@@ -20,6 +20,7 @@ import { Route as AdminCalcPracticeRouteImport } from './routes/admin.calc-pract
 import { Route as AdminClassifiedBankRouteImport } from './routes/admin.classified-bank'
 import { Route as AdminHomeworkRouteImport } from './routes/admin.homework'
 import { Route as AdminScheduleRouteImport } from './routes/admin.schedule'
+import { Route as ApiPracticeFeedbackRouteImport } from './routes/api/practice-feedback'
 import { Route as StudentIdRouteImport } from './routes/student.$id'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
@@ -87,6 +88,11 @@ const AdminScheduleRoute = AdminScheduleRouteImport.update({
   path: '/schedule',
   getParentRoute: () => AdminRoute,
 } as any)
+const ApiPracticeFeedbackRoute = ApiPracticeFeedbackRouteImport.update({
+  id: '/api/practice-feedback',
+  path: '/api/practice-feedback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StudentIdRoute = StudentIdRouteImport.update({
   id: '/student/$id',
   path: '/student/$id',
@@ -146,6 +152,7 @@ export interface FileRoutesByFullPath {
   '/admin/classified-bank': typeof AdminClassifiedBankRoute
   '/admin/homework': typeof AdminHomeworkRoute
   '/admin/schedule': typeof AdminScheduleRoute
+  '/api/practice-feedback': typeof ApiPracticeFeedbackRoute
   '/student/$id': typeof StudentIdRoute
   '/admin/': typeof AdminIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -167,6 +174,7 @@ export interface FileRoutesByTo {
   '/admin/classified-bank': typeof AdminClassifiedBankRoute
   '/admin/homework': typeof AdminHomeworkRoute
   '/admin/schedule': typeof AdminScheduleRoute
+  '/api/practice-feedback': typeof ApiPracticeFeedbackRoute
   '/student/$id': typeof StudentIdRoute
   '/admin': typeof AdminIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -190,6 +198,7 @@ export interface FileRoutesById {
   '/admin/classified-bank': typeof AdminClassifiedBankRoute
   '/admin/homework': typeof AdminHomeworkRoute
   '/admin/schedule': typeof AdminScheduleRoute
+  '/api/practice-feedback': typeof ApiPracticeFeedbackRoute
   '/student/$id': typeof StudentIdRoute
   '/admin/': typeof AdminIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -214,6 +223,7 @@ export interface FileRouteTypes {
     | '/admin/classified-bank'
     | '/admin/homework'
     | '/admin/schedule'
+    | '/api/practice-feedback'
     | '/student/$id'
     | '/admin/'
     | '/.lovable/oauth/consent'
@@ -235,6 +245,7 @@ export interface FileRouteTypes {
     | '/admin/classified-bank'
     | '/admin/homework'
     | '/admin/schedule'
+    | '/api/practice-feedback'
     | '/student/$id'
     | '/admin'
     | '/.lovable/oauth/consent'
@@ -257,6 +268,7 @@ export interface FileRouteTypes {
     | '/admin/classified-bank'
     | '/admin/homework'
     | '/admin/schedule'
+    | '/api/practice-feedback'
     | '/student/$id'
     | '/admin/'
     | '/.lovable/oauth/consent'
@@ -276,6 +288,7 @@ export interface RootRouteChildren {
   McpRoute: typeof McpRoute
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  ApiPracticeFeedbackRoute: typeof ApiPracticeFeedbackRoute
   StudentIdRoute: typeof StudentIdRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -359,6 +372,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/schedule'
       preLoaderRoute: typeof AdminScheduleRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/api/practice-feedback': {
+      id: '/api/practice-feedback'
+      path: '/api/practice-feedback'
+      fullPath: '/api/practice-feedback'
+      preLoaderRoute: typeof ApiPracticeFeedbackRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/student/$id': {
       id: '/student/$id'
@@ -464,6 +484,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
+  ApiPracticeFeedbackRoute: ApiPracticeFeedbackRoute,
   StudentIdRoute: StudentIdRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
