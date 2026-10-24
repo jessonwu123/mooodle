@@ -52,11 +52,7 @@ export function PracticeFeedback({ sessionId }: { sessionId: string }) {
       {remaining !== null && <span className="text-sm text-muted-foreground">今日剩余 {remaining}/10 次</span>}
     </div>
     {busy && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />正在分析本次错题…<Button size="sm" variant="ghost" onClick={() => { abortRef.current?.abort(); setBusy(false); setMessage("分析已停止，逐题批改结果已保留。"); }}>停止</Button></div>}
-    {content && <div className="space-y-2 break-words text-sm leading-7">{content.split("\n").filter((line) => line.trim()).map((line, index) => {
-      const heading = /^#{1,6}\s/.test(line);
-      const text = line.replace(/^#{1,6}\s*/, "").replace(/\*\*/g, "");
-      return heading ? <h4 key={index} className="pt-3 font-semibold"><MathText text={text} /></h4> : <p key={index}><MathText text={text} /></p>;
-    })}</div>}
+    {content && <MathText block text={content.replace(/^#{1,6}\s*/gm, "").replace(/\*\*/g, "").replace(/\$\$[\s\S]+?\$\$|\$([^$]+?)\$/g, (match, formula: string | undefined) => formula?.includes("\n") ? `$$${formula}$$` : match)} className="whitespace-pre-line break-words text-sm leading-7 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden" />}
     {message && <p role="status" className="text-sm text-muted-foreground">{message}</p>}
   </section>;
 }
