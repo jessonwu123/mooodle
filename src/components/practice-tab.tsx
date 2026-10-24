@@ -145,7 +145,10 @@ function QuestionCard({
 
       <div className="mb-3">
         {stemImg ? (
-          <img src={q.image_url!} alt="题干" className="max-h-80 rounded-lg border" />
+          <>
+            <img src={q.image_url!} alt="题干" className="max-h-80 rounded-lg border" />
+            {stemZh && <MathText text={stemZh} className="mt-2 text-foreground" />}
+          </>
         ) : (
           <MathText text={q.stem ?? ""} className="text-foreground" />
         )}
