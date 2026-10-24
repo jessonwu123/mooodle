@@ -110,7 +110,7 @@ export const listStudentAccounts = createServerFn({ method: "POST" })
 
     let query = supabaseAdmin
       .from("students")
-      .select("id, name, username, auth_user_id, created_by, created_at")
+      .select("id, name, username, auth_user_id, created_by, created_at, access_level")
       .order("created_at", { ascending: false });
     if (!isAdmin) query = query.eq("created_by", userId);
     const { data, error } = await query;
@@ -148,6 +148,7 @@ export const listStudentAccounts = createServerFn({ method: "POST" })
       auth_user_id: s.auth_user_id,
       created_at: s.created_at,
       created_by_email: s.created_by ? creatorEmail.get(s.created_by) ?? null : null,
+      access_level: s.access_level,
       last_sign_in_at: s.auth_user_id ? lastSignIn.get(s.auth_user_id) ?? null : null,
     }));
   });

@@ -5,6 +5,7 @@ import { gradeCalcAnswer } from "./calc-grade";
 import { isMethodOnlyHint } from "./practice-hint";
 import { isWholePaperAttempt, practiceAccuracy, validateHintQuestions } from "./exam-practice-stats";
 import { latestAttemptPerQuestion } from "./accuracy";
+import { LIMITED_ERROR_PREFIX, UPGRADE_MESSAGE } from "./student-access-rules";
 
 type SupaCtx = { supabase: any; userId: string };
 
@@ -65,9 +66,19 @@ type SafeQuestion = {
   paper_name?: string;
   year?: number | null;
   practice_hint: string | null;
+  has_hint: boolean;
 };
 
-async function loadQuestions(questionIds: string[]): Promise<SafeQuestion[]> {
+async function hintsHidden(ctx: SupaCtx, studentId: string): Promise<boolean> {
+  const { studentAccessForCaller } = await import("./student-access.server");
+  return (await studentAccessForCaller(studentId, ctx.userId)).limited;
+}
+
+async function assertStatsAllowed(ctx: SupaCtx, studentId: string) {
+  if (await hintsHidden(ctx, studentId)) throw new Error(`${LIMITED_ERROR_PREFIX}${UPGRADE_MESSAGE}`);
+}
+
+async function loadQuestions(questionIds: string[], hideHints = false): Promise<SafeQuestion[]> {
   if (questionIds.length === 0) return [];
   const admin = await getAdmin();
   const { data, error } = await admin
@@ -79,6 +90,7 @@ async function loadQuestions(questionIds: string[]): Promise<SafeQuestion[]> {
   if (error) throw new Error(error.message);
   const out: SafeQuestion[] = [];
   for (const q of data ?? []) {
+    const validHint = q.practice_hint && isMethodOnlyHint(q.practice_hint) ? q.practice_hint : null;
     out.push({
       id: q.id,
       paper_id: q.paper_id,
@@ -96,7 +108,8 @@ async function loadQuestions(questionIds: string[]): Promise<SafeQuestion[]> {
       options_image_url: await signImage(q.options_image_path),
       paper_name: (q as any).math_papers?.name ?? null,
       year: (q as any).math_papers?.year ?? null,
-      practice_hint: q.practice_hint && isMethodOnlyHint(q.practice_hint) ? q.practice_hint : null,
+      practice_hint: hideHints ? null : validHint,
+      has_hint: !!validHint,
     });
   }
   // preserve order
@@ -195,7 +208,7 @@ export const loadPaperQuestions = createServerFn({ method: "POST" })
       .eq("paper_id", data.paperId)
       .order("question_number", { ascending: true });
     const ids = (rows ?? []).map((r: any) => r.id);
-    const questions = await loadQuestions(ids);
+    const questions = await loadQuestions(ids, await hintsHidden(context, data.studentId));
     return { paper, questions };
   });
 
@@ -253,7 +266,7 @@ export const loadTargetedQuestions = createServerFn({ method: "POST" })
       [pool[i], pool[j]] = [pool[j], pool[i]];
     }
     const chosen = pool.slice(0, data.limit);
-    const questions = await loadQuestions(chosen);
+    const questions = await loadQuestions(chosen, await hintsHidden(context, data.studentId));
     return { questions };
   });
 
@@ -383,7 +396,7 @@ export const loadAiQuestions = createServerFn({ method: "POST" })
       chosen.push(candidates[idx][0]);
       candidates.splice(idx, 1);
     }
-    const questions = await loadQuestions(chosen);
+    const questions = await loadQuestions(chosen, await hintsHidden(context, data.studentId));
     return { questions, weakTags: weakTagIds.slice(0, 5) };
   });
 
@@ -455,7 +468,7 @@ export const loadCalcPracticeQuestions = createServerFn({ method: "POST" })
       const j = Math.floor(Math.random() * (i + 1));
       [calcIds[i], calcIds[j]] = [calcIds[j], calcIds[i]];
     }
-    const questions = await loadQuestions(calcIds.slice(0, data.limit));
+    const questions = await loadQuestions(calcIds.slice(0, data.limit), await hintsHidden(context, data.studentId));
     return { questions };
   });
 
@@ -589,6 +602,7 @@ export const getExamPracticeStats = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ studentId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
+    await assertStatsAllowed(context, data.studentId);
     // Verify student identity through the authenticated own-profile RPC first.
     const { data: ownProfiles, error: ownError } = await context.supabase.rpc("get_my_student_profile");
     if (ownError) throw new Error("无法确认学生访问权限");
@@ -713,6 +727,7 @@ export const getTagAccuracy = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ studentId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
+    await assertStatsAllowed(context, data.studentId);
     const admin = await getAdmin();
     const { data: student } = await admin
       .from("students")

@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { createResponsesCall } from "./ai/responses.server.ts";
+import { UPGRADE_MESSAGE } from "./student-access-rules";
 import { practiceUsageDay, remainingPracticeAnalyses, needsMistakeAnalysis } from "./practice-feedback-rules";
 
 export async function handlePracticeFeedback(request: Request): Promise<Response> {
@@ -21,8 +22,9 @@ export async function handlePracticeFeedback(request: Request): Promise<Response
   const { data: session } = await admin.from("student_practice_sessions").select("id, user_id, question_ids, student_id").eq("id", sessionId).eq("user_id", userId).maybeSingle();
   if (!session) return json({ error: "无权查看这次练习" }, 403);
   // A teacher preview of a different student's exercise must not spend that student's allowance.
-  const { data: student } = await admin.from("students").select("auth_user_id").eq("id", session.student_id ?? "00000000-0000-0000-0000-000000000000").maybeSingle();
+  const { data: student } = await admin.from("students").select("auth_user_id, access_level").eq("id", session.student_id ?? "00000000-0000-0000-0000-000000000000").maybeSingle();
   if (student?.auth_user_id !== userId) return json({ message: "教师预览仅显示逐题批改；AI 错因分析由学生账号完成练习后生成。" });
+  if (student?.access_level === "limited") return json({ message: `自主注册账号暂不支持 AI 错因分析，仍可查看每道题的对错。${UPGRADE_MESSAGE}` });
   const { data: usage } = await admin.from("practice_ai_daily_usage").select("used").eq("user_id", userId).eq("usage_day", practiceUsageDay()).maybeSingle();
   const remaining = remainingPracticeAnalyses(usage?.used ?? 0);
   const { data: cached } = await admin.from("practice_ai_feedback").select("status, content, error_message").eq("session_id", sessionId).maybeSingle();

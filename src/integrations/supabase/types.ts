@@ -710,6 +710,27 @@ export type Database = {
           },
         ]
       }
+      practice_hint_daily_views: {
+        Row: {
+          created_at: string
+          question_id: string
+          usage_day: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          question_id: string
+          usage_day: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          question_id?: string
+          usage_day?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       progress_items: {
         Row: {
           created_at: string
@@ -1140,6 +1161,7 @@ export type Database = {
       }
       students: {
         Row: {
+          access_level: string
           auth_user_id: string | null
           created_at: string
           created_by: string | null
@@ -1160,6 +1182,7 @@ export type Database = {
           username: string | null
         }
         Insert: {
+          access_level?: string
           auth_user_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -1180,6 +1203,7 @@ export type Database = {
           username?: string | null
         }
         Update: {
+          access_level?: string
           auth_user_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -1198,6 +1222,45 @@ export type Database = {
           thinking_updated_at?: string | null
           total_hours?: number | null
           username?: string | null
+        }
+        Relationships: []
+      }
+      teacher_invitations: {
+        Row: {
+          created_at: string
+          invite_code: string
+          invitee_user_id: string
+          inviter_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          invite_code: string
+          invitee_user_id: string
+          inviter_user_id: string
+        }
+        Update: {
+          created_at?: string
+          invite_code?: string
+          invitee_user_id?: string
+          inviter_user_id?: string
+        }
+        Relationships: []
+      }
+      teacher_invite_codes: {
+        Row: {
+          code: string
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -1290,6 +1353,10 @@ export type Database = {
       claim_practice_ai_analysis: {
         Args: { p_session_id: string; p_user_id: string }
         Returns: number
+      }
+      claim_practice_hint_view: {
+        Args: { p_limit: number; p_question_id: string; p_user_id: string }
+        Returns: boolean
       }
       find_user_id_by_email: { Args: { _email: string }; Returns: string }
       get_effective_folder_permission: {

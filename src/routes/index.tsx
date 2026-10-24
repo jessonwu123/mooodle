@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { registerParentAccount } from "@/lib/self-register.functions";
+import { registerTeacherAccount } from "@/lib/access.functions";
 import { toast } from "sonner";
 
 
@@ -81,6 +82,7 @@ function Index() {
   const [regRole, setRegRole] = useState<"parent" | "teacher">("parent");
   const [regUser, setRegUser] = useState("");
   const [regPwd, setRegPwd] = useState("");
+  const [regCode, setRegCode] = useState("");
   const [regBusy, setRegBusy] = useState(false);
 
   const handleStudentLogin = async (e: React.FormEvent) => {
@@ -129,16 +131,12 @@ function Index() {
     setRegBusy(true);
     try {
       if (regRole === "teacher") {
-        const email = username.includes("@")
-          ? username
-          : `${username.toLowerCase()}@teacher.local`;
-        const { error } = await supabase.auth.signUp({
-          email,
-          password: regPwd,
-          options: { emailRedirectTo: `${window.location.origin}/admin` },
+        if (!/^[0-9]{6}$/.test(regCode.trim())) throw new Error("请输入 6 位数字邀请码");
+        const res = await registerTeacherAccount({
+          data: { username, password: regPwd, inviteCode: regCode.trim() },
         });
+        const { error } = await supabase.auth.signInWithPassword({ email: res.email, password: regPwd });
         if (error) throw new Error(error.message);
-        await supabase.auth.signInWithPassword({ email, password: regPwd });
       } else {
         const res = await registerParentAccount({
           data: { username, password: regPwd },
@@ -152,6 +150,7 @@ function Index() {
       setRegOpen(false);
       setRegUser("");
       setRegPwd("");
+      setRegCode("");
       toast.success("注册成功，正在登录...");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "注册失败");
@@ -336,10 +335,24 @@ function Index() {
                 placeholder="至少 6 位"
               />
             </div>
+            {regRole === "teacher" && (
+              <div className="space-y-2">
+                <Label htmlFor="reg-code">邀请码</Label>
+                <Input
+                  id="reg-code"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={regCode}
+                  onChange={(e) => setRegCode(e.target.value.replace(/\D/g, ""))}
+                  placeholder="请输入 6 位数字邀请码"
+                />
+                <p className="text-xs text-muted-foreground">教师注册需要已有教师提供的邀请码</p>
+              </div>
+            )}
             <DialogFooter>
               <Button
                 type="submit"
-                disabled={regBusy || !regUser.trim() || regPwd.length < 6}
+                disabled={regBusy || !regUser.trim() || regPwd.length < 6 || (regRole === "teacher" && regCode.length !== 6)}
                 className="h-11 w-full bg-green-500 text-primary-foreground hover:bg-green-600"
               >
                 {regBusy ? "注册中..." : "注册并登录"}
