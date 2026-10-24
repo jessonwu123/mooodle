@@ -344,6 +344,42 @@ export type Database = {
         }
         Relationships: []
       }
+      math_question_content_change_log: {
+        Row: {
+          batch_key: string
+          changed_at: string
+          id: string
+          new_answer: string
+          new_stem: string
+          old_answer: string
+          old_stem: string
+          question_id: string
+          reason: string
+        }
+        Insert: {
+          batch_key: string
+          changed_at?: string
+          id?: string
+          new_answer: string
+          new_stem: string
+          old_answer: string
+          old_stem: string
+          question_id: string
+          reason: string
+        }
+        Update: {
+          batch_key?: string
+          changed_at?: string
+          id?: string
+          new_answer?: string
+          new_stem?: string
+          old_answer?: string
+          old_stem?: string
+          question_id?: string
+          reason?: string
+        }
+        Relationships: []
+      }
       math_question_tags: {
         Row: {
           assigned_by_ai: boolean

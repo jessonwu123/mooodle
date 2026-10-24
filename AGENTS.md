@@ -5,3 +5,4 @@
 - Downloadable PDFs are prepared before a separate synchronous download action so browser downloads and mobile file sharing retain user activation.
 - Practice mistake analysis reads authenticated saved-session answers, streams through a server route, and atomically claims a durable account/day quota with session idempotency; this prevents forged results, duplicate billing and concurrent quota overruns.
 - Explicit answer-correction batches update questions and append immutable old/new answer snapshots atomically to math_question_answer_change_log; teacher/admin-only reads and retained snapshots preserve traceability without exposing write access.
+- Explicit question-clarification batches atomically store old/new stems and answers in math_question_content_change_log; separate snapshots support unchanged answers while preserving the answer-only log contract.

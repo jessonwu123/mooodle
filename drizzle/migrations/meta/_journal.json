@@ -43,6 +43,13 @@
       "when": 1792821208322,
       "tag": "0005_create_math_question_answer_change_log",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792822016941,
+      "tag": "0006_create_math_question_content_change_log",
+      "breakpoints": true
     }
   ]
 }
