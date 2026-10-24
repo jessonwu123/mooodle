@@ -1,4 +1,5 @@
-import { expect, test } from "bun:test";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { fetchMeetingSessions } from "./meeting-sessions";
@@ -27,7 +28,7 @@ test("所选日期包含当前教师已关联档案的机构课次，不包含�
     },
   } as unknown as SupabaseClient<Database>;
   const sessions = await fetchMeetingSessions("2026-10-24", { client, uid: "teacher-a" });
-  expect(sessions.map(s => s.id)).toEqual(["imported:selected"]);
-  expect(sessions[0]?.date).toBe("2026-10-24");
-  expect(sessions[0]?.time).toBe("09:30");
+  assert.deepEqual(sessions.map(s => s.id), ["imported:selected"]);
+  assert.equal(sessions[0]?.date, "2026-10-24");
+  assert.equal(sessions[0]?.time, "09:30");
 });
