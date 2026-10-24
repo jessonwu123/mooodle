@@ -87,13 +87,13 @@ function StudentProfile() {
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [acctBusy, setAcctBusy] = useState(false);
-  const [limited, setLimited] = useState(false);
+  const [limited, setLimited] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!session) return;
     getStudentAccess({ data: { studentId: id } })
       .then((r) => setLimited(r.limited))
-      .catch(() => setLimited(false));
+      .catch(() => setLimited(true));
   }, [id, session?.user.id]);
 
   useEffect(() => {
@@ -493,7 +493,7 @@ function StudentProfile() {
           </TabsContent>
 
           <TabsContent value="analytics">
-            <LearningAnalyticsTab studentId={id} isOwnerView={isOwner} limited={limited} />
+            {limited === null ? <p className="py-8 text-center text-sm text-muted-foreground">加载中…</p> : <LearningAnalyticsTab studentId={id} isOwnerView={isOwner} limited={limited} />}
           </TabsContent>
 
           <TabsContent value="schedule">
