@@ -36,6 +36,13 @@
       "when": 1792816220416,
       "tag": "0004_practice_feedback_daily_ai_quota",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792821208322,
+      "tag": "0005_create_math_question_answer_change_log",
+      "breakpoints": true
     }
   ]
 }
