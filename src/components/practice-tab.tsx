@@ -23,6 +23,8 @@ import { MathInput } from "@/components/math-input";
 import { Calculator } from "lucide-react";
 import { PracticeDownloadTab } from "@/components/practice-download-tab";
 import { PracticeFeedback } from "@/components/practice-feedback";
+import { PracticeCountSelector } from "@/components/practice-count-selector";
+import { parsePracticeCount } from "@/lib/practice-count";
 
 type Q = {
   id: string;
@@ -313,6 +315,8 @@ function PaperPanel({ studentId, onStart }: { studentId: string; onStart: (quest
   const [loading, setLoading] = useState(true);
   const [papers, setPapers] = useState<any[]>([]);
   const [busyId, setBusyId] = useState("");
+  const [count, setCount] = useState("all");
+  const requestedCount = parsePracticeCount(count, 50);
 
   useEffect(() => {
     (async () => {
@@ -332,7 +336,9 @@ function PaperPanel({ studentId, onStart }: { studentId: string; onStart: (quest
   if (papers.length === 0) return <div className="rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">暂无可练习的真题卷</div>;
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="space-y-4">
+      <PracticeCountSelector value={count} onChange={setCount} allowAll />
+      <div className="grid gap-3 sm:grid-cols-2">
       {papers.map((p) => (
         <div key={p.id} className="rounded-2xl border border-border bg-card p-4">
           <div className="flex items-start justify-between gap-2">
@@ -344,7 +350,7 @@ function PaperPanel({ studentId, onStart }: { studentId: string; onStart: (quest
             </div>
             <Button
               size="sm"
-              disabled={busyId === p.id}
+              disabled={!!busyId || (count !== "all" && requestedCount === null)}
               onClick={async () => {
                 setBusyId(p.id);
                 try {
@@ -353,7 +359,9 @@ function PaperPanel({ studentId, onStart }: { studentId: string; onStart: (quest
                     toast.error("此卷暂无可练习的题目");
                     return;
                   }
-                  onStart(res.questions, p.id);
+                  const questions = requestedCount === null ? res.questions : res.questions.slice(0, requestedCount);
+                  if (requestedCount !== null && questions.length < requestedCount) toast.info(`本卷仅有 ${questions.length} 道可练习题，已全部选取`);
+                  onStart(questions, p.id);
                 } catch (e) {
                   toast.error(e instanceof Error ? e.message : "加载失败");
                 } finally {
@@ -367,6 +375,7 @@ function PaperPanel({ studentId, onStart }: { studentId: string; onStart: (quest
           </div>
         </div>
       ))}
+      </div>
     </div>
   );
 }
@@ -377,7 +386,8 @@ function TargetedPanel({ studentId, onStart }: { studentId: string; onStart: (qu
   const [loading, setLoading] = useState(true);
   const [tags, setTags] = useState<Array<{ id: string; name: string; category: string; count: number; parent_id: string | null }>>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [limit, setLimit] = useState(10);
+  const [count, setCount] = useState("10");
+  const limit = parsePracticeCount(count, 50);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -460,27 +470,13 @@ function TargetedPanel({ studentId, onStart }: { studentId: string; onStart: (qu
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-4">
-        <div className="mb-3 text-sm font-semibold text-foreground">题目数量</div>
-        <div className="flex flex-wrap items-center gap-2">
-          {[5, 10, 20, 30].map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setLimit(n)}
-              className={[
-                "rounded-lg border px-3 py-1.5 text-sm",
-                limit === n ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent",
-              ].join(" ")}
-            >
-              {n} 题
-            </button>
-          ))}
-        </div>
+        <PracticeCountSelector value={count} onChange={setCount} />
       </div>
 
       <Button
-        disabled={busy || selected.size === 0}
+        disabled={busy || selected.size === 0 || limit === null}
         onClick={async () => {
+          if (limit === null) return;
           setBusy(true);
           try {
             const ids = Array.from(selected);
@@ -489,6 +485,7 @@ function TargetedPanel({ studentId, onStart }: { studentId: string; onStart: (qu
               toast.error("没有匹配的题目");
               return;
             }
+            if (res.questions.length < limit) toast.info(`匹配题目仅有 ${res.questions.length} 道，已全部选取`);
             onStart(res.questions, ids);
           } catch (e) {
             toast.error(e instanceof Error ? e.message : "加载失败");
@@ -515,6 +512,8 @@ function AiPanel({
 }) {
   const loadFn = useServerFn(loadAiQuestions);
   const [busy, setBusy] = useState(false);
+  const [count, setCount] = useState("10");
+  const limit = parsePracticeCount(count, 20);
 
   const pct = Math.min(100, Math.round((stats.doneCount / stats.aiThreshold) * 100));
 
@@ -526,7 +525,7 @@ function AiPanel({
           <div className="text-base font-semibold text-foreground">AI 智能刷题</div>
         </div>
         <p className="text-sm text-muted-foreground">
-          系统会根据你的错题 tag 分布分析薄弱项，针对性抽取 10 道题进行练习。
+          系统会根据你的错题 tag 分布分析薄弱项，针对性抽取题目进行练习。
         </p>
         <div className="mt-4 space-y-2">
           <div className="flex items-center justify-between text-sm">
@@ -539,17 +538,20 @@ function AiPanel({
         </div>
       </div>
 
+      <PracticeCountSelector value={count} onChange={setCount} maximum={20} />
       {stats.aiUnlocked ? (
         <Button
-          disabled={busy}
+          disabled={busy || limit === null}
           onClick={async () => {
+            if (limit === null) return;
             setBusy(true);
             try {
-              const res = await loadFn({ data: { studentId, limit: 10 } });
+              const res = await loadFn({ data: { studentId, limit } });
               if (res.questions.length === 0) {
                 toast.error("无法生成练习题");
                 return;
               }
+              if (res.questions.length < limit) toast.info(`可练习题目仅有 ${res.questions.length} 道，已全部选取`);
               onStart(res.questions);
             } catch (e) {
               toast.error(e instanceof Error ? e.message : "加载失败");
@@ -559,7 +561,7 @@ function AiPanel({
           }}
         >
           {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          开始 AI 刷题（10 题）
+          开始 AI 刷题{limit !== null ? `（${limit} 题）` : ""}
         </Button>
       ) : (
         <div className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
@@ -577,7 +579,8 @@ function CalcPanel({ studentId, onStart }: { studentId: string; onStart: (questi
   const [tags, setTags] = useState<Array<{ id: string; name: string; parent_id: string | null; count: number }>>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [limit, setLimit] = useState(10);
+  const [count, setCount] = useState("10");
+  const limit = parsePracticeCount(count, 50);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -649,31 +652,19 @@ function CalcPanel({ studentId, onStart }: { studentId: string; onStart: (questi
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-4">
-        <div className="mb-3 text-sm font-semibold text-foreground">题目数量</div>
-        <div className="flex flex-wrap items-center gap-2">
-          {[5, 10, 20, 30].map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setLimit(n)}
-              className={[
-                "rounded-lg border px-3 py-1.5 text-sm",
-                limit === n ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent",
-              ].join(" ")}
-            >
-              {n} 题
-            </button>
-          ))}
-        </div>
+        <PracticeCountSelector value={count} onChange={setCount} />
       </div>
 
       <Button
-        disabled={busy || selected.size === 0}
+        disabled={busy || selected.size === 0 || limit === null}
         onClick={async () => {
+          if (limit === null) return;
           setBusy(true);
           try {
             const ids = Array.from(selected);
             const res = await loadFn({ data: { studentId, tagIds: ids, limit } });
+            if (res.questions.length === 0) { toast.error("没有匹配的题目"); return; }
+            if (res.questions.length < limit) toast.info(`匹配题目仅有 ${res.questions.length} 道，已全部选取`);
             onStart(res.questions, ids);
           } catch (e) {
             toast.error(e instanceof Error ? e.message : "加载失败");
