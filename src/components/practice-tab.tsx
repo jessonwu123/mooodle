@@ -376,7 +376,7 @@ function TargetedPanel({ studentId, onStart }: { studentId: string; onStart: (qu
       setLoading(true);
       try {
         const res = await listFn({ data: { studentId } });
-        setTags(res.tags);
+        setTags(res.tags.filter((tag) => tag.category !== "calc"));
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "加载失败");
       } finally {
