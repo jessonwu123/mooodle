@@ -84,6 +84,14 @@ function QuestionCard({
 
   const stemImg = q.stem_render_mode === "image" && q.image_url;
   const optsImg = q.options_render_mode === "image" && q.options_image_url;
+  // 截图题的中文翻译：取题干中含中文的行，去掉图形占位符
+  const stemZh = stemImg
+    ? (q.stem ?? "")
+        .split("\n")
+        .map((line) => line.replace(/\$\\text\{[^}]*\}\$/g, "").trim())
+        .filter((line) => /[一-鿿]/.test(line))
+        .join("\n")
+    : "";
 
   const [showOriginal, setShowOriginal] = useState(false);
   const [showHint, setShowHint] = useState(false);
