@@ -24,6 +24,7 @@ import { StudentScheduleTab } from "@/components/student-schedule-tab";
 import { type AssessmentTimestamps, isUnread } from "@/lib/assessment-updates";
 import { updateStudentUsername, updateStudentPassword } from "@/lib/student-account.functions";
 import { toast } from "sonner";
+import { getStudentAccess } from "@/lib/access.functions";
 
 export const Route = createFileRoute("/student/$id")({
   component: StudentProfile,
@@ -86,6 +87,14 @@ function StudentProfile() {
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [acctBusy, setAcctBusy] = useState(false);
+  const [limited, setLimited] = useState(false);
+
+  useEffect(() => {
+    if (!session) return;
+    getStudentAccess({ data: { studentId: id } })
+      .then((r) => setLimited(r.limited))
+      .catch(() => setLimited(false));
+  }, [id, session?.user.id]);
 
   useEffect(() => {
     (async () => {
@@ -484,7 +493,7 @@ function StudentProfile() {
           </TabsContent>
 
           <TabsContent value="analytics">
-            <LearningAnalyticsTab studentId={id} isOwnerView={isOwner} />
+            <LearningAnalyticsTab studentId={id} isOwnerView={isOwner} limited={limited} />
           </TabsContent>
 
           <TabsContent value="schedule">

@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ProfileEditDialog } from "@/components/profile-edit-dialog";
+import { InviteCodeButton } from "@/components/invite-code-button";
 
 export const Route = createFileRoute("/admin")({
   component: AdminLayout,
@@ -88,10 +89,13 @@ function AdminLayout() {
               管理后台
             </Link>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5">
-            <LogOut className="h-4 w-4" />
-            退出
-          </Button>
+          <div className="flex items-center gap-2">
+            <InviteCodeButton />
+            <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5">
+              <LogOut className="h-4 w-4" />
+              退出
+            </Button>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-6 py-10">
