@@ -56,6 +56,7 @@ interface Props {
   lessonDate: string; // YYYY-MM-DD
   editable: boolean;
   onSaved?: () => void;
+  initialSummary?: string;
 }
 
 export function LessonRatingDialog({
@@ -65,6 +66,7 @@ export function LessonRatingDialog({
   lessonDate,
   editable,
   onSaved,
+  initialSummary,
 }: Props) {
   const [loading, setLoading] = useState(true);
   const [rating, setRating] = useState<Rating | null>(null);
@@ -95,7 +97,7 @@ export function LessonRatingDialog({
       setRating(r);
       if (r) {
         setLessonName(r.lesson_name ?? "");
-        setSummary(r.summary ?? "");
+        setSummary(initialSummary ? `${r.summary ? r.summary + "\n\n" : ""}${initialSummary}` : r.summary ?? "");
         setOverall(r.overall_assessment ?? 5);
         setScores({
           focus: r.focus,
@@ -109,7 +111,7 @@ export function LessonRatingDialog({
         );
       } else {
         setLessonName("");
-        setSummary("");
+        setSummary(initialSummary ?? "");
         setOverall(5);
         setScores({ focus: 5, interaction: 5, discipline: 5, accuracy: 5 });
         setOverallProgress(80);
@@ -120,7 +122,7 @@ export function LessonRatingDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, studentId, lessonDate]);
+  }, [open, studentId, lessonDate, initialSummary]);
 
   const save = async () => {
     setBusy(true);

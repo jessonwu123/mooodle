@@ -1,0 +1,10 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import "../../extension/matching.js";
+const matching = (globalThis as unknown as { MeetingMatching: { rank: (title: string, sessions: { name: string; studentName: string; time: string }[]) => {matchScore:number}[] } }).MeetingMatching;
+const session = (name: string) => ({name, studentName:name, time:"10:00"});
+test("不同课堂标题可通过关键名字匹配", () => assert.equal(matching.rank("Vincent 数学课 录制", [session("Vincent")])[0]?.matchScore,80));
+test("中文姓名可嵌入课堂标题", () => assert.equal(matching.rank("张小明数学课", [session("张小明")])[0]?.matchScore,80));
+test("不把英文名字子串匹配到其他姓名", () => assert.equal(matching.rank("Joanna 数学课", [session("Ann")])[0]?.matchScore,0));
+test("不使用通用科目匹配", () => assert.equal(matching.rank("数学课", [session("数学")])[0]?.matchScore,0));
+test("相同关键名字的多个课次保留为歧义候选", () => assert.equal(matching.rank("Vincent 数学课", [session("Vincent"), session("Vincent")]).filter(s => s.matchScore === 80).length,2));

@@ -3,7 +3,11 @@
 body { width: 380px; margin: 0; padding: 20px; font: 14px/1.6 system-ui, sans-serif; color: var(--foreground); background: var(--background); }
 h1 { font-size: 20px; margin: 0 0 12px; }
 p { color: var(--muted); }
-button, textarea { font: inherit; border: 1px solid var(--border); border-radius: 6px; }
+button, textarea, input, select { font: inherit; border: 1px solid var(--border); border-radius: 6px; }
+label { display: block; margin-top: 10px; }
+input, select { width: 100%; min-height: 36px; padding: 6px; background: var(--background); color: var(--foreground); margin-bottom: 8px; }
+.row input { flex: 1; min-width: 0; width: 190px; }
+select { margin-bottom: 12px; }
 button { padding: 8px 12px; cursor: pointer; color: var(--foreground); background: var(--background); }
 button.primary { background: var(--primary); color: var(--primary-foreground); }
 button:disabled { opacity: .5; cursor: default; }
