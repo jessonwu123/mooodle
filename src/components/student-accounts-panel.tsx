@@ -24,6 +24,8 @@ import {
   listStudentAccounts,
   deleteStudentAccount,
 } from "@/lib/student-account.functions";
+import { setStudentAccessLevel } from "@/lib/access.functions";
+import { useAuth } from "@/hooks/use-auth";
 
 interface StudentAccount {
   id: string;
@@ -33,6 +35,7 @@ interface StudentAccount {
   created_at: string;
   created_by_email: string | null;
   last_sign_in_at: string | null;
+  access_level: string;
 }
 
 interface LoginEvent {
@@ -67,6 +70,16 @@ export function StudentAccountsPanel() {
   const [historyFor, setHistoryFor] = useState<StudentAccount | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyRows, setHistoryRows] = useState<LoginEvent[]>([]);
+  const { isAdmin } = useAuth();
+  const changeLevel = async (s: StudentAccount, level: "full" | "limited") => {
+    try {
+      await setStudentAccessLevel({ data: { studentId: s.id, level } });
+      toast.success(level === "full" ? "已变更为教师注册学生权限" : "已恢复为自主注册受限权限");
+      void load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "修改失败");
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -150,6 +163,11 @@ export function StudentAccountsPanel() {
                         未开通登录
                       </span>
                     )}
+                    {s.access_level === "limited" && (
+                      <span className="rounded-md bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive">
+                        自主注册·受限
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                     <span>创建教师：{s.created_by_email ?? "—"}</span>
@@ -178,6 +196,16 @@ export function StudentAccountsPanel() {
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </Link>
+              {isAdmin && s.access_level === "limited" && (
+                <Button variant="outline" size="sm" onClick={() => { if (window.confirm(`将「${s.name}」变更为教师注册学生权限？`)) void changeLevel(s, "full"); }}>
+                  变更为教师注册权限
+                </Button>
+              )}
+              {isAdmin && s.access_level === "full" && !s.created_by_email && (
+                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => void changeLevel(s, "limited")}>
+                  恢复受限
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"

@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { StudentAccountsPanel } from "@/components/student-accounts-panel";
+import { listTeacherInviters } from "@/lib/access.functions";
 
 export const Route = createFileRoute("/admin/teachers/")({
   component: TeachersPage,
@@ -84,6 +85,7 @@ function TeachersPage() {
   const [historyFor, setHistoryFor] = useState<Teacher | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyRows, setHistoryRows] = useState<LoginEvent[]>([]);
+  const [inviters, setInviters] = useState<Map<string, { email: string | null; code: string }>>(new Map());
 
   const openHistory = async (t: Teacher) => {
     setHistoryFor(t);
@@ -119,6 +121,9 @@ function TeachersPage() {
 
   useEffect(() => {
     load();
+    listTeacherInviters()
+      .then((rows) => setInviters(new Map(rows.map((r) => [r.invitee_user_id, { email: r.inviter_email, code: r.invite_code }]))))
+      .catch(() => undefined);
   }, []);
 
   const grantRole = async (uid: string, role: "teacher" | "admin") => {
@@ -256,7 +261,7 @@ function TeachersPage() {
           </Button>
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          提示：对方需先在登录页用该邮箱完成注册。新注册账号默认即为教师，因此一般情况下无需在此手动授权。
+          提示：教师需凭已有教师的邀请码注册，注册后自动成为教师；下方列表可查看每位教师的邀请人。
         </p>
       </form>
 
@@ -316,6 +321,13 @@ function TeachersPage() {
                       <span>创建学生 {t.student_count} 人</span>
                       <span>·</span>
                       <span>注册：{new Date(t.created_at).toLocaleString("zh-CN")}</span>
+                      <span>·</span>
+                      <span>
+                        邀请人：
+                        {inviters.get(t.user_id)
+                          ? `${inviters.get(t.user_id)!.email ?? "未知"}（邀请码 ${inviters.get(t.user_id)!.code}）`
+                          : "—"}
+                      </span>
                       <button
                         type="button"
                         onClick={(e) => {
