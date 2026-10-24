@@ -14,6 +14,17 @@ let sessions = [];
 let notice = "";
 const set = (msg, cls = "") => { status.textContent = notice ? `${notice}${msg}` : msg; status.className = cls; };
 const loginNote = (msg) => `${(msg || "登录成功，已连接 mooodle").trim().replace(/。$/, "")}。`;
+const sendToApp = async (message) => {
+  let timer;
+  try {
+    const result = await Promise.race([
+      chrome.runtime.sendMessage({ type: "MEETING_APP", ...message }),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("连接超时，请检查网络后重试")), 20000); }),
+    ]);
+    if (!result || typeof result !== "object") throw new Error("插件未收到响应，请到扩展管理页面重新加载插件后重试");
+    return result;
+  } finally { clearTimeout(timer); }
+};
 date.value = new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Shanghai",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
 const update = () => { stage.disabled = !notes.value.trim(); save.disabled = !notes.value.trim() || !select.value; };
 const remember = () => chrome.storage.local.set({[key]:{text:notes.value,title:title.value,createdAt:Date.now()}});
@@ -53,7 +64,7 @@ stage.addEventListener("click", async () => {
 const loadSessions = async (successNote = "") => {
   set("读取当日课表中…");
   try {
-    const result = await chrome.runtime.sendMessage({type:"MEETING_APP",action:"list",date:date.value});
+    const result = await sendToApp({action:"list",date:date.value});
     if (result.error) throw new Error(result.error);
     sessions = result.sessions || [];
     notice = successNote;
@@ -69,13 +80,18 @@ chrome.storage.local.get("mooodleAccount").then(({mooodleAccount}) => {
 });
 document.getElementById("acct-save").addEventListener("click", async () => {
   if (!acct.value.trim() || !pwd.value) {set("请填写账号和密码","err");return;}
-  set("登录中…");
-  await chrome.storage.local.set({mooodleAccount:{account:acct.value.trim(),password:pwd.value}});
-  await chrome.storage.local.remove("mooodleToken");
-  const r = await chrome.runtime.sendMessage({type:"MEETING_APP",action:"login"});
-  if (r.error) {set(r.error,"err");return;}
-  pwd.value="";box.open=false;summary.textContent=`已登录 · mooodle 账号：${acct.value.trim()}`;
-  await loadSessions(loginNote(r.message));
+  const button = document.getElementById("acct-save");
+  button.disabled=true;set("登录中…");
+  try {
+    await chrome.storage.local.set({mooodleAccount:{account:acct.value.trim(),password:pwd.value}});
+    await chrome.storage.local.remove("mooodleToken");
+    const r = await sendToApp({action:"login"});
+    if (r.error) throw new Error(r.error);
+    pwd.value="";box.open=false;summary.textContent=`已登录 · mooodle 账号：${acct.value.trim()}`;
+    set(loginNote(r.message),"ok");
+    await loadSessions(loginNote(r.message));
+  } catch (error) { box.open=true;set(error.message || "登录失败，请重新加载插件后重试","err"); }
+  finally {button.disabled=false;}
 });
 document.getElementById("acct-clear").addEventListener("click", async () => {
   await chrome.storage.local.remove(["mooodleAccount","mooodleToken"]);acct.value="";pwd.value="";summary.textContent="mooodle 账号";box.open=true;sessions=[];select.replaceChildren(new Option("请先登录", ""));update();set("已清除本机保存的账号密码。","ok");
@@ -99,7 +115,7 @@ save.addEventListener("click", async () => {
   if (lesson?.ambiguousDay) {set("同一学生当天有多节课，请先到学生档案手动确认；当前评分按学生和日期保存，不能独立存档。","err");return;}
   if (!confirm(`将纪要追加到 ${lesson.date} ${lesson.time} · ${lesson.name}（${lesson.studentName}）的课堂总结？不会修改已有评分。`)) return;
   await remember();save.disabled=true;set("存档中…");
-  try {const result=await chrome.runtime.sendMessage({type:"MEETING_APP",action:"save",date:date.value,sessionId:select.value,text:notes.value.trim()});set(result.error || result.message || "已提交，请到学生档案核对", result.error ? "err" : "ok");}
+  try {const result=await sendToApp({action:"save",date:date.value,sessionId:select.value,text:notes.value.trim()});set(result.error || result.message || "已提交，请到学生档案核对", result.error ? "err" : "ok");}
   catch {set("未收到确认，请先查看课堂总结，避免重复存档。","err");}
   finally {update();}
 });

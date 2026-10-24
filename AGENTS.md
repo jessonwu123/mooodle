@@ -16,3 +16,4 @@
 - Student feature limits use students.access_level and are enforced server-side only when the caller is that student (hints revealed per question through a daily-claim RPC, stats refused, AI feedback limited to exam-paper sessions via a separate lifetime-claim RPC); the UI only mirrors the server decision.
 
 - Non-streaming app AI calls go through src/lib/ai/astra-chat.server.ts (Responses API, streamed, chat-completions-shaped result) so every feature shares one default model and existing parsers stay unchanged.
+- Extension credential-bearing messages require both the extension sender ID and the exact packaged popup URL, not absence of sender.tab; this admits legitimate popup pages while excluding website content scripts.
