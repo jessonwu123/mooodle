@@ -4,6 +4,7 @@ import { z } from "zod";
 import { gradeCalcAnswer } from "./calc-grade";
 import { isMethodOnlyHint } from "./practice-hint";
 import { isWholePaperAttempt, practiceAccuracy, validateHintQuestions } from "./exam-practice-stats";
+import { latestAttemptPerQuestion } from "./accuracy";
 
 type SupaCtx = { supabase: any; userId: string };
 
