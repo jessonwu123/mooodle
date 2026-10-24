@@ -4,6 +4,7 @@ import { z } from "zod";
 import { gradeCalcAnswer } from "./calc-grade";
 import { isMethodOnlyHint } from "./practice-hint";
 import { isWholePaperAttempt, practiceAccuracy, validateHintQuestions } from "./exam-practice-stats";
+import { latestAttemptPerQuestion } from "./accuracy";
 
 type SupaCtx = { supabase: any; userId: string };
 
@@ -715,16 +716,19 @@ export const getTagAccuracy = createServerFn({ method: "POST" })
       if (!isAdmin && !isTeacher) throw new Error("无权访问");
     }
     if (!student.auth_user_id) return { tags: [] };
-    const logs: Array<{ question_id: string; is_correct: boolean }> = [];
+    const rawLogs: Array<{ question_id: string; is_correct: boolean }> = [];
     for (let from = 0; ; from += 1000) {
       const { data: rows } = await admin
         .from("student_question_attempt_log")
-        .select("question_id, is_correct")
+        .select("question_id, is_correct, attempted_at")
         .eq("user_id", student.auth_user_id)
+        .order("attempted_at", { ascending: false })
         .range(from, from + 999);
-      logs.push(...((rows ?? []) as any));
+      rawLogs.push(...((rows ?? []) as any));
       if (!rows || rows.length < 1000) break;
     }
+    // 同一道题无论做几次，只计算最新一次的结果
+    const logs = latestAttemptPerQuestion(rawLogs);
     if (logs.length === 0) return { tags: [] };
     const qIds = Array.from(new Set(logs.map((l) => l.question_id)));
     const qTags = new Map<string, Set<string>>();
