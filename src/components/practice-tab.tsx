@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { revealPracticeHint } from "@/lib/access.functions";
+import { LIMITED_ERROR_PREFIX } from "@/lib/student-access-rules";
+import { UpgradeDialog } from "@/components/upgrade-dialog";
 import { toast } from "sonner";
 import { Loader2, Sparkles, BookOpen, Target, CheckCircle2, XCircle, Lock, Lightbulb, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -44,6 +47,7 @@ type Q = {
   paper_name?: string | null;
   year?: number | null;
   practice_hint?: string | null;
+  has_hint?: boolean;
 };
 
 type Graded = { question_id: string; answer: string; is_correct: boolean; correct_answer: string };
@@ -61,7 +65,9 @@ function QuestionCard({
   onActivate,
   onHint,
   hintUsed = false,
+  studentId,
 }: {
+  studentId?: string;
   q: Q;
   index: number;
   selected: string | null;
@@ -95,6 +101,29 @@ function QuestionCard({
 
   const [showOriginal, setShowOriginal] = useState(false);
   const [showHint, setShowHint] = useState(false);
+  const [hintText, setHintText] = useState<string | null>(q.practice_hint ?? null);
+  const [hintBusy, setHintBusy] = useState(false);
+  const [upgradeMsg, setUpgradeMsg] = useState<string | null>(null);
+  const revealFn = useServerFn(revealPracticeHint);
+  const openHint = async () => {
+    if (!hintText) {
+      if (!studentId) return;
+      setHintBusy(true);
+      try {
+        const res = await revealFn({ data: { studentId, questionId: q.id } });
+        setHintText(res.hint);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "提示暂不可用";
+        if (msg.startsWith(LIMITED_ERROR_PREFIX)) setUpgradeMsg(msg.slice(LIMITED_ERROR_PREFIX.length));
+        else toast.error(msg);
+        return;
+      } finally {
+        setHintBusy(false);
+      }
+    }
+    setShowHint(true);
+    if (!locked) onHint?.();
+  };
   const originalUrl = q.image_url || q.options_image_url || null;
 
   return (
@@ -104,7 +133,7 @@ function QuestionCard({
           第 {index + 1} 题
         </span>
         {q.year != null && <span className="text-xs">{q.year}</span>}
-        {q.practice_hint && <Button type="button" variant="outline" size="sm" onClick={() => { setShowHint(true); if (!locked) onHint?.(); }} aria-label={`第 ${index + 1} 题提示`} className="h-7 gap-1 px-2 text-xs"><Lightbulb className="h-3.5 w-3.5" />提示</Button>}
+        {(q.practice_hint || q.has_hint) && <Button type="button" variant="outline" size="sm" disabled={hintBusy} onClick={() => void openHint()} aria-label={`第 ${index + 1} 题提示`} className="h-7 gap-1 px-2 text-xs"><Lightbulb className="h-3.5 w-3.5" />提示</Button>}
         {hintUsed && <span className="text-xs text-primary">已使用提示</span>}
         {originalUrl && (
           <button
@@ -139,9 +168,10 @@ function QuestionCard({
       <Dialog open={showHint} onOpenChange={setShowHint}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto" aria-describedby={`hint-${q.id}`}>
           <DialogHeader><DialogTitle className="flex items-center gap-2"><Lightbulb className="h-4 w-4 text-primary" />第 {index + 1} 题 · 解题思路</DialogTitle></DialogHeader>
-          <div id={`hint-${q.id}`} className="whitespace-pre-line break-words text-sm leading-7 text-foreground">{q.practice_hint}</div>
+          <div id={`hint-${q.id}`} className="whitespace-pre-line break-words text-sm leading-7 text-foreground">{hintText}</div>
         </DialogContent>
       </Dialog>
+      <UpgradeDialog message={upgradeMsg} onClose={() => setUpgradeMsg(null)} />
 
       <div className="mb-3">
         {stemImg ? (
@@ -319,6 +349,7 @@ function PracticeRunner({
             onActivate={() => setActiveId(q.id)}
             onHint={() => setHintQuestionIds((previous) => new Set([...previous, q.id]))}
             hintUsed={hintQuestionIds.has(q.id)}
+            studentId={studentId}
           />
         ))}
       </div>
