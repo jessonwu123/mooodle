@@ -1,0 +1,2 @@
+ALTER TABLE public.math_questions ADD COLUMN practice_hint text, ADD COLUMN practice_hint_generated_at timestamptz;
+COMMENT ON COLUMN public.math_questions.practice_hint IS 'Pre-generated method-only online practice hint. No concrete numbers, calculations, or answer; inherits question access policies.';

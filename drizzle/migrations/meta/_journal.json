@@ -50,6 +50,13 @@
       "when": 1792822016941,
       "tag": "0006_create_math_question_content_change_log",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792825535344,
+      "tag": "0007_add_question_practice_hints",
+      "breakpoints": true
     }
   ]
 }

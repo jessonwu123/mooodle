@@ -437,6 +437,8 @@ export type Database = {
           options_image_path: string | null
           options_render_mode: string
           paper_id: string
+          practice_hint: string | null
+          practice_hint_generated_at: string | null
           question_number: number
           solution_images: Json
           solution_md: string | null
@@ -461,6 +463,8 @@ export type Database = {
           options_image_path?: string | null
           options_render_mode?: string
           paper_id: string
+          practice_hint?: string | null
+          practice_hint_generated_at?: string | null
           question_number: number
           solution_images?: Json
           solution_md?: string | null
@@ -485,6 +489,8 @@ export type Database = {
           options_image_path?: string | null
           options_render_mode?: string
           paper_id?: string
+          practice_hint?: string | null
+          practice_hint_generated_at?: string | null
           question_number?: number
           solution_images?: Json
           solution_md?: string | null
