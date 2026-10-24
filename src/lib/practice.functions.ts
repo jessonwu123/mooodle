@@ -234,13 +234,18 @@ export const loadTargetedQuestions = createServerFn({ method: "POST" })
       .in("tag_id", expandedTagIds);
     const candidateIds = Array.from(new Set((rels ?? []).map((r: any) => r.question_id as string)));
     if (candidateIds.length === 0) throw new Error("所选知识点暂无题目");
-    // restrict to accessible papers
-    const { data: qrows } = await admin
-      .from("math_questions")
-      .select("id, paper_id")
-      .in("id", candidateIds)
-      .in("paper_id", paperIds);
-    const pool = (qrows ?? []).map((q: any) => q.id as string);
+    // restrict to accessible papers（分批查询，避免 .in() 参数过多导致请求失败）
+    const qrows: Array<{ id: string; paper_id: string | null }> = [];
+    for (let i = 0; i < candidateIds.length; i += 200) {
+      const { data: batch, error } = await admin
+        .from("math_questions")
+        .select("id, paper_id")
+        .in("id", candidateIds.slice(i, i + 200))
+        .in("paper_id", paperIds);
+      if (error) throw new Error(error.message);
+      qrows.push(...((batch ?? []) as any));
+    }
+    const pool = qrows.map((q) => q.id as string);
     if (pool.length === 0) throw new Error("所选知识点在可访问范围内暂无题目");
     // shuffle
     for (let i = pool.length - 1; i > 0; i--) {
@@ -349,13 +354,18 @@ export const loadAiQuestions = createServerFn({ method: "POST" })
     }
     if (candidates.length === 0) throw new Error("没有可用的练习题");
 
-    // filter to accessible
-    const { data: qrows } = await admin
-      .from("math_questions")
-      .select("id, paper_id")
-      .in("id", candidates.map(([id]) => id))
-      .in("paper_id", paperIds);
-    const accessibleIds = new Set((qrows ?? []).map((q: any) => q.id));
+    // filter to accessible（分批查询，避免 .in() 参数过多导致请求失败）
+    const candidateIds = candidates.map(([id]) => id);
+    const accessibleIds = new Set<string>();
+    for (let i = 0; i < candidateIds.length; i += 200) {
+      const { data: batch, error } = await admin
+        .from("math_questions")
+        .select("id, paper_id")
+        .in("id", candidateIds.slice(i, i + 200))
+        .in("paper_id", paperIds);
+      if (error) throw new Error(error.message);
+      for (const q of batch ?? []) accessibleIds.add((q as any).id as string);
+    }
     candidates = candidates.filter(([id]) => accessibleIds.has(id));
     if (candidates.length === 0) throw new Error("可访问范围内没有匹配的练习题");
 
