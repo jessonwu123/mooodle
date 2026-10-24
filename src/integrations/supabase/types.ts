@@ -543,6 +543,80 @@ export type Database = {
         }
         Relationships: []
       }
+      practice_ai_access_state: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          status: number
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          message: string
+          status: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          status?: number
+        }
+        Relationships: []
+      }
+      practice_ai_daily_usage: {
+        Row: {
+          usage_day: string
+          used: number
+          user_id: string
+        }
+        Insert: {
+          usage_day: string
+          used?: number
+          user_id: string
+        }
+        Update: {
+          usage_day?: string
+          used?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      practice_ai_feedback: {
+        Row: {
+          content: string
+          created_at: string
+          error_message: string | null
+          session_id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          error_message?: string | null
+          session_id: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          error_message?: string | null
+          session_id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_ai_feedback_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "student_practice_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       progress_items: {
         Row: {
           created_at: string
@@ -820,6 +894,7 @@ export type Database = {
           paper_id: string | null
           question_ids: string[]
           score: number | null
+          student_id: string | null
           tag_ids: string[] | null
           total: number
           user_id: string
@@ -833,6 +908,7 @@ export type Database = {
           paper_id?: string | null
           question_ids?: string[]
           score?: number | null
+          student_id?: string | null
           tag_ids?: string[] | null
           total?: number
           user_id: string
@@ -846,6 +922,7 @@ export type Database = {
           paper_id?: string | null
           question_ids?: string[]
           score?: number | null
+          student_id?: string | null
           tag_ids?: string[] | null
           total?: number
           user_id?: string
@@ -856,6 +933,13 @@ export type Database = {
             columns: ["paper_id"]
             isOneToOne: false
             referencedRelation: "math_papers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_practice_sessions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
             referencedColumns: ["id"]
           },
         ]
@@ -1107,6 +1191,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_practice_ai_analysis: {
+        Args: { p_session_id: string; p_user_id: string }
+        Returns: number
+      }
       find_user_id_by_email: { Args: { _email: string }; Returns: string }
       get_effective_folder_permission: {
         Args: { _folder_id: string; _subject_id: string; _subject_type: string }
