@@ -242,7 +242,7 @@ export function HomeworkBuilder({ studentId }: { studentId?: string }) {
           y = margin;
           continue;
         }
-        const canvas = await html2canvas(el, { scale: 2, backgroundColor: "#ffffff" });
+        const canvas = await html2canvas(el, { scale: 2, backgroundColor: getComputedStyle(root).backgroundColor });
         let w = maxW;
         let h = (canvas.height / canvas.width) * w;
         if (h > ph - margin * 2) {
@@ -498,10 +498,10 @@ export function HomeworkBuilder({ studentId }: { studentId?: string }) {
       </div>
 
       {renderData && (
-        <div style={{ position: "fixed", left: -10000, top: 0, width: 760, background: "#fff", color: "#111" }} ref={printRef}>
-          <div data-block="title" style={{ padding: "8px 4px 12px", borderBottom: "1px solid #ddd" }}>
+        <div className="homework-print" ref={printRef}>
+          <div data-block="title" className="homework-print-header">
             <div style={{ fontSize: 24, fontWeight: 700, textAlign: "center" }}>{title}</div>
-            <div style={{ fontSize: 13, marginTop: 8, display: "flex", justifyContent: "space-between", color: "#555" }}>
+            <div className="homework-print-meta">
               <span>姓名：__________</span>
               <span>日期：__________</span>
               <span>共 {renderData.qs.length} 题</span>
