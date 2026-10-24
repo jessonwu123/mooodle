@@ -12,6 +12,8 @@ const box = document.getElementById("acct-box");
 const summary = document.getElementById("acct-summary");
 let sessions = [];
 let notice = "";
+let loadRequest = 0;
+const loadButton = document.getElementById("load");
 const set = (msg, cls = "") => { status.textContent = notice ? `${notice}${msg}` : msg; status.className = cls; };
 const loginNote = (msg) => `${(msg || "登录成功，已连接 mooodle").trim().replace(/。$/, "")}。`;
 const sendToApp = async (message) => {
@@ -30,7 +32,7 @@ const update = () => { stage.disabled = !notes.value.trim(); save.disabled = !no
 const remember = () => chrome.storage.local.set({[key]:{text:notes.value,title:title.value,createdAt:Date.now()}});
 const render = () => {
   const ranked = MeetingMatching.rank(title.value,sessions);
-  select.replaceChildren(new Option("请选择课次", ""));
+  select.replaceChildren(new Option(ranked.length ? `请选择课次（${date.value} · ${ranked.length}节）` : `${date.value} 暂无可存档课次`, ""));
   for (const s of ranked) select.add(new Option(`${s.matchScore ? "匹配 · " : ""}${s.time} ${s.name}（${s.studentName}）${s.ambiguousDay ? " · 同日多课" : ""}`,s.id));
   const matches = ranked.filter(s => s.matchScore > 0);
   if (matches.length === 1) {select.value = matches[0].id;set("已按关键名字匹配，请核对课次后存档。","ok");}
@@ -38,7 +40,7 @@ const render = () => {
   update();
 };
 title.addEventListener("input", () => {if (sessions.length) render();});
-date.addEventListener("change", () => {sessions=[];select.replaceChildren(new Option("读取中…", ""));update();loadSessions();});
+date.addEventListener("change", () => {loadSessions();});
 select.addEventListener("change",update);
 notes.addEventListener("input", update);
 chrome.storage.local.get(key).then((data) => {
@@ -62,16 +64,28 @@ stage.addEventListener("click", async () => {
   set("已准备；请到对应学生课节的课堂评分中导入并保存。", "ok");
 });
 const loadSessions = async (successNote = "") => {
-  set("读取当日课表中…");
+  const request = ++loadRequest;
+  const selectedDate = date.value;
+  sessions=[];select.replaceChildren(new Option("读取中…", ""));update();
+  loadButton.disabled=true;loadButton.textContent="读取课次中…";
+  set(`${successNote}正在读取 ${selectedDate} 的课次…`);
   try {
-    const result = await sendToApp({action:"list",date:date.value});
+    const result = await sendToApp({action:"list",date:selectedDate});
+    if (request !== loadRequest) return;
     if (result.error) throw new Error(result.error);
-    sessions = result.sessions || [];
+    if (!Array.isArray(result.sessions)) throw new Error("课表返回格式异常，请更新网站后重试");
+    sessions = result.sessions;
     notice = successNote;
     summary.textContent = `已登录 · mooodle 账号：${acct.value.trim() || "已保存的账号"}`;
     render();
     notice = "";
-  } catch (error) { notice = ""; set(error.message || "读取失败", "err"); }
+  } catch (error) {
+    if (request !== loadRequest) return;
+    notice = "";select.replaceChildren(new Option("读取失败，请重新匹配", ""));
+    set(`${successNote}${error.message || "读取失败"}`, "err");
+  } finally {
+    if (request === loadRequest) { loadButton.disabled=false;loadButton.textContent="匹配所选日期课次";update(); }
+  }
 };
 document.getElementById("load").addEventListener("click", async () => {await remember();await loadSessions();});
 chrome.storage.local.get("mooodleAccount").then(({mooodleAccount}) => {
