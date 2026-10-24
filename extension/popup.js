@@ -20,7 +20,7 @@ const render = () => {
   update();
 };
 title.addEventListener("input", () => {if (sessions.length) render();});
-date.addEventListener("change", () => {sessions=[];select.replaceChildren(new Option("日期已改变，请重新匹配", ""));update();});
+date.addEventListener("change", () => {sessions=[];select.replaceChildren(new Option("读取中…", ""));update();loadSessions();});
 select.addEventListener("change",update);
 notes.addEventListener("input", update);
 chrome.storage.local.get(key).then((data) => {
@@ -43,11 +43,27 @@ stage.addEventListener("click", async () => {
   await chrome.storage.local.set({ [key]: { text, createdAt: Date.now() } });
   status.textContent = "已准备；请到对应学生课节的课堂评分中导入并保存。";
 });
-document.getElementById("open").addEventListener("click", async () => { await remember(); await chrome.tabs.create({ url: "https://mooodle.lovable.app/meeting-import" }); });
-document.getElementById("load").addEventListener("click", async () => {
-  await remember(); status.textContent="读取当日课表中…";
+const loadSessions = async () => {
+  status.textContent="读取当日课表中…";
   try {const result=await chrome.runtime.sendMessage({type:"MEETING_APP",action:"list",date:date.value});if(result.error) throw new Error(result.error);sessions=result.sessions || [];render();}
   catch(error) {status.textContent=error.message || "读取失败";}
+};
+document.getElementById("load").addEventListener("click", async () => {await remember();await loadSessions();});
+const acct=document.getElementById("acct"), pwd=document.getElementById("pwd"), box=document.getElementById("acct-box"), summary=document.getElementById("acct-summary");
+chrome.storage.local.get("mooodleAccount").then(({mooodleAccount}) => {
+  if (mooodleAccount?.account) {acct.value=mooodleAccount.account;summary.textContent=`mooodle 账号：${mooodleAccount.account}`;loadSessions();}
+  else box.open=true;
+});
+document.getElementById("acct-save").addEventListener("click", async () => {
+  if (!acct.value.trim() || !pwd.value) {status.textContent="请填写账号和密码";return;}
+  await chrome.storage.local.set({mooodleAccount:{account:acct.value.trim(),password:pwd.value}});
+  await chrome.storage.local.remove("mooodleToken");
+  const r=await chrome.runtime.sendMessage({type:"MEETING_APP",action:"login"});
+  if (r.error) {status.textContent=r.error;return;}
+  pwd.value="";box.open=false;summary.textContent=`mooodle 账号：${acct.value.trim()}`;await loadSessions();
+});
+document.getElementById("acct-clear").addEventListener("click", async () => {
+  await chrome.storage.local.remove(["mooodleAccount","mooodleToken"]);acct.value="";pwd.value="";summary.textContent="mooodle 账号";box.open=true;sessions=[];select.replaceChildren(new Option("请先登录", ""));update();status.textContent="已清除本机保存的账号密码。";
 });
 document.getElementById("title-read").addEventListener("click", async () => {
   try {
@@ -66,8 +82,9 @@ save.addEventListener("click", async () => {
   if (!select.value || !notes.value.trim() || notes.value.length>100000) return;
   const lesson=sessions.find(s=>s.id===select.value);
   if (lesson?.ambiguousDay) {status.textContent="同一学生当天有多节课，请先到学生档案手动确认；当前评分按学生和日期保存，不能独立存档。";return;}
-  await remember();save.disabled=true;status.textContent="请在 mooodle 页面确认课次并存档…";
-  try {const result=await chrome.runtime.sendMessage({type:"MEETING_APP",action:"save",date:date.value,sessionId:select.value,text:notes.value.trim()});status.textContent=result.error || result.message || "请查看 mooodle 页面";}
+  if (!confirm(`将纪要追加到 ${lesson.date} ${lesson.time} · ${lesson.name}（${lesson.studentName}）的课堂总结？不会修改已有评分。`)) return;
+  await remember();save.disabled=true;status.textContent="存档中…";
+  try {const result=await chrome.runtime.sendMessage({type:"MEETING_APP",action:"save",date:date.value,sessionId:select.value,text:notes.value.trim()});status.textContent=result.error || result.message || "已提交，请到学生档案核对";}
   catch {status.textContent="未收到确认，请先查看课堂总结，避免重复存档。";}
   finally {update();}
 });

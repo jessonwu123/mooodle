@@ -1,28 +1,30 @@
-const origins = ["https://mooodle.lovable.app", "https://id-preview--3dd5f5e0-1336-4d26-858d-3ccea85aeb60.lovable.app"];
+const APP = "https://mooodle.lovable.app";
+const AUTH = "https://elwiaeitctyhmockanld.supabase.co/auth/v1/token?grant_type=password";
+const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVsd2lhZWl0Y3R5aG1vY2thbmxkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NTI4MzUsImV4cCI6MjA5NDMyODgzNX0.XZk5JKyScv3FPzr1JNmJbxH0rwEzg9I18ktleaega_o";
+const toEmail = a => a.includes("@") ? a : `${a.toLowerCase()}@teacher.local`;
+async function login(force) {
+  const { mooodleAccount: acct, mooodleToken: tok } = await chrome.storage.local.get(["mooodleAccount", "mooodleToken"]);
+  if (!acct?.account || !acct?.password) throw new Error("请先在插件中填写并保存 mooodle 教师账号和密码");
+  if (!force && tok?.access_token && tok.expires_at * 1000 > Date.now() + 60000) return tok.access_token;
+  const res = await fetch(AUTH, { method: "POST", headers: { apikey: ANON, "Content-Type": "application/json" }, body: JSON.stringify({ email: toEmail(acct.account.trim()), password: acct.password }) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.access_token) throw new Error("mooodle 账号或密码错误，请检查后重新保存");
+  await chrome.storage.local.set({ mooodleToken: { access_token: data.access_token, expires_at: data.expires_at } });
+  return data.access_token;
+}
+async function call(body, retry = true) {
+  const token = await login(false);
+  const res = await fetch(`${APP}/api/meeting-plugin`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (res.status === 401 && retry) { await chrome.storage.local.remove("mooodleToken"); return call(body, false); }
+  const data = await res.json().catch(() => null);
+  if (!data) throw new Error("mooodle 无响应，请确认网站已发布最新版本");
+  return data;
+}
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
   if (sender.id !== chrome.runtime.id || sender.tab || message?.type !== "MEETING_APP") return;
   (async () => {
-    const tabs = await chrome.tabs.query({});
-    let tab = tabs.find(t => t.url && origins.some(origin => t.url === `${origin}/meeting-import` || t.url.startsWith(`${origin}/meeting-import?`)));
-    if (!tab?.id) {
-      tab = await chrome.tabs.create({url:`${origins[0]}/meeting-import`,active:message.action === "save"});
-    }
-    if (!tab?.id) return {error:"无法打开 mooodle，请重新连接"};
-    let ready = false;
-    for (let attempt = 0; attempt < 15; attempt++) {
-      try {
-        const result = await chrome.tabs.sendMessage(tab.id,{type:"MEETING_COMMAND",action:"ready"});
-        if (result?.ready) { ready = true; break; }
-      } catch {}
-      await new Promise(resolve => setTimeout(resolve,500));
-    }
-    if (!ready) {
-      await chrome.tabs.update(tab.id,{active:true});
-      return {error:"请确认 mooodle 已登录教师账号且连接未断开，然后返回插件重试；无需手动授权"};
-    }
-    if (message.action === "save") await chrome.tabs.update(tab.id,{active:true});
-    try { return await chrome.tabs.sendMessage(tab.id,{type:"MEETING_COMMAND",action:message.action,date:message.date,sessionId:message.sessionId,text:message.text}); }
-    catch { return {error:"连接已中断，请刷新 mooodle 后重试；若刚尝试保存，请先查看课堂总结，避免重复存档；正式网站需先更新发布"}; }
-  })().then(reply).catch(() => reply({error:"连接失败，请打开 mooodle 重试"}));
+    if (message.action === "login") { await login(true); return { message: "已登录 mooodle" }; }
+    return call({ action: message.action, date: message.date, sessionId: message.sessionId, text: message.text });
+  })().then(reply).catch(e => reply({ error: e.message || "连接失败" }));
   return true;
 });

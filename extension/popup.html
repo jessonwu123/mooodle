@@ -1,12 +1,14 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><title>纪要存档</title><link rel="stylesheet" href="popup.css"></head>
-<body><h1>纪要存档</h1><p>先在腾讯会议「纪要」点击复制，再读取并核对全文。</p>
+<body><h1>纪要存档</h1>
+<details id="acct-box"><summary id="acct-summary">mooodle 账号</summary><input id="acct" placeholder="教师账号" autocomplete="username"><input id="pwd" type="password" placeholder="密码" autocomplete="current-password"><div class="row"><button id="acct-save" class="primary">保存并登录</button><button id="acct-clear">清除账号</button></div></details>
+<p>先在腾讯会议「纪要」点击复制，再读取并核对全文。</p>
 <label for="title">腾讯会议课堂名称</label><div class="row"><input id="title" placeholder="读取标题或填写关键名字"><button id="title-read">读取标题</button></div>
 <label for="date">课节日期（北京时间）</label><input id="date" type="date">
-<div class="row"><button id="load" class="primary">匹配当日课次</button><button id="open">连接 mooodle</button></div>
+<div class="row"><button id="load" class="primary">匹配当日课次</button></div>
 <label for="session">课表中的课次</label><select id="session"><option value="">请先匹配当日课次</option></select>
 <button id="read" class="primary">读取已复制纪要</button>
 <textarea id="notes" aria-label="纪要预览" placeholder="也可以在这里粘贴纪要"></textarea>
 <div class="row"><button id="save" class="primary" disabled>存入选定课堂总结</button><button id="stage">仅准备纪要</button><button id="clear">清除纪要</button></div>
-<p id="status" role="status"></p><p>存档前将在 mooodle 确认课次，追加纪要，不覆盖原总结。没有评分时需先核对评分。同日多课暂须手动确认。插件不保存密码、不调用 AI。</p>
+<p id="status" role="status"></p><p>账号密码只保存在本机浏览器插件中。存档前会弹出确认，纪要追加到原总结后，不覆盖。没有评分的课节需先在学生档案评分。同日多课暂须手动保存。插件不调用 AI。</p>
 <script src="matching.js"></script><script src="popup.js"></script></body></html>
