@@ -21,7 +21,11 @@ async function call(body, retry = true) {
   return data;
 }
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
-  if (sender.id !== chrome.runtime.id || sender.tab || message?.type !== "MEETING_APP") return;
+  if (message?.type !== "MEETING_APP") return;
+  if (sender.id !== chrome.runtime.id || sender.url !== chrome.runtime.getURL("popup.html")) {
+    reply({ error: "请从浏览器工具栏打开纪要存档插件后重试" });
+    return;
+  }
   (async () => {
     if (message.action === "login") { await login(true); return { message: "已登录 mooodle" }; }
     return call({ action: message.action, date: message.date, sessionId: message.sessionId, text: message.text });
