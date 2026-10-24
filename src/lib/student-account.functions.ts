@@ -16,10 +16,11 @@ export const ensureStudentAccount = createServerFn({ method: "POST" })
     const { userId } = context;
     const { data: student, error } = await supabaseAdmin
       .from("students")
-      .select("id, name, username, auth_user_id, created_by")
+      .select("id, name, username, auth_user_id, created_by, archive_kind")
       .eq("id", data.studentId)
       .maybeSingle();
     if (error || !student) throw new Error("学生不存在");
+    if(student.archive_kind === "institution_class") throw new Error("机构班级不创建学生登录账号");
     if (student.created_by !== userId) {
       const { data: roles } = await supabaseAdmin
         .from("user_roles")
@@ -111,6 +112,7 @@ export const listStudentAccounts = createServerFn({ method: "POST" })
     let query = supabaseAdmin
       .from("students")
       .select("id, name, username, auth_user_id, created_by, created_at, access_level")
+      .eq("archive_kind","student")
       .order("created_at", { ascending: false });
     if (!isAdmin) query = query.eq("created_by", userId);
     const { data, error } = await query;

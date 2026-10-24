@@ -29,10 +29,12 @@ import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { buildStudentMonthlySummary } from "@/lib/student-summary";
 import { ensureStudentAccount } from "@/lib/student-account.functions";
+import {canCreateStudentLogin,isInstitutionClass} from "@/lib/institution-class-rules";
 
 
 
 export const Route = createFileRoute("/admin/")({
+  head:()=>({meta:[{title:"学生与机构班级档案 · mooodle"},{name:"description",content:"管理学生及导入机构班级的课堂记录和学习档案。"},{property:"og:title",content:"学生与机构班级档案 · mooodle"},{property:"og:description",content:"查看学生与机构班级课堂档案。"},{property:"og:type",content:"website"},{name:"twitter:card",content:"summary"}]}),
   component: AdminHome,
 });
 
@@ -41,6 +43,7 @@ interface Student {
   name: string;
   username?: string | null;
   ratingCount?: number;
+  archiveKind?: string;
 }
 
 
@@ -85,7 +88,7 @@ function AdminHome() {
     setLoading(true);
     const { data, error } = await supabase
       .from("students")
-      .select("id, name, username, auth_user_id, ratings(count)")
+      .select("id, name, username, auth_user_id, archive_kind, ratings(count)")
       .eq("created_by", session.user.id)
       .order("created_at", { ascending: false });
     if (error) {
@@ -98,6 +101,7 @@ function AdminHome() {
       name: string;
       username: string | null;
       auth_user_id: string | null;
+      archive_kind: string;
       ratings: { count: number }[];
     }>;
     setStudents(
@@ -106,11 +110,12 @@ function AdminHome() {
         name: s.name,
         username: s.username,
         ratingCount: s.ratings?.[0]?.count ?? 0,
+        archiveKind: s.archive_kind,
       })),
     );
     setLoading(false);
     // 为缺少登录账号的旧学生自动补建
-    const missing = rows.filter((s) => !s.auth_user_id);
+    const missing = rows.filter((s) => !s.auth_user_id && canCreateStudentLogin(s.archive_kind));
     for (const s of missing) {
       try {
         await ensureStudentAccount({ data: { studentId: s.id } });
@@ -122,7 +127,7 @@ function AdminHome() {
       // reload to display updated usernames
       const { data: data2 } = await supabase
         .from("students")
-        .select("id, name, username, ratings(count)")
+        .select("id, name, username, archive_kind, ratings(count)")
         .eq("created_by", session.user.id)
         .order("created_at", { ascending: false });
       setStudents(
@@ -130,12 +135,14 @@ function AdminHome() {
           id: string;
           name: string;
           username: string | null;
+          archive_kind: string;
           ratings: { count: number }[];
         }>).map((s) => ({
           id: s.id,
           name: s.name,
           username: s.username,
           ratingCount: s.ratings?.[0]?.count ?? 0,
+          archiveKind: s.archive_kind,
         })),
       );
     }
@@ -154,6 +161,7 @@ function AdminHome() {
       const { data } = await supabase
         .from("students")
         .select("id")
+        .eq("archive_kind", "student")
         .is("auth_user_id", null);
       const list = (data ?? []) as Array<{ id: string }>;
       for (const s of list) {
@@ -325,7 +333,7 @@ function AdminHome() {
                   {s.name.slice(0, 1)}
                 </div>
                 <div className="flex-1">
-                  <div className="font-medium text-foreground">{s.name}</div>
+                  <div className="font-medium text-foreground break-words">{s.name}{isInstitutionClass(s.archiveKind)&&<span className="ml-2 text-xs text-primary">机构班级</span>}</div>
                   <div className="text-xs text-muted-foreground">
                     {s.ratingCount} 节课记录
                     {s.username && (
@@ -338,7 +346,7 @@ function AdminHome() {
 
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </Link>
-              <AlertDialog>
+              {!isInstitutionClass(s.archiveKind) && <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="ghost" size="icon" className="ml-2 text-muted-foreground hover:text-destructive">
                     <Trash2 className="h-4 w-4" />
@@ -361,7 +369,7 @@ function AdminHome() {
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
-              </AlertDialog>
+              </AlertDialog>}
               <Button
                 variant="ghost"
                 size="icon"
