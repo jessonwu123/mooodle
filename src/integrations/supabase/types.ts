@@ -380,6 +380,24 @@ export type Database = {
         }
         Relationships: []
       }
+      math_question_hint_generation_batches: {
+        Row: {
+          batch_key: string
+          created_at: string
+          generated_hints: Json
+        }
+        Insert: {
+          batch_key: string
+          created_at?: string
+          generated_hints: Json
+        }
+        Update: {
+          batch_key?: string
+          created_at?: string
+          generated_hints?: Json
+        }
+        Relationships: []
+      }
       math_question_tags: {
         Row: {
           assigned_by_ai: boolean
