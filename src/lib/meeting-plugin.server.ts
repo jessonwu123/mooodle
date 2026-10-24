@@ -48,7 +48,7 @@ export async function handleMeetingPlugin(request: Request) {
       ratingId = created.id;
     } else {
       const next = mergeMeetingNotes(rating.summary || "", block, "append");
-      const patch: Record<string, unknown> = { summary: next, ...input.scores };
+      const patch: { summary: string; focus?: number; interaction?: number; discipline?: number; accuracy?: number; overall_assessment?: number; overall_progress?: number } = { summary: next, ...input.scores };
       if (input.overall !== undefined) patch.overall_assessment = input.overall;
       if (input.overallProgress !== undefined) patch.overall_progress = input.overallProgress;
       let q = client.from("ratings").update(patch).eq("id", rating.id);
