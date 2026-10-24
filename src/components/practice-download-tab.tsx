@@ -22,7 +22,7 @@ function OriginalPaperDownloads({ studentId }: { studentId: string }) {
     setLoading(true);
     setReady({});
     void listPracticeDownloads({ data: { studentId } }).then((result) => {
-      if (alive) setPapers(result.papers.filter((p) => Boolean(p.pdf_path)));
+      if (alive) setPapers(result.papers.filter((p) => Boolean(p.pdf_path)).sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999) || a.name.localeCompare(b.name, "zh")));
     }).catch((error) => toast.error(error instanceof Error ? error.message : "试卷加载失败"))
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
