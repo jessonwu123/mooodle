@@ -55,7 +55,7 @@ export async function handlePracticeFeedback(request: Request): Promise<Response
     if (upstream.status === 402 || upstream.status === 403) await admin.from("practice_ai_access_state").upsert({ id: "gateway", message, status: upstream.status });
     await admin.from("practice_ai_feedback").update({ status: "failed", error_message: message }).eq("session_id", sessionId);
     // Consume the SDK failure so it cannot become an unhandled rejection.
-    await call.result.text.catch(() => "");
+    await Promise.resolve(call.result.text).catch(() => "");
     return json({ error: message, remaining: claim }, upstream.status);
   }
   const encoder = new TextEncoder();
