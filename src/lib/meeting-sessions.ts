@@ -1,15 +1,20 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as defaultClient } from "@/integrations/supabase/client";
 import { generateLessonOccurrences, type CourseInfo } from "@/lib/course-schedule";
 
 export interface MeetingSession { id: string; studentId: string; name: string; studentName: string; date: string; time: string; ambiguousDay: boolean }
 export function todayShanghai() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); }
-export async function fetchMeetingSessions(date: string): Promise<MeetingSession[]> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function fetchMeetingSessions(date: string, ctx?: { client: any; uid: string }): Promise<MeetingSession[]> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("请选择有效日期");
-  const { data: auth, error: authError } = await supabase.auth.getUser();
-  if (authError || !auth.user) throw new Error("请先登录 mooodle 教师账号");
-  const uid = auth.user.id;
+  const supabase = ctx?.client ?? defaultClient;
+  let uid = ctx?.uid;
+  if (!uid) {
+    const { data: auth, error: authError } = await defaultClient.auth.getUser();
+    if (authError || !auth.user) throw new Error("请先登录 mooodle 教师账号");
+    uid = auth.user.id;
+  }
   const { data: roles, error: roleError } = await supabase.from("user_roles").select("role").eq("user_id", uid);
-  if (roleError || !roles?.some(r => r.role === "teacher" || r.role === "admin")) throw new Error("仅教师可导入纪要");
+  if (roleError || !roles?.some((r: { role: string }) => r.role === "teacher" || r.role === "admin")) throw new Error("仅教师可导入纪要");
   const { data: students, error } = await supabase.from("students").select("id,name,total_hours,hours_per_lesson,hourly_rate,schedule_start_date,schedule_slots,schedule_frequency_weeks,schedule_weekday,schedule_start_time,schedule_end_time").eq("created_by", uid);
   if (error) throw error;
   const [{ data: singles, error: singleError }, { data: cancellations, error: cancelError }] = await Promise.all([
