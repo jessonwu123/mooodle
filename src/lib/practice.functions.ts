@@ -460,17 +460,22 @@ export const submitPracticeAttempts = createServerFn({ method: "POST" })
               answer: z.string().max(500).nullable(),
             }),
           )
-          .min(1),
+          .min(1).max(50),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
+    const accessibleFolders = await resolveAccessibleFolders(context, data.studentId);
     const admin = await getAdmin();
     const ids = data.answers.map((a) => a.question_id);
+    if (new Set(ids).size !== ids.length) throw new Error("请勿重复提交同一道题");
     const { data: rows } = await admin
       .from("math_questions")
-      .select("id, correct_answer, answer_type")
+      .select("id, correct_answer, answer_type, math_papers(folder_id)")
       .in("id", ids);
+    if (rows?.length !== ids.length || rows.some((q: any) => q.answer_type !== "计算" && !accessibleFolders.includes(q.math_papers?.folder_id))) {
+      throw new Error("题目不存在或无权访问");
+    }
     const rowMap = new Map<string, any>((rows ?? []).map((r: any) => [r.id, r]));
 
     const graded = data.answers.map((a) => {
@@ -523,10 +528,11 @@ export const submitPracticeAttempts = createServerFn({ method: "POST" })
     const correct = graded.filter((g) => g.is_correct).length;
     const score = total > 0 ? Math.round((correct / total) * 1000) / 10 : 0;
     const nowIso = new Date().toISOString();
-    const { data: sessionRow } = await context.supabase
+    const { data: sessionRow, error: sessionError } = await context.supabase
       .from("student_practice_sessions")
       .insert({
         user_id: context.userId,
+        student_id: data.studentId,
         mode: data.mode,
         paper_id: data.paperId ?? null,
         tag_ids: data.tagIds ?? [],
@@ -539,6 +545,7 @@ export const submitPracticeAttempts = createServerFn({ method: "POST" })
       .select("id")
       .single();
     const sessionId = (sessionRow?.id as string | undefined) ?? null;
+    if (sessionError || !sessionId) throw new Error("练习记录保存失败，请稍后重试");
 
     // Insert one log row per question (full history of correctness + timestamp)
     const logRows = graded.map((g) => ({
@@ -552,10 +559,11 @@ export const submitPracticeAttempts = createServerFn({ method: "POST" })
       attempted_at: nowIso,
     }));
     if (logRows.length > 0) {
-      await context.supabase.from("student_question_attempt_log").insert(logRows);
+      const { error } = await admin.from("student_question_attempt_log").insert(logRows);
+      if (error) throw new Error("逐题反馈保存失败，请稍后重试");
     }
 
-    return { graded, total, correct, score };
+    return { graded, total, correct, score, sessionId };
   });
 
 // ---------- read history (account owner or admin) ----------
