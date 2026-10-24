@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ComprehensiveAssessment } from "@/components/comprehensive-assessment";
-import { PetTab } from "@/components/pet-tab";
 import { StudentLibraryTab } from "@/components/student-library-tab";
 import { PracticeTab } from "@/components/practice-tab";
 import { LearningAnalyticsTab } from "@/components/learning-analytics-tab";
@@ -330,7 +329,6 @@ function StudentProfile() {
               <TabsTrigger value="schedule" className="shrink-0 whitespace-nowrap">课程表</TabsTrigger>
               <TabsTrigger value="library" className="shrink-0 whitespace-nowrap">资料库</TabsTrigger>
               <TabsTrigger value="practice" className="shrink-0 whitespace-nowrap">习题练习</TabsTrigger>
-              <TabsTrigger value="pet" className="shrink-0 whitespace-nowrap">养宠物</TabsTrigger>
             </TabsList>
           </div>
 
@@ -490,9 +488,6 @@ function StudentProfile() {
             <PracticeTab studentId={id} />
           </TabsContent>
 
-          <TabsContent value="pet">
-            <PetTab studentId={id} editable={isOwner} />
-          </TabsContent>
         </Tabs>
       </main>
     </div>
