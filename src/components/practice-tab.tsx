@@ -22,6 +22,7 @@ import {
 import { MathInput } from "@/components/math-input";
 import { Calculator } from "lucide-react";
 import { PracticeDownloadTab } from "@/components/practice-download-tab";
+import { PracticeFeedback } from "@/components/practice-feedback";
 
 type Q = {
   id: string;
@@ -213,6 +214,8 @@ function PracticeRunner({
   const [submitting, setSubmitting] = useState(false);
   const [graded, setGraded] = useState<Graded[] | null>(null);
   const [score, setScore] = useState<{ total: number; correct: number; score: number } | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [finished, setFinished] = useState(false);
 
   const gradedMap = useMemo(() => {
     if (!graded) return new Map<string, Graded>();
@@ -237,6 +240,7 @@ function PracticeRunner({
         },
       });
       setGraded(res.graded);
+      setSessionId(res.sessionId);
       setScore({ total: res.total, correct: res.correct, score: res.score });
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
@@ -266,6 +270,11 @@ function PracticeRunner({
         )}
       </div>
 
+      {finished && <>
+        <h2 className="text-lg font-semibold">本次练习反馈</h2>
+        <p className="text-sm text-muted-foreground">共 {score?.total} 题 · 答对 {score?.correct} 题 · 答错 {(score?.total ?? 0) - (score?.correct ?? 0)} 题</p>
+        {sessionId && <PracticeFeedback sessionId={sessionId} />}
+      </>}
       <div className="space-y-4">
         {questions.map((q, i) => (
           <QuestionCard
@@ -284,7 +293,7 @@ function PracticeRunner({
 
       <div className="flex justify-end gap-2">
         {graded ? (
-          <Button onClick={onExit}>完成</Button>
+          <Button onClick={() => { if (finished) onExit(); else { setFinished(true); window.scrollTo({ top: 0, behavior: "smooth" }); } }}>{finished ? "返回选择" : "完成"}</Button>
         ) : (
           <Button onClick={handleSubmit} disabled={submitting}>
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
