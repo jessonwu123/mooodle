@@ -29,6 +29,10 @@ export const Route = createFileRoute("/")({
     meta: [
       { title: "课堂档案 · 登录" },
       { name: "description", content: "学生或老师登录查看课堂档案" },
+      { property: "og:title", content: "课堂档案 · 登录" },
+      { property: "og:description", content: "家长和教师登录查看课堂档案、课程表与习题练习。" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
 });
