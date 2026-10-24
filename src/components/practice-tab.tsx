@@ -59,6 +59,8 @@ function QuestionCard({
   locked,
   active = false,
   onActivate,
+  onHint,
+  hintUsed = false,
 }: {
   q: Q;
   index: number;
@@ -68,6 +70,8 @@ function QuestionCard({
   locked: boolean;
   active?: boolean;
   onActivate?: () => void;
+  onHint?: () => void;
+  hintUsed?: boolean;
 }) {
   const isCalc = q.answer_type === "计算";
   const options: Array<{ letter: string; text: string | null }> = [
@@ -92,7 +96,8 @@ function QuestionCard({
           第 {index + 1} 题
         </span>
         {q.year != null && <span className="text-xs">{q.year}</span>}
-        {q.practice_hint && <Button type="button" variant="outline" size="sm" onClick={() => setShowHint(true)} aria-label={`第 ${index + 1} 题提示`} className="h-7 gap-1 px-2 text-xs"><Lightbulb className="h-3.5 w-3.5" />提示</Button>}
+        {q.practice_hint && <Button type="button" variant="outline" size="sm" onClick={() => { setShowHint(true); if (!locked) onHint?.(); }} aria-label={`第 ${index + 1} 题提示`} className="h-7 gap-1 px-2 text-xs"><Lightbulb className="h-3.5 w-3.5" />提示</Button>}
+        {hintUsed && <span className="text-xs text-primary">已使用提示</span>}
         {originalUrl && (
           <button
             type="button"
@@ -228,6 +233,7 @@ function PracticeRunner({
   const [score, setScore] = useState<{ total: number; correct: number; score: number } | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [finished, setFinished] = useState(false);
+  const [hintQuestionIds, setHintQuestionIds] = useState<Set<string>>(new Set());
 
   const gradedMap = useMemo(() => {
     if (!graded) return new Map<string, Graded>();
@@ -248,6 +254,7 @@ function PracticeRunner({
           mode,
           paperId: paperId ?? null,
           tagIds: tagIds ?? [],
+          hintQuestionIds: [...hintQuestionIds],
           answers: questions.map((q) => ({ question_id: q.id, answer: answers[q.id] ?? null })),
         },
       });
@@ -299,6 +306,8 @@ function PracticeRunner({
             locked={!!graded}
             active={activeId === q.id}
             onActivate={() => setActiveId(q.id)}
+            onHint={() => setHintQuestionIds((previous) => new Set([...previous, q.id]))}
+            hintUsed={hintQuestionIds.has(q.id)}
           />
         ))}
       </div>
@@ -347,6 +356,7 @@ function PaperPanel({ studentId, onStart }: { studentId: string; onStart: (quest
 
   return (
     <div className="space-y-4">
+      <p className="flex items-start gap-2 border-l-2 border-primary bg-accent/40 p-3 text-sm text-foreground"><Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-primary" />请尽可能独立完成真题，不要使用提示；使用提示的题目会被标记，并在统计数据中显示。</p>
       <PracticeCountSelector value={count} onChange={setCount} allowAll />
       <div className="grid gap-3 sm:grid-cols-2">
       {papers.map((p) => (
