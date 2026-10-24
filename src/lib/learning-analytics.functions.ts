@@ -56,6 +56,11 @@ export const getLearningAnalytics = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ studentId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { isOwner, isStaff } = await authorize(context, data.studentId);
+    const { studentAccessForCaller } = await import("./student-access.server");
+    if ((await studentAccessForCaller(data.studentId, context.userId)).limited) {
+      const { LIMITED_ERROR_PREFIX, UPGRADE_MESSAGE } = await import("./student-access-rules");
+      throw new Error(`${LIMITED_ERROR_PREFIX}${UPGRADE_MESSAGE}`);
+    }
     const admin = await getAdmin();
     const [{ data: row }, { data: archives }] = await Promise.all([
       admin

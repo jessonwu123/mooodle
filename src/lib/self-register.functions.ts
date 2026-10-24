@@ -35,6 +35,7 @@ export const registerParentAccount = createServerFn({ method: "POST" })
       username,
       auth_user_id: created.user.id,
       created_by: null,
+      access_level: "limited",
     });
     if (iErr) {
       try {
