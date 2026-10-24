@@ -1,0 +1,2 @@
+ALTER TABLE public.student_practice_sessions ADD COLUMN hint_question_ids uuid[] DEFAULT NULL;
+COMMENT ON COLUMN public.student_practice_sessions.hint_question_ids IS 'Question hints opened before submission; NULL means historical usage was not recorded, empty array means none used.';

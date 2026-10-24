@@ -1,5 +1,6 @@
 # Architecture decisions
 - Online practice hints are pre-generated and stored on the question, served through existing authenticated question access and validated as method-only; opening hints never triggers AI or spends additional credits.
+- Exam statistics identify whole-paper sessions by exact question-set coverage and derive correctness from saved attempt logs; sessions store validated pre-submission hint IDs, with NULL reserved for untracked historical usage.
 - Bulk hint generation retains private batch provenance in math_question_hint_generation_batches; application users have no access, and only explicitly authorized maintenance tools may stage and apply validated hints.
 
 - Online practice modes share a count selector with strict integer validation and retain each existing server limit; exam practice subsets its loaded paper in the browser to preserve full-paper downloads and server behavior.

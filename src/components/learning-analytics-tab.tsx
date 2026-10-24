@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactElement } from "react";
 import { TagAccuracyPanel } from "@/components/tag-accuracy-panel";
+import { ExamPracticeStatsPanel } from "@/components/exam-practice-stats-panel";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -633,6 +634,7 @@ function StatCard({
 export function LearningAnalyticsTab(props: { studentId: string; isOwnerView?: boolean }) {
   return (
     <div className="space-y-6">
+      <ExamPracticeStatsPanel studentId={props.studentId} />
       <TagAccuracyPanel studentId={props.studentId} />
       <LearningAnalyticsInner {...props} />
     </div>

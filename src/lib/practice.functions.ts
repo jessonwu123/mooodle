@@ -3,6 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { gradeCalcAnswer } from "./calc-grade";
 import { isMethodOnlyHint } from "./practice-hint";
+import { isWholePaperAttempt, practiceAccuracy, validateHintQuestions } from "./exam-practice-stats";
 
 type SupaCtx = { supabase: any; userId: string };
 
@@ -456,6 +457,7 @@ export const submitPracticeAttempts = createServerFn({ method: "POST" })
         mode: z.enum(["paper", "targeted", "ai", "calc"]),
         paperId: z.string().uuid().nullable().optional(),
         tagIds: z.array(z.string().uuid()).optional().default([]),
+        hintQuestionIds: z.array(z.string().uuid()).max(50).optional(),
         answers: z
           .array(
             z.object({
@@ -474,12 +476,14 @@ export const submitPracticeAttempts = createServerFn({ method: "POST" })
     if (new Set(ids).size !== ids.length) throw new Error("请勿重复提交同一道题");
     const { data: rows } = await admin
       .from("math_questions")
-      .select("id, correct_answer, answer_type, math_papers(folder_id)")
+      .select("id, paper_id, correct_answer, answer_type, practice_hint, math_papers(folder_id)")
       .in("id", ids);
     if (rows?.length !== ids.length || rows.some((q: any) => q.answer_type !== "计算" && !accessibleFolders.includes(q.math_papers?.folder_id))) {
       throw new Error("题目不存在或无权访问");
     }
     const rowMap = new Map<string, any>((rows ?? []).map((r: any) => [r.id, r]));
+    if (data.mode === "paper" && (!data.paperId || rows?.some((q) => q.paper_id !== data.paperId))) throw new Error("本次真题卷与提交题目不匹配");
+    const hintIds = data.hintQuestionIds === undefined ? null : validateHintQuestions(data.hintQuestionIds, ids, (rows ?? []).filter((q) => q.practice_hint && isMethodOnlyHint(q.practice_hint)).map((q) => q.id));
 
     const graded = data.answers.map((a) => {
       const row = rowMap.get(a.question_id);
@@ -540,6 +544,7 @@ export const submitPracticeAttempts = createServerFn({ method: "POST" })
         paper_id: data.paperId ?? null,
         tag_ids: data.tagIds ?? [],
         question_ids: ids,
+        hint_question_ids: hintIds,
         total,
         correct,
         score,
@@ -567,6 +572,81 @@ export const submitPracticeAttempts = createServerFn({ method: "POST" })
     }
 
     return { graded, total, correct, score, sessionId };
+  });
+
+export const getExamPracticeStats = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ studentId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    // Verify student identity through the authenticated own-profile RPC first.
+    const { data: ownProfiles, error: ownError } = await context.supabase.rpc("get_my_student_profile");
+    if (ownError) throw new Error("无法确认学生访问权限");
+    const own = ownProfiles?.find((s: { id: string }) => s.id === data.studentId);
+    let targetUserId: string | null = own?.auth_user_id ?? null;
+    if (!own) {
+      const { data: isAdmin } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
+      const { data: isTeacher } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "teacher" });
+      if (!isAdmin && !isTeacher) throw new Error("无权访问");
+      const { data: student } = await context.supabase.from("students").select("auth_user_id").eq("id", data.studentId).maybeSingle();
+      if (!student) throw new Error("学生不存在或无权访问");
+      targetUserId = student.auth_user_id;
+    }
+    if (!targetUserId) return { papers: [] };
+    const admin = await getAdmin();
+    const sessions: Array<{ id: string; paper_id: string | null; question_ids: string[]; hint_question_ids: string[] | null; completed_at: string | null }> = [];
+    for (let from = 0; ; from += 1000) {
+      const { data: page, error } = await admin.from("student_practice_sessions").select("id,paper_id,question_ids,hint_question_ids,completed_at").eq("user_id", targetUserId).eq("student_id", data.studentId).eq("mode", "paper").not("completed_at", "is", null).order("completed_at", { ascending: false }).order("id").range(from, from + 999);
+      if (error) throw new Error("整卷练习记录加载失败");
+      sessions.push(...(page ?? []));
+      if (!page || page.length < 1000) break;
+    }
+    const paperIds = [...new Set(sessions.flatMap((s) => s.paper_id ? [s.paper_id] : []))];
+    if (!paperIds.length) return { papers: [] };
+    const { data: papers, error: paperError } = await admin.from("math_papers").select("id,name,year").eq("kind", "paper").in("id", paperIds);
+    if (paperError) throw new Error("真题卷加载失败");
+    const questions: Array<{ id: string; paper_id: string; question_number: number }> = [];
+    for (let from = 0; ; from += 1000) {
+      const { data: page, error } = await admin.from("math_questions").select("id,paper_id,question_number").in("paper_id", paperIds).order("id").range(from, from + 999);
+      if (error) throw new Error("真题题目加载失败");
+      questions.push(...(page ?? []));
+      if (!page || page.length < 1000) break;
+    }
+    const questionMap = new Map(questions.map((q) => [q.id, q]));
+    const wholeSessions = sessions.filter((s) => isWholePaperAttempt(s.question_ids, questions.filter((q) => q.paper_id === s.paper_id).map((q) => q.id)));
+    if (!wholeSessions.length) return { papers: [] };
+    const logs: Array<{ session_id: string | null; question_id: string; is_correct: boolean }> = [];
+    for (let i = 0; i < wholeSessions.length; i += 100) {
+      for (let from = 0; ; from += 1000) {
+        const { data: page, error } = await admin.from("student_question_attempt_log").select("session_id,question_id,is_correct").eq("user_id", targetUserId).in("session_id", wholeSessions.slice(i, i + 100).map((s) => s.id)).order("id").range(from, from + 999);
+        if (error) throw new Error("逐题统计加载失败");
+        logs.push(...(page ?? []));
+        if (!page || page.length < 1000) break;
+      }
+    }
+    const tagNames = new Map<string, Set<string>>();
+    for (let i = 0; i < questions.length; i += 200) {
+      const { data: relations, error } = await admin.from("math_question_tags").select("question_id,math_tags(name)").in("question_id", questions.slice(i, i + 200).map((q) => q.id));
+      if (error) throw new Error("知识点加载失败");
+      for (const relation of relations ?? []) {
+        const name = (relation.math_tags as { name: string } | null)?.name;
+        const names = tagNames.get(relation.question_id) ?? new Set<string>();
+        if (name) names.add(name);
+        tagNames.set(relation.question_id, names);
+      }
+    }
+    return { papers: (papers ?? []).flatMap((paper) => {
+      const attempts = wholeSessions.filter((s) => s.paper_id === paper.id).flatMap((session) => {
+        const result = new Map(logs.filter((l) => l.session_id === session.id).map((l) => [l.question_id, l]));
+        if (!session.question_ids.every((id) => result.has(id))) return [];
+        const wrong = session.question_ids.filter((id) => !result.get(id)?.is_correct).map((id) => ({ number: questionMap.get(id)?.question_number ?? 0, tags: [...(tagNames.get(id) ?? [])] })).sort((a, b) => a.number - b.number);
+        const hints = session.hint_question_ids === null ? null : session.hint_question_ids.map((id) => questionMap.get(id)?.question_number).filter((n): n is number => n !== undefined).sort((a, b) => a - b);
+        const total = session.question_ids.length;
+        return [{ id: session.id, completedAt: session.completed_at, total, correct: total - wrong.length, accuracy: practiceAccuracy(total - wrong.length, total), wrong, hintNumbers: hints }];
+      });
+      const total = attempts.reduce((sum, a) => sum + a.total, 0);
+      const correct = attempts.reduce((sum, a) => sum + a.correct, 0);
+      return attempts.length ? [{ id: paper.id, name: paper.name, year: paper.year, total, correct, accuracy: practiceAccuracy(correct, total), attempts }] : [];
+    }).sort((a, b) => (b.year ?? 0) - (a.year ?? 0)) };
   });
 
 // ---------- read history (account owner or admin) ----------

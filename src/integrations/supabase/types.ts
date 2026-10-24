@@ -982,6 +982,7 @@ export type Database = {
           completed_at: string | null
           correct: number
           created_at: string
+          hint_question_ids: string[] | null
           id: string
           mode: string
           paper_id: string | null
@@ -996,6 +997,7 @@ export type Database = {
           completed_at?: string | null
           correct?: number
           created_at?: string
+          hint_question_ids?: string[] | null
           id?: string
           mode: string
           paper_id?: string | null
@@ -1010,6 +1012,7 @@ export type Database = {
           completed_at?: string | null
           correct?: number
           created_at?: string
+          hint_question_ids?: string[] | null
           id?: string
           mode?: string
           paper_id?: string | null

@@ -64,6 +64,13 @@
       "when": 1792827500406,
       "tag": "0008_record_exam_hint_generation_batches",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792827846643,
+      "tag": "0009_track_exam_practice_hint_usage",
+      "breakpoints": true
     }
   ]
 }
