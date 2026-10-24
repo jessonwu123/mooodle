@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { gradeCalcAnswer } from "./calc-grade";
+import { isMethodOnlyHint } from "./practice-hint";
 
 type SupaCtx = { supabase: any; userId: string };
 
@@ -61,6 +62,7 @@ type SafeQuestion = {
   options_image_url: string | null;
   paper_name?: string;
   year?: number | null;
+  practice_hint: string | null;
 };
 
 async function loadQuestions(questionIds: string[]): Promise<SafeQuestion[]> {
@@ -69,7 +71,7 @@ async function loadQuestions(questionIds: string[]): Promise<SafeQuestion[]> {
   const { data, error } = await admin
     .from("math_questions")
     .select(
-      "id, paper_id, question_number, stem, option_a, option_b, option_c, option_d, option_e, answer_type, stem_render_mode, options_render_mode, image_path, options_image_path, math_papers(name, year)",
+      "id, paper_id, question_number, stem, option_a, option_b, option_c, option_d, option_e, answer_type, stem_render_mode, options_render_mode, image_path, options_image_path, practice_hint, math_papers(name, year)",
     )
     .in("id", questionIds);
   if (error) throw new Error(error.message);
@@ -92,6 +94,7 @@ async function loadQuestions(questionIds: string[]): Promise<SafeQuestion[]> {
       options_image_url: await signImage(q.options_image_path),
       paper_name: (q as any).math_papers?.name ?? null,
       year: (q as any).math_papers?.year ?? null,
+      practice_hint: q.practice_hint && isMethodOnlyHint(q.practice_hint) ? q.practice_hint : null,
     });
   }
   // preserve order

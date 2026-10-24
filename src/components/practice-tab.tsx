@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Sparkles, BookOpen, Target, CheckCircle2, XCircle, Lock, Image as ImageIcon } from "lucide-react";
+import { Loader2, Sparkles, BookOpen, Target, CheckCircle2, XCircle, Lock, Lightbulb, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -43,6 +43,7 @@ type Q = {
   options_image_url: string | null;
   paper_name?: string | null;
   year?: number | null;
+  practice_hint?: string | null;
 };
 
 type Graded = { question_id: string; answer: string; is_correct: boolean; correct_answer: string };
@@ -81,15 +82,17 @@ function QuestionCard({
   const optsImg = q.options_render_mode === "image" && q.options_image_url;
 
   const [showOriginal, setShowOriginal] = useState(false);
+  const [showHint, setShowHint] = useState(false);
   const originalUrl = q.image_url || q.options_image_url || null;
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
-      <div className="mb-3 flex items-center gap-2 text-sm font-medium text-muted-foreground">
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-sm font-medium text-muted-foreground">
         <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-primary">
           第 {index + 1} 题
         </span>
         {q.year != null && <span className="text-xs">{q.year}</span>}
+        {q.practice_hint && <Button type="button" variant="outline" size="sm" onClick={() => setShowHint(true)} aria-label={`第 ${index + 1} 题提示`} className="h-7 gap-1 px-2 text-xs"><Lightbulb className="h-3.5 w-3.5" />提示</Button>}
         {originalUrl && (
           <button
             type="button"
@@ -117,6 +120,13 @@ function QuestionCard({
             <DialogTitle>第 {index + 1} 题 · 原题截图</DialogTitle>
           </DialogHeader>
           {originalUrl && <img src={originalUrl} alt="原题" className="w-full rounded-md border" />}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showHint} onOpenChange={setShowHint}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto" aria-describedby={`hint-${q.id}`}>
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Lightbulb className="h-4 w-4 text-primary" />第 {index + 1} 题 · 解题思路</DialogTitle></DialogHeader>
+          <div id={`hint-${q.id}`} className="whitespace-pre-line break-words text-sm leading-7 text-foreground">{q.practice_hint}</div>
         </DialogContent>
       </Dialog>
 
