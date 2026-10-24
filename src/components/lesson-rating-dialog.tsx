@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { StarRating } from "@/components/star-rating";
+import { MeetingNotesImport } from "@/components/meeting-notes-import";
 import { toast } from "sonner";
 import { Plus, Trash2, X } from "lucide-react";
 
@@ -167,9 +168,10 @@ export function LessonRatingDialog({
       ratingId = inserted.id as string;
     }
 
+    if (!ratingId) { setBusy(false); return; }
     const validItems = progressItems
       .map((p, i) => ({
-        rating_id: ratingId!,
+        rating_id: ratingId,
         item_name: p.item_name.trim(),
         percentage: clampPct(p.percentage),
         sort_order: i,
@@ -362,6 +364,7 @@ export function LessonRatingDialog({
 
             <div className="space-y-2">
               <Label>课堂总结</Label>
+              {editable && <MeetingNotesImport key={`${studentId}:${lessonDate}`} summary={summary} onImport={setSummary} disabled={busy || loading} />}
               {editable ? (
                 <Textarea
                   rows={4}
