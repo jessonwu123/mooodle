@@ -355,7 +355,8 @@ function PaperPanel({ studentId, onStart }: { studentId: string; onStart: (quest
         const res = await listFn({ data: { studentId } });
         setPapers(res.papers);
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "加载失败");
+        const msg = e instanceof Error ? e.message : "加载失败";
+              toast.error(msg.startsWith("Unauthorized") ? "登录已过期，请刷新页面并重新登录" : msg);
       } finally {
         setLoading(false);
       }
@@ -394,7 +395,8 @@ function PaperPanel({ studentId, onStart }: { studentId: string; onStart: (quest
                   if (requestedCount !== null && questions.length < requestedCount) toast.info(`本卷仅有 ${questions.length} 道可练习题，已全部选取`);
                   onStart(questions, p.id);
                 } catch (e) {
-                  toast.error(e instanceof Error ? e.message : "加载失败");
+                  const msg = e instanceof Error ? e.message : "加载失败";
+              toast.error(msg.startsWith("Unauthorized") ? "登录已过期，请刷新页面并重新登录" : msg);
                 } finally {
                   setBusyId("");
                 }
@@ -428,7 +430,8 @@ function TargetedPanel({ studentId, onStart }: { studentId: string; onStart: (qu
         const res = await listFn({ data: { studentId } });
         setTags(res.tags.filter((tag) => tag.category !== "calc"));
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "加载失败");
+        const msg = e instanceof Error ? e.message : "加载失败";
+              toast.error(msg.startsWith("Unauthorized") ? "登录已过期，请刷新页面并重新登录" : msg);
       } finally {
         setLoading(false);
       }
@@ -519,7 +522,8 @@ function TargetedPanel({ studentId, onStart }: { studentId: string; onStart: (qu
             if (res.questions.length < limit) toast.info(`匹配题目仅有 ${res.questions.length} 道，已全部选取`);
             onStart(res.questions, ids);
           } catch (e) {
-            toast.error(e instanceof Error ? e.message : "加载失败");
+            const msg = e instanceof Error ? e.message : "加载失败";
+              toast.error(msg.startsWith("Unauthorized") ? "登录已过期，请刷新页面并重新登录" : msg);
           } finally {
             setBusy(false);
           }
@@ -585,7 +589,8 @@ function AiPanel({
               if (res.questions.length < limit) toast.info(`可练习题目仅有 ${res.questions.length} 道，已全部选取`);
               onStart(res.questions);
             } catch (e) {
-              toast.error(e instanceof Error ? e.message : "加载失败");
+              const msg = e instanceof Error ? e.message : "加载失败";
+              toast.error(msg.startsWith("Unauthorized") ? "登录已过期，请刷新页面并重新登录" : msg);
             } finally {
               setBusy(false);
             }
@@ -620,7 +625,8 @@ function CalcPanel({ studentId, onStart }: { studentId: string; onStart: (questi
         const res = await listFn({ data: { studentId } });
         setTags(res.tags as any);
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "加载失败");
+        const msg = e instanceof Error ? e.message : "加载失败";
+              toast.error(msg.startsWith("Unauthorized") ? "登录已过期，请刷新页面并重新登录" : msg);
       } finally {
         setLoading(false);
       }
@@ -698,7 +704,8 @@ function CalcPanel({ studentId, onStart }: { studentId: string; onStart: (questi
             if (res.questions.length < limit) toast.info(`匹配题目仅有 ${res.questions.length} 道，已全部选取`);
             onStart(res.questions, ids);
           } catch (e) {
-            toast.error(e instanceof Error ? e.message : "加载失败");
+            const msg = e instanceof Error ? e.message : "加载失败";
+              toast.error(msg.startsWith("Unauthorized") ? "登录已过期，请刷新页面并重新登录" : msg);
           } finally {
             setBusy(false);
           }
@@ -739,7 +746,8 @@ function OnlinePracticeTab({ studentId }: { studentId: string }) {
       const s = await statsFn({ data: { studentId } });
       setStats(s);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "加载失败");
+      const msg = e instanceof Error ? e.message : "加载失败";
+              toast.error(msg.startsWith("Unauthorized") ? "登录已过期，请刷新页面并重新登录" : msg);
     }
   }, [studentId, statsFn]);
 

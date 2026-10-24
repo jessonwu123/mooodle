@@ -71,7 +71,7 @@ const dimensions = [
 function StudentProfile() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const { session } = useAuth();
+  const { session, loading: authLoading } = useAuth();
   const [student, setStudent] = useState<{ name: string; username: string | null; auth_user_id: string | null } | null>(null);
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [loading, setLoading] = useState(true);
@@ -152,6 +152,17 @@ function StudentProfile() {
     const numericRatings = ratings.map((r) => r[key] as number);
     return numericRatings.reduce((a, b) => a + b, 0) / ratings.length;
   };
+
+  if (!authLoading && !session) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center">
+        <p className="text-muted-foreground">登录已过期，请重新登录后继续练习</p>
+        <Link to="/login">
+          <Button>重新登录</Button>
+        </Link>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
