@@ -123,13 +123,24 @@ document.getElementById("title-read").addEventListener("click", async () => {
     await remember();if(sessions.length) render();
   } catch(error) {set(error.message || "无法读取标题，请手动填写课堂关键名字","err");}
 });
+const itemsBox = document.getElementById("items");
+const addItem = () => { const row=document.createElement("div");row.className="item";row.innerHTML='<input placeholder="知识点名称" maxlength="100"><input type="number" min="0" max="100" value="80"><span>%</span><button type="button">×</button>';row.querySelector("button").onclick=()=>row.remove();itemsBox.append(row); };
+document.getElementById("add-item").addEventListener("click", addItem);
+const collectRating = () => {
+  const r = {};
+  for (const k of ["focus","interaction","discipline","accuracy","overall"]) { const v=document.getElementById(`r-${k}`).value; if (v) r[k]=Number(v); }
+  const p=document.getElementById("r-progress").value; if (p!=="") r.overallProgress=Number(p);
+  r.items=[...itemsBox.querySelectorAll(".item")].map(row=>{const [n,v]=row.querySelectorAll("input");return {item_name:n.value.trim(),percentage:Number(v.value||80)};}).filter(i=>i.item_name);
+  return r;
+};
+const resetRating = () => { for (const k of ["focus","interaction","discipline","accuracy","overall"]) document.getElementById(`r-${k}`).value=""; document.getElementById("r-progress").value=""; itemsBox.replaceChildren(); };
 save.addEventListener("click", async () => {
   if (!select.value || !notes.value.trim() || notes.value.length>100000) return;
   const lesson=sessions.find(s=>s.id===select.value);
   if (lesson?.ambiguousDay) {set("同一学生当天有多节课，请先到学生档案手动确认；当前评分按学生和日期保存，不能独立存档。","err");return;}
-  if (!confirm(`将纪要追加到 ${lesson.date} ${lesson.time} · ${lesson.name}（${lesson.studentName}）的课堂总结？不会修改已有评分。`)) return;
+  if (!confirm(`将纪要追加到 ${lesson.date} ${lesson.time} · ${lesson.name}（${lesson.studentName}）的课堂总结？${Object.keys(collectRating()).length>1||collectRating().items.length?"填写的评分和授课进度会同步到 mooodle。":"未填写评分，已有评分保持不变。"}`)) return;
   await remember();save.disabled=true;set("存档中…");
-  try {const result=await sendToApp({action:"save",date:date.value,sessionId:select.value,text:notes.value.trim()});set(result.error || result.message || "已提交，请到学生档案核对", result.error ? "err" : "ok");}
+  try {const result=await sendToApp({action:"save",date:date.value,sessionId:select.value,text:notes.value.trim(),rating:collectRating()});if(!result.error)resetRating();set(result.error || result.message || "已提交，请到学生档案核对", result.error ? "err" : "ok");}
   catch {set("未收到确认，请先查看课堂总结，避免重复存档。","err");}
   finally {update();}
 });
