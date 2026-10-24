@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { generateInviteCode, isRestricted, isValidInviteCode, LIMITED_HINT_DAILY, UPGRADE_WECHAT } from "./student-access-rules";
 
 describe("student access rules", () => {
