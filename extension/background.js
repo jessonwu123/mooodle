@@ -17,7 +17,8 @@ async function call(body, retry = true) {
   const res = await fetch(`${APP}/api/meeting-plugin`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (res.status === 401 && retry) { await chrome.storage.local.remove("mooodleToken"); return call(body, false); }
   const data = await res.json().catch(() => null);
-  if (!data) throw new Error("mooodle 无响应，请确认网站已发布最新版本");
+  if (!data) throw new Error(`课表读取失败（${res.status}），请确认网站已发布最新版本`);
+  if (!res.ok) throw new Error(data.error || `请求失败（${res.status}），请重试`);
   return data;
 }
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
