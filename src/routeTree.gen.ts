@@ -21,6 +21,7 @@ import { Route as AdminCalcPracticeRouteImport } from './routes/admin.calc-pract
 import { Route as AdminClassifiedBankRouteImport } from './routes/admin.classified-bank'
 import { Route as AdminHomeworkRouteImport } from './routes/admin.homework'
 import { Route as AdminScheduleRouteImport } from './routes/admin.schedule'
+import { Route as ApiMeetingPluginRouteImport } from './routes/api/meeting-plugin'
 import { Route as ApiPracticeFeedbackRouteImport } from './routes/api/practice-feedback'
 import { Route as StudentIdRouteImport } from './routes/student.$id'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
@@ -94,6 +95,11 @@ const AdminScheduleRoute = AdminScheduleRouteImport.update({
   path: '/schedule',
   getParentRoute: () => AdminRoute,
 } as any)
+const ApiMeetingPluginRoute = ApiMeetingPluginRouteImport.update({
+  id: '/api/meeting-plugin',
+  path: '/api/meeting-plugin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPracticeFeedbackRoute = ApiPracticeFeedbackRouteImport.update({
   id: '/api/practice-feedback',
   path: '/api/practice-feedback',
@@ -159,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/admin/classified-bank': typeof AdminClassifiedBankRoute
   '/admin/homework': typeof AdminHomeworkRoute
   '/admin/schedule': typeof AdminScheduleRoute
+  '/api/meeting-plugin': typeof ApiMeetingPluginRoute
   '/api/practice-feedback': typeof ApiPracticeFeedbackRoute
   '/student/$id': typeof StudentIdRoute
   '/admin/': typeof AdminIndexRoute
@@ -182,6 +189,7 @@ export interface FileRoutesByTo {
   '/admin/classified-bank': typeof AdminClassifiedBankRoute
   '/admin/homework': typeof AdminHomeworkRoute
   '/admin/schedule': typeof AdminScheduleRoute
+  '/api/meeting-plugin': typeof ApiMeetingPluginRoute
   '/api/practice-feedback': typeof ApiPracticeFeedbackRoute
   '/student/$id': typeof StudentIdRoute
   '/admin': typeof AdminIndexRoute
@@ -207,6 +215,7 @@ export interface FileRoutesById {
   '/admin/classified-bank': typeof AdminClassifiedBankRoute
   '/admin/homework': typeof AdminHomeworkRoute
   '/admin/schedule': typeof AdminScheduleRoute
+  '/api/meeting-plugin': typeof ApiMeetingPluginRoute
   '/api/practice-feedback': typeof ApiPracticeFeedbackRoute
   '/student/$id': typeof StudentIdRoute
   '/admin/': typeof AdminIndexRoute
@@ -233,6 +242,7 @@ export interface FileRouteTypes {
     | '/admin/classified-bank'
     | '/admin/homework'
     | '/admin/schedule'
+    | '/api/meeting-plugin'
     | '/api/practice-feedback'
     | '/student/$id'
     | '/admin/'
@@ -256,6 +266,7 @@ export interface FileRouteTypes {
     | '/admin/classified-bank'
     | '/admin/homework'
     | '/admin/schedule'
+    | '/api/meeting-plugin'
     | '/api/practice-feedback'
     | '/student/$id'
     | '/admin'
@@ -280,6 +291,7 @@ export interface FileRouteTypes {
     | '/admin/classified-bank'
     | '/admin/homework'
     | '/admin/schedule'
+    | '/api/meeting-plugin'
     | '/api/practice-feedback'
     | '/student/$id'
     | '/admin/'
@@ -301,6 +313,7 @@ export interface RootRouteChildren {
   MeetingImportRoute: typeof MeetingImportRoute
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  ApiMeetingPluginRoute: typeof ApiMeetingPluginRoute
   ApiPracticeFeedbackRoute: typeof ApiPracticeFeedbackRoute
   StudentIdRoute: typeof StudentIdRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
@@ -392,6 +405,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/schedule'
       preLoaderRoute: typeof AdminScheduleRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/api/meeting-plugin': {
+      id: '/api/meeting-plugin'
+      path: '/api/meeting-plugin'
+      fullPath: '/api/meeting-plugin'
+      preLoaderRoute: typeof ApiMeetingPluginRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/practice-feedback': {
       id: '/api/practice-feedback'
@@ -505,6 +525,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
+  ApiMeetingPluginRoute: ApiMeetingPluginRoute,
   ApiPracticeFeedbackRoute: ApiPracticeFeedbackRoute,
   StudentIdRoute: StudentIdRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
