@@ -21,6 +21,7 @@ import {
 } from "@/lib/practice.functions";
 import { MathInput } from "@/components/math-input";
 import { Calculator } from "lucide-react";
+import { PracticeDownloadTab } from "@/components/practice-download-tab";
 
 type Q = {
   id: string;
@@ -682,6 +683,19 @@ function CalcPanel({ studentId, onStart }: { studentId: string; onStart: (questi
 // ---------- main ----------
 
 export function PracticeTab({ studentId }: { studentId: string }) {
+  return (
+    <Tabs defaultValue="online" className="space-y-5">
+      <TabsList>
+        <TabsTrigger value="online">在线练习</TabsTrigger>
+        <TabsTrigger value="download">下载</TabsTrigger>
+      </TabsList>
+      <TabsContent value="online"><OnlinePracticeTab studentId={studentId} /></TabsContent>
+      <TabsContent value="download"><PracticeDownloadTab studentId={studentId} /></TabsContent>
+    </Tabs>
+  );
+}
+
+function OnlinePracticeTab({ studentId }: { studentId: string }) {
   const statsFn = useServerFn(getPracticeStats);
   const [stats, setStats] = useState<{ doneCount: number; totalWrong: number; aiUnlocked: boolean; aiThreshold: number } | null>(null);
   const [active, setActive] = useState<
@@ -723,7 +737,7 @@ export function PracticeTab({ studentId }: { studentId: string }) {
 
 
       <Tabs defaultValue="paper" className="w-full">
-        <TabsList className="grid w-full max-w-2xl grid-cols-4">
+        <TabsList className="flex h-auto w-full max-w-2xl flex-wrap justify-start gap-1 [&>button]:whitespace-nowrap">
           <TabsTrigger value="paper">
             <BookOpen className="mr-1.5 h-4 w-4" />历年真题
           </TabsTrigger>

@@ -28,6 +28,16 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/student/$id")({
   component: StudentProfile,
+  head: () => ({
+    meta: [
+      { title: "学生档案与在线练习 · 学习管理" },
+      { name: "description", content: "查看课堂记录、学习统计与课程表，在线做题或下载真题和练习 PDF。" },
+      { property: "og:title", content: "学生档案与在线练习 · 学习管理" },
+      { property: "og:description", content: "查看课堂记录、学习统计与课程表，在线做题或下载真题和练习 PDF。" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
 });
 
 

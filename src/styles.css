@@ -84,6 +84,10 @@
   --accent-foreground: oklch(0.28 0.08 200);
   --star: oklch(0.82 0.16 85);
   --star-empty: oklch(0.9 0.02 200);
+  --document-paper: #ffffff;
+  --document-ink: #111111;
+  --document-muted: #555555;
+  --document-rule: #dddddd;
   --destructive: oklch(0.6 0.22 25);
   --destructive-foreground: oklch(0.99 0.01 200);
   --border: oklch(0.9 0.025 200);
@@ -158,3 +162,14 @@ math-field::part(virtual-keyboard-toggle),
 math-field::part(menu-toggle) {
   display: none;
 }
+
+.homework-print {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 760px;
+  background: var(--document-paper);
+  color: var(--document-ink);
+}
+.homework-print-header { padding: 8px 4px 12px; border-bottom: 1px solid var(--document-rule); }
+.homework-print-meta { font-size: 13px; margin-top: 8px; display: flex; justify-content: space-between; color: var(--document-muted); }
