@@ -1,4 +1,5 @@
 # Architecture decisions
+- Institution classes use students.archive_kind with an owner/name unique key and imported_lessons.archive_student_id; import triggers link future rows and course-protection triggers prohibit manual metadata or login changes while existing assessment modules remain reusable.
 - Meeting-note imports use a user-triggered clipboard extension and consent-gated same-window nonce bridge on /meeting-import; the logged-in app reads teacher-owned sessions and confirms summary-only appends with optimistic concurrency, never exposes credentials, never invents new scores, and refuses ambiguous same-day sessions because ratings remain date-keyed.
 - Online practice hints are pre-generated and stored on the question, served through existing authenticated question access and validated as method-only; opening hints never triggers AI or spends additional credits.
 - Exam statistics identify whole-paper sessions by exact question-set coverage and derive correctness from saved attempt logs; sessions store validated pre-submission hint IDs, with NULL reserved for untracked historical usage.

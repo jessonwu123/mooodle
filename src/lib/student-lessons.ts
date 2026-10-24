@@ -24,7 +24,7 @@ function pad(n: number) {
 export async function fetchStudentLessons(
   studentId: string,
 ): Promise<StudentLessonOption[]> {
-  const [{ data: sng }, { data: stu }, { data: cans }] = await Promise.all([
+  const [{ data: sng }, { data: stu }, { data: cans }, {data: imported}] = await Promise.all([
     supabase.from("single_lessons").select("*").eq("student_id", studentId),
     supabase
       .from("students")
@@ -37,6 +37,7 @@ export async function fetchStudentLessons(
       .from("cancelled_lessons")
       .select("lesson_at, kind")
       .eq("student_id", studentId),
+    supabase.from("imported_lessons").select("lesson_date,start_time,end_time,class_name").eq("archive_student_id",studentId),
   ]);
 
   const cancelled = new Set<string>();
@@ -65,7 +66,7 @@ export async function fetchStudentLessons(
     }
   }
 
-  for (const r of (sng ?? []) as Array<{
+  for (const r of [...(sng ?? []),...(imported ?? [])] as Array<{
     lesson_date: string;
     start_time: string;
     end_time: string;

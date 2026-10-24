@@ -36,6 +36,8 @@ import { AdminStudentScheduleTab } from "@/components/admin-student-schedule-tab
 import { fetchStudentLessons, type StudentLessonOption } from "@/lib/student-lessons";
 import type { AssessmentTimestamps } from "@/lib/assessment-updates";
 import { MeetingNotesImport } from "@/components/meeting-notes-import";
+import { InstitutionCoursePanel } from "@/components/institution-course-panel";
+import { isInstitutionClass } from "@/lib/institution-class-rules";
 
 export const Route = createFileRoute("/admin/student/$id")({
   head: () => ({ meta: [
@@ -86,7 +88,7 @@ function clampPct(n: number) {
 
 function ManageStudent() {
   const { id } = Route.useParams();
-  const [student, setStudent] = useState<{ name: string } | null>(null);
+  const [student, setStudent] = useState<{ name: string; archiveKind: string } | null>(null);
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -116,7 +118,7 @@ function ManageStudent() {
     const [{ data: s }, { data: r }] = await Promise.all([
       supabase
         .from("students")
-        .select("name, knowledge_updated_at, thinking_updated_at, learning_quality_updated_at")
+        .select("name, archive_kind, knowledge_updated_at, thinking_updated_at, learning_quality_updated_at")
         .eq("id", id)
         .maybeSingle(),
       supabase
@@ -128,7 +130,7 @@ function ManageStudent() {
         .order("lesson_date", { ascending: false }),
     ]);
     if (s) {
-      setStudent({ name: s.name });
+      setStudent({ name: s.name, archiveKind:s.archive_kind });
       setTimestamps({
         knowledge: s.knowledge_updated_at,
         thinking: s.thinking_updated_at,
@@ -266,7 +268,7 @@ function ManageStudent() {
       </Link>
 
       <div className="mb-8">
-        <div className="text-sm text-muted-foreground">学生档案</div>
+        <div className="text-sm text-muted-foreground">{isInstitutionClass(student?.archiveKind)?"机构班级档案":"学生档案"}</div>
         <h1 className="mt-1 text-3xl font-bold tracking-tight text-foreground">
           {student?.name}
         </h1>
@@ -615,14 +617,14 @@ function ManageStudent() {
         </TabsContent>
 
         <TabsContent value="course">
-          <div className="space-y-6">
+          {isInstitutionClass(student?.archiveKind)?<InstitutionCoursePanel studentId={id}/>:<div className="space-y-6">
             <CourseInfoPanel studentId={id} />
             <SingleLessonsPanel studentId={id} />
-          </div>
+          </div>}
         </TabsContent>
 
         <TabsContent value="schedule">
-          <AdminStudentScheduleTab studentId={id} />
+          {isInstitutionClass(student?.archiveKind)?<InstitutionCoursePanel studentId={id} schedule/>:<AdminStudentScheduleTab studentId={id} />}
         </TabsContent>
 
         <TabsContent value="analytics">
