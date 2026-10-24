@@ -1,5 +1,5 @@
 # Architecture decisions
-- Meeting-note imports use a user-triggered clipboard extension and same-window nonce-correlated draft bridge; the existing rating UI confirms merges and persists through its current authenticated access, so no external login tokens or automatic writes are introduced.
+- Meeting-note imports use a user-triggered clipboard extension and consent-gated same-window nonce bridge on /meeting-import; the logged-in app reads teacher-owned sessions and confirms summary-only appends with optimistic concurrency, never exposes credentials, never invents new scores, and refuses ambiguous same-day sessions because ratings remain date-keyed.
 - Online practice hints are pre-generated and stored on the question, served through existing authenticated question access and validated as method-only; opening hints never triggers AI or spends additional credits.
 - Exam statistics identify whole-paper sessions by exact question-set coverage and derive correctness from saved attempt logs; sessions store validated pre-submission hint IDs, with NULL reserved for untracked historical usage.
 - Bulk hint generation retains private batch provenance in math_question_hint_generation_batches; application users have no access, and only explicitly authorized maintenance tools may stage and apply validated hints.

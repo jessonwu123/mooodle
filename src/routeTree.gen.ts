@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as McpRouteImport } from './routes/mcp'
+import { Route as MeetingImportRouteImport } from './routes/meeting-import'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
@@ -49,6 +50,11 @@ const LoginRoute = LoginRouteImport.update({
 const McpRoute = McpRouteImport.update({
   id: '/mcp',
   path: '/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MeetingImportRoute = MeetingImportRouteImport.update({
+  id: '/meeting-import',
+  path: '/meeting-import',
   getParentRoute: () => rootRouteImport,
 } as any)
 const Char91DotmcpChar93ListToolsRoute =
@@ -146,6 +152,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
+  '/meeting-import': typeof MeetingImportRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/calc-practice': typeof AdminCalcPracticeRoute
@@ -168,6 +175,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
+  '/meeting-import': typeof MeetingImportRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/calc-practice': typeof AdminCalcPracticeRoute
@@ -192,6 +200,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
+  '/meeting-import': typeof MeetingImportRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/calc-practice': typeof AdminCalcPracticeRoute
@@ -217,6 +226,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/login'
     | '/mcp'
+    | '/meeting-import'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/admin/calc-practice'
@@ -239,6 +249,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/mcp'
+    | '/meeting-import'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/admin/calc-practice'
@@ -262,6 +273,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/login'
     | '/mcp'
+    | '/meeting-import'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/admin/calc-practice'
@@ -286,6 +298,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   LoginRoute: typeof LoginRoute
   McpRoute: typeof McpRoute
+  MeetingImportRoute: typeof MeetingImportRoute
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   ApiPracticeFeedbackRoute: typeof ApiPracticeFeedbackRoute
@@ -322,6 +335,13 @@ declare module '@tanstack/react-router' {
       path: '/mcp'
       fullPath: '/mcp'
       preLoaderRoute: typeof McpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/meeting-import': {
+      id: '/meeting-import'
+      path: '/meeting-import'
+      fullPath: '/meeting-import'
+      preLoaderRoute: typeof MeetingImportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/.mcp/list-tools': {
@@ -481,6 +501,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   LoginRoute: LoginRoute,
   McpRoute: McpRoute,
+  MeetingImportRoute: MeetingImportRoute,
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
