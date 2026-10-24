@@ -85,6 +85,13 @@
       "when": 1792834770443,
       "tag": "0011_limited_student_lifetime_ai_quota",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792857965761,
+      "tag": "0012_institution_class_archives",
+      "breakpoints": true
     }
   ]
 }

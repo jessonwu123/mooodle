@@ -128,6 +128,7 @@ export type Database = {
       }
       imported_lessons: {
         Row: {
+          archive_student_id: string | null
           class_name: string
           created_at: string
           created_by: string
@@ -137,6 +138,7 @@ export type Database = {
           start_time: string
         }
         Insert: {
+          archive_student_id?: string | null
           class_name: string
           created_at?: string
           created_by: string
@@ -146,6 +148,7 @@ export type Database = {
           start_time: string
         }
         Update: {
+          archive_student_id?: string | null
           class_name?: string
           created_at?: string
           created_by?: string
@@ -154,7 +157,15 @@ export type Database = {
           lesson_date?: string
           start_time?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "imported_lessons_archive_student_id_fkey"
+            columns: ["archive_student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       math_paper_folder_default_permissions: {
         Row: {
@@ -1180,12 +1191,14 @@ export type Database = {
       students: {
         Row: {
           access_level: string
+          archive_kind: string
           auth_user_id: string | null
           created_at: string
           created_by: string | null
           hourly_rate: number | null
           hours_per_lesson: number | null
           id: string
+          institution_class_key: string | null
           knowledge_updated_at: string | null
           learning_quality_updated_at: string | null
           name: string
@@ -1201,12 +1214,14 @@ export type Database = {
         }
         Insert: {
           access_level?: string
+          archive_kind?: string
           auth_user_id?: string | null
           created_at?: string
           created_by?: string | null
           hourly_rate?: number | null
           hours_per_lesson?: number | null
           id?: string
+          institution_class_key?: string | null
           knowledge_updated_at?: string | null
           learning_quality_updated_at?: string | null
           name: string
@@ -1222,12 +1237,14 @@ export type Database = {
         }
         Update: {
           access_level?: string
+          archive_kind?: string
           auth_user_id?: string | null
           created_at?: string
           created_by?: string | null
           hourly_rate?: number | null
           hours_per_lesson?: number | null
           id?: string
+          institution_class_key?: string | null
           knowledge_updated_at?: string | null
           learning_quality_updated_at?: string | null
           name?: string
