@@ -25,6 +25,48 @@ const restoreOriginal = document.getElementById("original-restore");
 let polishController;
 let originalText = "";
 let feedbackReady = false;
+const noteImages = document.getElementById("note-images");
+const noteImageList = document.getElementById("note-image-list");
+let noteImageData = [];
+const renderNoteImages = () => {
+  noteImageList.replaceChildren();
+  noteImageData.forEach((image, index) => {
+    const item = document.createElement("span");
+    item.className = "note-image";
+    const img = document.createElement("img");
+    img.src = image; img.alt = `课堂笔记图片 ${index + 1}`;
+    const remove = document.createElement("button");
+    remove.type = "button"; remove.textContent = "×"; remove.title = "移除这张图片";
+    remove.onclick = () => { noteImageData.splice(index, 1); renderNoteImages(); };
+    item.append(img, remove);
+    noteImageList.append(item);
+  });
+};
+const readNoteImage = (file) => new Promise((resolve, reject) => {
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    URL.revokeObjectURL(url);
+    const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale);
+    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+    resolve(canvas.toDataURL("image/jpeg", 0.85));
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("图片读取失败，请换一张重试")); };
+  img.src = url;
+});
+noteImages.addEventListener("change", async () => {
+  const files = [...(noteImages.files || [])];
+  noteImages.value = "";
+  if (!files.length) return;
+  if (noteImageData.length + files.length > 4) { set("课堂笔记图片最多 4 张。", "err"); return; }
+  try {
+    for (const file of files) noteImageData.push(await readNoteImage(file));
+    renderNoteImages();
+    set(`已添加课堂笔记图片，生成反馈时会一并参考（共 ${noteImageData.length} 张）。`, "ok");
+  } catch (error) { set(error.message || "图片读取失败，请换一张重试", "err"); }
+});
 const set = (msg, cls = "") => { status.textContent = notice ? `${notice}${msg}` : msg; status.className = cls; };
 const loginNote = (msg) => `${(msg || "登录成功，已连接 mooodle").trim().replace(/。$/, "")}。`;
 const sendToApp = async (message) => {
