@@ -19,3 +19,4 @@
 - Non-streaming app AI calls go through src/lib/ai/astra-chat.server.ts (Responses API, streamed, chat-completions-shaped result) so every feature shares one default model and existing parsers stay unchanged.
 - Extension credential-bearing messages require both the extension sender ID and the exact packaged popup URL, not absence of sender.tab; this admits legitimate popup pages while excluding website content scripts.
 - Meeting session listing combines teacher-owned recurring, single and archive-linked imported lessons using the selected date; this keeps institution classes available to the same rating-backed import flow.
+- Extension meeting polishing uses a bearer-authenticated teacher/admin-only public server route and the shared Responses stream helper; separate generated preview and retained local source prevent silent replacement or archival, while durable gateway denial state prevents repeated blocked calls.

@@ -32,6 +32,7 @@ import { Route as AdminQuestionBankPaperIdRouteImport } from './routes/admin.que
 import { Route as AdminStudentIdRouteImport } from './routes/admin.student.$id'
 import { Route as AdminTeachersIndexRouteImport } from './routes/admin.teachers.index'
 import { Route as AdminTeachersTeacherIdRouteImport } from './routes/admin.teachers.$teacherId'
+import { Route as ApiPublicMeetingPolishRouteImport } from './routes/api/public/meeting-polish'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -152,6 +153,11 @@ const AdminTeachersTeacherIdRoute = AdminTeachersTeacherIdRouteImport.update({
   path: '/teachers/$teacherId',
   getParentRoute: () => AdminRoute,
 } as any)
+const ApiPublicMeetingPolishRoute = ApiPublicMeetingPolishRouteImport.update({
+  id: '/api/public/meeting-polish',
+  path: '/api/public/meeting-polish',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -175,6 +181,7 @@ export interface FileRoutesByFullPath {
   '/admin/question-bank/$paperId': typeof AdminQuestionBankPaperIdRoute
   '/admin/student/$id': typeof AdminStudentIdRoute
   '/admin/teachers/$teacherId': typeof AdminTeachersTeacherIdRoute
+  '/api/public/meeting-polish': typeof ApiPublicMeetingPolishRoute
   '/admin/question-bank/': typeof AdminQuestionBankIndexRoute
   '/admin/teachers/': typeof AdminTeachersIndexRoute
 }
@@ -199,6 +206,7 @@ export interface FileRoutesByTo {
   '/admin/question-bank/$paperId': typeof AdminQuestionBankPaperIdRoute
   '/admin/student/$id': typeof AdminStudentIdRoute
   '/admin/teachers/$teacherId': typeof AdminTeachersTeacherIdRoute
+  '/api/public/meeting-polish': typeof ApiPublicMeetingPolishRoute
   '/admin/question-bank': typeof AdminQuestionBankIndexRoute
   '/admin/teachers': typeof AdminTeachersIndexRoute
 }
@@ -225,6 +233,7 @@ export interface FileRoutesById {
   '/admin/question-bank/$paperId': typeof AdminQuestionBankPaperIdRoute
   '/admin/student/$id': typeof AdminStudentIdRoute
   '/admin/teachers/$teacherId': typeof AdminTeachersTeacherIdRoute
+  '/api/public/meeting-polish': typeof ApiPublicMeetingPolishRoute
   '/admin/question-bank/': typeof AdminQuestionBankIndexRoute
   '/admin/teachers/': typeof AdminTeachersIndexRoute
 }
@@ -252,6 +261,7 @@ export interface FileRouteTypes {
     | '/admin/question-bank/$paperId'
     | '/admin/student/$id'
     | '/admin/teachers/$teacherId'
+    | '/api/public/meeting-polish'
     | '/admin/question-bank/'
     | '/admin/teachers/'
   fileRoutesByTo: FileRoutesByTo
@@ -276,6 +286,7 @@ export interface FileRouteTypes {
     | '/admin/question-bank/$paperId'
     | '/admin/student/$id'
     | '/admin/teachers/$teacherId'
+    | '/api/public/meeting-polish'
     | '/admin/question-bank'
     | '/admin/teachers'
   id:
@@ -301,6 +312,7 @@ export interface FileRouteTypes {
     | '/admin/question-bank/$paperId'
     | '/admin/student/$id'
     | '/admin/teachers/$teacherId'
+    | '/api/public/meeting-polish'
     | '/admin/question-bank/'
     | '/admin/teachers/'
   fileRoutesById: FileRoutesById
@@ -318,6 +330,7 @@ export interface RootRouteChildren {
   StudentIdRoute: typeof StudentIdRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
+  ApiPublicMeetingPolishRoute: typeof ApiPublicMeetingPolishRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -483,6 +496,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminTeachersTeacherIdRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/api/public/meeting-polish': {
+      id: '/api/public/meeting-polish'
+      path: '/api/public/meeting-polish'
+      fullPath: '/api/public/meeting-polish'
+      preLoaderRoute: typeof ApiPublicMeetingPolishRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -530,6 +550,7 @@ const rootRouteChildren: RootRouteChildren = {
   StudentIdRoute: StudentIdRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
+  ApiPublicMeetingPolishRoute: ApiPublicMeetingPolishRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
