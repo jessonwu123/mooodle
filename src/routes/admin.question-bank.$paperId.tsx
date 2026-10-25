@@ -1,3 +1,4 @@
+import { useQuestionBankAccess } from "@/hooks/use-question-bank-access";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -31,6 +32,7 @@ import { EditableQuestionImage } from "@/components/editable-question-image";
 
 export const Route = createFileRoute("/admin/question-bank/$paperId")({
   component: PaperDetailPage,
+  head: () => ({ meta: [{ title: "mooodle · 数学试卷详情" }, { name: "description", content: "查看试卷题目、标签与详细解答。" }, { property: "og:title", content: "mooodle · 数学试卷详情" }, { property: "og:description", content: "查看试卷题目、标签与详细解答。" }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
 });
 
 type TagRow = {
@@ -69,6 +71,7 @@ interface QuestionRow {
 }
 
 function PaperDetailPage() {
+  const { canEdit } = useQuestionBankAccess();
   const { paperId } = Route.useParams();
   const fetchTags = useServerFn(listTags);
   const fetchQuestionTags = useServerFn(listQuestionTags);
@@ -355,6 +358,7 @@ function PaperDetailPage() {
           </div>
           <h1 className="mt-1 text-2xl font-bold text-foreground">{paper.name}</h1>
         </div>
+        {canEdit && <>
         <Button
           onClick={handleExtractSolutions}
           disabled={extractingSolutions}
@@ -407,6 +411,7 @@ function PaperDetailPage() {
           <Sparkles className="h-4 w-4" />
           {autoTagging ? "AI 打标签中..." : "AI 自动打标签"}
         </Button>
+        </>}
       </div>
       <div className="space-y-3">
         {questions.map((q) => {
@@ -455,12 +460,12 @@ function PaperDetailPage() {
               ) : (
                 <>
                   <MathText block text={q.stem} className="mt-1 whitespace-pre-wrap text-muted-foreground" />
-                  {(stemImg || q.image_path === null) && (
+                  {(stemImg || (canEdit && q.image_path === null)) && (
                     <Collapsible className="mt-2" defaultOpen={!stemImg}>
                       <CollapsibleTrigger asChild>
                         <Button variant="outline" size="sm" className="gap-1.5 group">
                           <ChevronDown className="h-3.5 w-3.5 transition-transform group-data-[state=open]:rotate-180" />
-                          {stemImg ? "查看 / 替换原题" : "上传原题截图"}
+                          {stemImg ? (canEdit ? "查看 / 替换原题" : "查看原题") : "上传原题截图"}
                         </Button>
                       </CollapsibleTrigger>
                       <CollapsibleContent className="mt-2">
@@ -553,17 +558,17 @@ function PaperDetailPage() {
                     >
                       {isAi && <Sparkles className="h-3 w-3 opacity-60" />}
                       {t.name}
-                      <button
+                      {canEdit && <Button variant="ghost" size="icon"
                         onClick={() => toggleTag(q.id, tid)}
                         className="ml-0.5 rounded-full p-0.5 hover:bg-background"
                         aria-label="移除"
                       >
                         <X className="h-3 w-3" />
-                      </button>
+                      </Button>}
                     </span>
                   );
                 })}
-                <Popover>
+                {canEdit && <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
                       + 添加
@@ -599,7 +604,7 @@ function PaperDetailPage() {
                       </div>
                     )}
                   </PopoverContent>
-                </Popover>
+                </Popover>}
               </div>
             </div>
           );
@@ -695,12 +700,12 @@ function SolutionView({
           <TabsTrigger value="zh">中文</TabsTrigger>
           <TabsTrigger value="en">English</TabsTrigger>
         </TabsList>
-        <TabsContent value="zh" className="mt-3">{renderBody(mdZh!)}</TabsContent>
-        <TabsContent value="en" className="mt-3">{renderBody(md!)}</TabsContent>
+        <TabsContent value="zh" className="mt-3">{renderBody(mdZh ?? "")}</TabsContent>
+        <TabsContent value="en" className="mt-3">{renderBody(md ?? "")}</TabsContent>
       </Tabs>
     );
   }
-  if (hasZh) return renderBody(mdZh!);
-  if (hasEn) return renderBody(md!);
+  if (hasZh) return renderBody(mdZh ?? "");
+  if (hasEn) return renderBody(md ?? "");
   return null;
 }
