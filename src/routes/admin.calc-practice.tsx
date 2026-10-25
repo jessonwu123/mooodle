@@ -9,6 +9,8 @@ export const Route = createFileRoute("/admin/calc-practice")({
       { name: "description", content: "按知识点标签管理和筛选计算题。" },
       { property: "og:title", content: "计算练习 · 后台" },
       { property: "og:description", content: "按知识点标签管理和筛选计算题。" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
 });
