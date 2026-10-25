@@ -46,8 +46,12 @@ export async function handleMeetingPolish(request: Request): Promise<Response> {
   const imageNote = images.length
     ? `\n随附 ${images.length} 张课堂笔记图片，包含本节课讲解的题目、解题思路与过程。纪要转写可能省略或误记算式与图形条件，提炼时应结合图片中的原题与板书核对条件、算式与结果；只有题目或圈选答案而无解题过程的图片内容应省略，反馈正文不展示具体案例；纪要与图片冲突时以图片为准，但仍不得编造两者都没有的课堂事实。`
     : "";
+  const transcriptNote = transcript
+    ? `\n随附课堂发言逐字稿，为语音自动转写，可能有个别错字、漏句或发言人混淆；用于补充纪要未记录的讲解过程、师生互动与学生回答细节。逐字稿与纪要冲突时以纪要为准，与图片冲突时以图片为准；不编造三者都没有的课堂事实，不逐句引用逐字稿原文。`
+    : "";
+  const userText = transcript ? `【会议纪要】\n${text}\n\n【课堂发言逐字稿（语音转写）】\n${transcript}` : text;
   const userContent: Array<{ type: "text"; text: string } | { type: "image"; image: URL }> = [
-    { type: "text", text },
+    { type: "text", text: userText },
     ...images.map((image) => ({ type: "image" as const, image: new URL(image) })),
   ];
   const call = createResponsesCall(request, { baseURL: "https://ai.gateway.lovable.dev/v1", apiKey, model: "openai/gpt-6-astra" }, [{ role: "user", content: userContent }], withMeetingPolishLanguage(instructions, language) + imageNote, { actorId: auth.user.id, feature: "meeting_feedback" });
