@@ -14,6 +14,15 @@ let sessions = [];
 let notice = "";
 let loadRequest = 0;
 const loadButton = document.getElementById("load");
+const polish = document.getElementById("polish");
+const stopPolish = document.getElementById("polish-stop");
+const feedback = document.getElementById("feedback");
+const useFeedback = document.getElementById("feedback-use");
+const copyFeedback = document.getElementById("feedback-copy");
+const restoreOriginal = document.getElementById("original-restore");
+let polishController;
+let originalText = "";
+let feedbackReady = false;
 const set = (msg, cls = "") => { status.textContent = notice ? `${notice}${msg}` : msg; status.className = cls; };
 const loginNote = (msg) => `${(msg || "登录成功，已连接 mooodle").trim().replace(/。$/, "")}。`;
 const sendToApp = async (message) => {
@@ -28,8 +37,8 @@ const sendToApp = async (message) => {
   } finally { clearTimeout(timer); }
 };
 date.value = new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Shanghai",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
-const update = () => { stage.disabled = !notes.value.trim(); save.disabled = !notes.value.trim() || !select.value; };
-const remember = () => chrome.storage.local.set({[key]:{text:notes.value,title:title.value,createdAt:Date.now()}});
+const update = () => { stage.disabled = !notes.value.trim(); save.disabled = !notes.value.trim() || !select.value || !!polishController; polish.disabled = !notes.value.trim() || !!polishController; };
+const remember = () => chrome.storage.local.set({[key]:{text:notes.value,title:title.value,originalText,feedback:feedback.value,feedbackReady,createdAt:Date.now()}});
 const render = () => {
   const ranked = MeetingMatching.rank(title.value,sessions);
   select.replaceChildren(new Option(ranked.length ? `请选择课次（${date.value} · ${ranked.length}节）` : `${date.value} 暂无可存档课次`, ""));
@@ -45,7 +54,7 @@ select.addEventListener("change",update);
 notes.addEventListener("input", update);
 chrome.storage.local.get(key).then((data) => {
   const draft = data[key];
-  if (draft && Date.now() - draft.createdAt < 86400000) {notes.value = draft.text; title.value = draft.title || "";}
+  if (draft && Date.now() - draft.createdAt < 86400000) {notes.value = draft.text; title.value = draft.title || "";originalText=draft.originalText || "";feedback.value=draft.feedback || "";feedbackReady=!!draft.feedbackReady;document.getElementById("feedback-box").hidden=!feedback.value;useFeedback.disabled=!feedbackReady;copyFeedback.disabled=!feedbackReady;restoreOriginal.hidden=!originalText;}
   else chrome.storage.local.remove(key);
   update();
 });
@@ -145,5 +154,31 @@ save.addEventListener("click", async () => {
   finally {update();}
 });
 document.getElementById("clear").addEventListener("click", async () => {
-  await chrome.storage.local.remove(key); notes.value = ""; update(); set("本机纪要已清除。","ok");
+  polishController?.abort();await chrome.storage.local.remove(key); notes.value = "";feedback.value="";originalText="";feedbackReady=false;document.getElementById("feedback-box").hidden=true;restoreOriginal.hidden=true;update(); set("本机纪要已清除。","ok");
 });
+polish.addEventListener("click", async () => {
+  const text=notes.value.trim();
+  if(!text || text.length>100000){set("请粘贴完整纪要，最多100000字。","err");return;}
+  const controller=new AbortController();polishController=controller;update();stopPolish.hidden=false;
+  feedbackReady=false;useFeedback.disabled=true;copyFeedback.disabled=true;feedback.value="";document.getElementById("feedback-box").hidden=false;
+  set("正在生成课堂反馈…原纪要保持不变。");
+  try {
+    await remember();
+    const auth=await sendToApp({action:"ai-token"});
+    if(auth.error || !auth.accessToken)throw new Error(auth.error || "请先登录教师账号");
+    const res=await fetch("https://mooodle.lovable.app/api/public/meeting-polish",{method:"POST",headers:{Authorization:`Bearer ${auth.accessToken}`,"Content-Type":"application/json"},body:JSON.stringify({text}),signal:controller.signal});
+    if(!res.ok){const data=await res.json().catch(()=>({}));throw new Error(data.error || `生成失败（${res.status}），请确认网站已发布更新`);}
+    if(!res.body || !res.headers.get("content-type")?.includes("application/x-ndjson"))throw new Error("网站未返回生成结果，请确认已发布最新更新");
+    const reader=res.body.getReader(),decoder=new TextDecoder();let buffer="",done=false;
+    const consume=line=>{if(!line.trim())return;const event=JSON.parse(line);if(event.type==="error")throw new Error(event.message);if(event.type==="text")feedback.value+=event.text;if(event.type==="done")done=true;};
+    while(true){const chunk=await reader.read();buffer+=decoder.decode(chunk.value,{stream:!chunk.done});const lines=buffer.split("\n");buffer=lines.pop() || "";for(const line of lines)consume(line);if(chunk.done)break;}
+    consume(buffer);if(!done || !feedback.value.trim())throw new Error("生成未完成，原纪要已保留，请勿使用不完整反馈");
+    feedbackReady=true;useFeedback.disabled=false;copyFeedback.disabled=false;await remember();set("课堂反馈已生成，请核对后使用或复制；尚未存档。","ok");
+  }catch(error){set(error.name==="AbortError" ? "生成已停止，原纪要已保留。" : error.message || "生成失败，原纪要已保留。","err");}
+  finally{polishController=undefined;stopPolish.hidden=true;update();}
+});
+stopPolish.addEventListener("click",()=>polishController?.abort());
+window.addEventListener("pagehide",()=>polishController?.abort());
+useFeedback.addEventListener("click",async()=>{if(!feedbackReady || !feedback.value.trim())return;originalText=originalText || notes.value;notes.value=feedback.value;restoreOriginal.hidden=false;update();await remember();set("已使用课堂反馈，原纪要已保留；存档仍需确认。","ok");});
+copyFeedback.addEventListener("click",async()=>{try{await navigator.clipboard.writeText(feedback.value);set("课堂反馈已复制。","ok");}catch{set("复制失败，请在反馈框内手动复制。","err");}});
+restoreOriginal.addEventListener("click",async()=>{if(!originalText)return;notes.value=originalText;update();await remember();set("已恢复原纪要。","ok");});

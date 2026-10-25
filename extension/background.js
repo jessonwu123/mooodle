@@ -29,6 +29,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   }
   (async () => {
     if (message.action === "login") { await login(true); return { message: "已登录 mooodle" }; }
+    if (message.action === "ai-token") return { accessToken: await login(false) };
     return call({ action: message.action, date: message.date, sessionId: message.sessionId, text: message.text, rating: message.rating });
   })().then(reply).catch(e => reply({ error: e.message || "连接失败" }));
   return true;
