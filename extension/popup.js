@@ -25,6 +25,48 @@ const restoreOriginal = document.getElementById("original-restore");
 let polishController;
 let originalText = "";
 let feedbackReady = false;
+const noteImages = document.getElementById("note-images");
+const noteImageList = document.getElementById("note-image-list");
+let noteImageData = [];
+const renderNoteImages = () => {
+  noteImageList.replaceChildren();
+  noteImageData.forEach((image, index) => {
+    const item = document.createElement("span");
+    item.className = "note-image";
+    const img = document.createElement("img");
+    img.src = image; img.alt = `课堂笔记图片 ${index + 1}`;
+    const remove = document.createElement("button");
+    remove.type = "button"; remove.textContent = "×"; remove.title = "移除这张图片";
+    remove.onclick = () => { noteImageData.splice(index, 1); renderNoteImages(); };
+    item.append(img, remove);
+    noteImageList.append(item);
+  });
+};
+const readNoteImage = (file) => new Promise((resolve, reject) => {
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    URL.revokeObjectURL(url);
+    const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale);
+    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+    resolve(canvas.toDataURL("image/jpeg", 0.85));
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("图片读取失败，请换一张重试")); };
+  img.src = url;
+});
+noteImages.addEventListener("change", async () => {
+  const files = [...(noteImages.files || [])];
+  noteImages.value = "";
+  if (!files.length) return;
+  if (noteImageData.length + files.length > 4) { set("课堂笔记图片最多 4 张。", "err"); return; }
+  try {
+    for (const file of files) noteImageData.push(await readNoteImage(file));
+    renderNoteImages();
+    set(`已添加课堂笔记图片，生成反馈时会一并参考（共 ${noteImageData.length} 张）。`, "ok");
+  } catch (error) { set(error.message || "图片读取失败，请换一张重试", "err"); }
+});
 const set = (msg, cls = "") => { status.textContent = notice ? `${notice}${msg}` : msg; status.className = cls; };
 const loginNote = (msg) => `${(msg || "登录成功，已连接 mooodle").trim().replace(/。$/, "")}。`;
 const sendToApp = async (message) => {
@@ -39,7 +81,7 @@ const sendToApp = async (message) => {
   } finally { clearTimeout(timer); }
 };
 date.value = new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Shanghai",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
-const update = () => { stage.disabled = !notes.value.trim(); save.disabled = !notes.value.trim() || !select.value || !!polishController; polish.disabled = !notes.value.trim() || !!polishController; feedbackLanguage.disabled = !!polishController; };
+const update = () => { stage.disabled = !notes.value.trim(); save.disabled = !notes.value.trim() || !select.value || !!polishController; polish.disabled = !notes.value.trim() || !!polishController; feedbackLanguage.disabled = !!polishController; noteImages.disabled = !!polishController; };
 const remember = () => chrome.storage.local.set({[key]:{text:notes.value,title:title.value,originalText,feedback:feedback.value,feedbackReady,createdAt:Date.now()}});
 const render = () => {
   const ranked = MeetingMatching.rank(title.value,sessions);
@@ -159,7 +201,7 @@ save.addEventListener("click", async () => {
   finally {update();}
 });
 document.getElementById("clear").addEventListener("click", async () => {
-  polishController?.abort();await chrome.storage.local.remove(key); notes.value = "";feedback.value="";originalText="";feedbackReady=false;document.getElementById("feedback-box").hidden=true;restoreOriginal.hidden=true;update(); set("本机纪要已清除。","ok");
+  polishController?.abort();await chrome.storage.local.remove(key); notes.value = "";feedback.value="";originalText="";feedbackReady=false;noteImageData=[];renderNoteImages();document.getElementById("feedback-box").hidden=true;restoreOriginal.hidden=true;update(); set("本机纪要已清除。","ok");
 });
 polish.addEventListener("click", async () => {
   const text=notes.value.trim();
@@ -172,7 +214,7 @@ polish.addEventListener("click", async () => {
     await remember();
     const auth=await sendToApp({action:"ai-token"});
     if(auth.error || !auth.accessToken)throw new Error(auth.error || "请先登录教师账号");
-    const res=await fetch("https://mooodle.lovable.app/api/public/meeting-polish",{method:"POST",headers:{Authorization:`Bearer ${auth.accessToken}`,"Content-Type":"application/json"},body:JSON.stringify({text,language}),signal:controller.signal});
+    const res=await fetch("https://mooodle.lovable.app/api/public/meeting-polish",{method:"POST",headers:{Authorization:`Bearer ${auth.accessToken}`,"Content-Type":"application/json"},body:JSON.stringify({text,language,images:noteImageData.length?noteImageData:undefined}),signal:controller.signal});
     if(!res.ok){const data=await res.json().catch(()=>({}));throw new Error(data.error || `生成失败（${res.status}），请确认网站已发布更新`);}
     if(!res.body || !res.headers.get("content-type")?.includes("application/x-ndjson"))throw new Error("网站未返回生成结果，请确认已发布最新更新");
     const reader=res.body.getReader(),decoder=new TextDecoder();let buffer="",done=false;

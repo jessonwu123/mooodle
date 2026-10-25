@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { createResponsesCall } from "./ai/responses.server.ts";
 import { getLovableAiGatewayResponseHeaders } from "./ai/run-id.server.ts";
-import { canPolishMeeting, validateMeetingPolishText, validateMeetingPolishLanguage, withMeetingPolishLanguage } from "./meeting-polish";
+import { canPolishMeeting, validateMeetingPolishText, validateMeetingPolishLanguage, validateMeetingPolishImages, withMeetingPolishLanguage } from "./meeting-polish";
 
 export const meetingPolishCors = {
   "Access-Control-Allow-Origin": "*",
@@ -35,7 +35,8 @@ export async function handleMeetingPolish(request: Request): Promise<Response> {
   if (!canPolishMeeting((roles || []).map(r => r.role))) return json("仅教师和管理员可生成课堂反馈", 403);
   let text: string;
   let language: "zh" | "en";
-  try { const body = await request.json(); text = validateMeetingPolishText(body?.text); language = validateMeetingPolishLanguage(body?.language); }
+  let images: string[];
+  try { const body = await request.json(); text = validateMeetingPolishText(body?.text); language = validateMeetingPolishLanguage(body?.language); images = validateMeetingPolishImages(body?.images); }
   catch (error) { return json(error instanceof Error ? error.message : "请检查纪要内容", 400); }
   const { supabaseAdmin: admin } = await import("@/integrations/supabase/client.server");
   const { data: blocked, error: stateError } = await admin.from("practice_ai_access_state").select("message,status").eq("id", "gateway").maybeSingle();
@@ -43,7 +44,14 @@ export async function handleMeetingPolish(request: Request): Promise<Response> {
   if (blocked) return json(blocked.message, blocked.status);
   const apiKey = process.env.LOVABLE_API_KEY;
   if (!apiKey) return json("AI 服务尚未配置", 503);
-  const call = createResponsesCall(request, { baseURL: "https://ai.gateway.lovable.dev/v1", apiKey, model: "openai/gpt-6-astra" }, [{ role: "user", content: text }], withMeetingPolishLanguage(instructions, language), { actorId: auth.user.id, feature: "meeting_feedback" });
+  const imageNote = images.length
+    ? `\n随附 ${images.length} 张课堂笔记图片，包含本节课讲解的题目、解题思路与过程。纪要转写可能省略或误记算式与图形条件，分析案例时应结合图片中的原题与板书核对条件、算式与结果；纪要与图片冲突时以图片为准，但仍不得编造两者都没有的课堂事实。`
+    : "";
+  const userContent: Array<{ type: "text"; text: string } | { type: "image"; image: URL }> = [
+    { type: "text", text },
+    ...images.map((image) => ({ type: "image" as const, image: new URL(image) })),
+  ];
+  const call = createResponsesCall(request, { baseURL: "https://ai.gateway.lovable.dev/v1", apiKey, model: "openai/gpt-6-astra" }, [{ role: "user", content: userContent }], withMeetingPolishLanguage(instructions, language) + imageNote, { actorId: auth.user.id, feature: "meeting_feedback" });
   const upstream = await call.upstream;
   const safeError = (body: { message?: string; error?: { message?: string } }) => body.message || body.error?.message || "AI 生成未完成，原纪要已保留";
   const persistBlock = async (status: number, message: string) => {
