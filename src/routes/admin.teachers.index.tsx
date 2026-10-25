@@ -28,6 +28,7 @@ import { listTeacherInviters } from "@/lib/access.functions";
 
 export const Route = createFileRoute("/admin/teachers/")({
   component: TeachersPage,
+  head: () => ({ meta: [{ title: "mooodle · 用户管理" }, { name: "description", content: "管理教师、学生账号及权限，查看 AI credits 使用记录。" }, { property: "og:title", content: "mooodle · 用户管理" }, { property: "og:description", content: "教师和学生账号管理及使用记录。" }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
 });
 
 function actionLabel(action: string | null): string {
@@ -212,6 +213,7 @@ function TeachersPage() {
       </div>
 
       <div className="mb-6 flex gap-2 overflow-x-auto">
+        <Button asChild variant="outline" size="sm"><Link to="/admin/credits">Credits 使用记录</Link></Button>
         <Button
           variant={tab === "teacher" ? "default" : "outline"}
           size="sm"
