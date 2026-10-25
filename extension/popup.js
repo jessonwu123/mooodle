@@ -61,6 +61,7 @@ chrome.storage.local.get(key).then((data) => {
 document.getElementById("read").addEventListener("click", async () => {
   try {
     notes.value = await navigator.clipboard.readText();
+    originalText="";restoreOriginal.hidden=true;
     set(notes.value.trim() ? "请核对这确实是本节课的完整纪要，再准备存档。" : "剪贴板为空，请先点击腾讯会议的复制按钮。", notes.value.trim() ? "ok" : "err");
     update();
     await remember();
@@ -69,7 +70,7 @@ document.getElementById("read").addEventListener("click", async () => {
 stage.addEventListener("click", async () => {
   const text = notes.value.trim();
   if (!text || text.length > 100000) { set("纪要为空或过长，请检查内容。", "err"); return; }
-  await chrome.storage.local.set({ [key]: { text, createdAt: Date.now() } });
+  await remember();
   set("已准备；请到对应学生课节的课堂评分中导入并保存。", "ok");
 });
 const loadSessions = async (successNote = "") => {
@@ -179,6 +180,6 @@ polish.addEventListener("click", async () => {
 });
 stopPolish.addEventListener("click",()=>polishController?.abort());
 window.addEventListener("pagehide",()=>polishController?.abort());
-useFeedback.addEventListener("click",async()=>{if(!feedbackReady || !feedback.value.trim())return;originalText=originalText || notes.value;notes.value=feedback.value;restoreOriginal.hidden=false;update();await remember();set("已使用课堂反馈，原纪要已保留；存档仍需确认。","ok");});
+useFeedback.addEventListener("click",async()=>{if(!feedbackReady || !feedback.value.trim())return;if(notes.value!==feedback.value)originalText=notes.value;notes.value=feedback.value;restoreOriginal.hidden=false;update();await remember();set("已使用课堂反馈，原纪要已保留；存档仍需确认。","ok");});
 copyFeedback.addEventListener("click",async()=>{try{await navigator.clipboard.writeText(feedback.value);set("课堂反馈已复制。","ok");}catch{set("复制失败，请在反馈框内手动复制。","err");}});
 restoreOriginal.addEventListener("click",async()=>{if(!originalText)return;notes.value=originalText;update();await remember();set("已恢复原纪要。","ok");});
