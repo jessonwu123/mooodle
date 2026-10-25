@@ -33,6 +33,8 @@ const transcriptClear = document.getElementById("transcript-clear");
 const transcriptStatus = document.getElementById("transcript-status");
 let transcriptText = "";
 const transcriptPreview = document.getElementById("transcript-preview");
+const extrasKey = "meetingExtras";
+const persistExtras = () => chrome.storage.local.set({ [extrasKey]: { images: noteImageData, transcript: transcriptText, transcriptNote: transcriptStatus.textContent, savedAt: Date.now() } });
 const setTranscriptStatus = (msg) => {
   transcriptStatus.textContent = msg; transcriptClear.hidden = !transcriptText;
   transcriptPreview.value = transcriptText;
@@ -47,7 +49,7 @@ const renderNoteImages = () => {
     img.src = image; img.alt = `课堂笔记图片 ${index + 1}`;
     const remove = document.createElement("button");
     remove.type = "button"; remove.textContent = "×"; remove.title = "移除这张图片";
-    remove.onclick = () => { noteImageData.splice(index, 1); renderNoteImages(); };
+    remove.onclick = () => { noteImageData.splice(index, 1); renderNoteImages(); persistExtras(); };
     item.append(img, remove);
     noteImageList.append(item);
   });
@@ -90,6 +92,7 @@ noteImages.addEventListener("change", async () => {
       noteImageData.push(...segments);
     }
     renderNoteImages();
+    persistExtras();
     set(`已添加课堂笔记图片，生成反馈时会一并参考（共 ${noteImageData.length} 段，长图已按原清晰度分段）。`, "ok");
   } catch (error) { set(error.message || "图片读取失败，请换一张重试", "err"); }
 });
