@@ -42,16 +42,29 @@ const renderNoteImages = () => {
     noteImageList.append(item);
   });
 };
+const NOTE_IMAGE_MAX_SIDE = 1600;
+const NOTE_IMAGE_OVERLAP = 120;
+const NOTE_IMAGE_MAX_SEGMENTS = 12;
 const readNoteImage = (file) => new Promise((resolve, reject) => {
   const url = URL.createObjectURL(file);
   const img = new Image();
   img.onload = () => {
     URL.revokeObjectURL(url);
-    const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale);
-    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-    resolve(canvas.toDataURL("image/jpeg", 0.85));
+    // 宽度超过 1600 才缩小；长图按原始清晰度竖向分段，段间保留重叠，避免压缩丢失细节
+    const scale = Math.min(1, NOTE_IMAGE_MAX_SIDE / img.width);
+    const width = Math.round(img.width * scale);
+    const height = Math.round(img.height * scale);
+    const segments = [];
+    const step = NOTE_IMAGE_MAX_SIDE - NOTE_IMAGE_OVERLAP;
+    for (let top = 0; top < height; top += step) {
+      const sliceHeight = Math.min(NOTE_IMAGE_MAX_SIDE, height - top);
+      const canvas = document.createElement("canvas");
+      canvas.width = width; canvas.height = sliceHeight;
+      canvas.getContext("2d").drawImage(img, 0, top / scale, img.width, sliceHeight / scale, 0, 0, width, sliceHeight);
+      segments.push(canvas.toDataURL("image/jpeg", 0.85));
+      if (top + sliceHeight >= height) break;
+    }
+    resolve(segments);
   };
   img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("图片读取失败，请换一张重试")); };
   img.src = url;
@@ -60,11 +73,14 @@ noteImages.addEventListener("change", async () => {
   const files = [...(noteImages.files || [])];
   noteImages.value = "";
   if (!files.length) return;
-  if (noteImageData.length + files.length > 4) { set("课堂笔记图片最多 4 张。", "err"); return; }
   try {
-    for (const file of files) noteImageData.push(await readNoteImage(file));
+    for (const file of files) {
+      const segments = await readNoteImage(file);
+      if (noteImageData.length + segments.length > NOTE_IMAGE_MAX_SEGMENTS) { set(`课堂笔记图片分段后最多 ${NOTE_IMAGE_MAX_SEGMENTS} 段，请减少图片或分批生成。`, "err"); break; }
+      noteImageData.push(...segments);
+    }
     renderNoteImages();
-    set(`已添加课堂笔记图片，生成反馈时会一并参考（共 ${noteImageData.length} 张）。`, "ok");
+    set(`已添加课堂笔记图片，生成反馈时会一并参考（共 ${noteImageData.length} 段，长图已按原清晰度分段）。`, "ok");
   } catch (error) { set(error.message || "图片读取失败，请换一张重试", "err"); }
 });
 const set = (msg, cls = "") => { status.textContent = notice ? `${notice}${msg}` : msg; status.className = cls; };
