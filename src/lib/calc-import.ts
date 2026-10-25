@@ -21,8 +21,23 @@ export function calcRowFromCells(cells: string[]): CalcImportRow | null {
 // Never let spreadsheet delimiter auto-detection interpret TeX pipes as columns.
 export function parseCalcCsv(text: string): CalcImportRow[] {
   const source = text.replace(/^\uFEFF/, "");
-  const firstLine = source.split(/\r?\n/).find((line) => line.trim()) ?? "";
-  const delimiter = firstLine.includes("\t") ? "\t" : firstLine.includes(",") ? "," : null;
+  let inQuotes = false;
+  let inMath = false;
+  let hasTab = false;
+  let hasComma = false;
+  for (let i = 0; i < source.length; i++) {
+    const char = source[i];
+    if (char === '"') {
+      if (inQuotes && source[i + 1] === '"') i++;
+      else inQuotes = !inQuotes;
+    } else if (!inQuotes) {
+      if (char === "\n" || char === "\r") break;
+      if (char === "$" && source[i - 1] !== "\\") inMath = !inMath;
+      if (char === "\t") hasTab = true;
+      if (char === "," && !inMath) hasComma = true;
+    }
+  }
+  const delimiter = hasTab ? "\t" : hasComma ? "," : null;
   if (!delimiter) return parseCalcLines(source);
   const rows: CalcImportRow[] = [];
   let cells: string[] = [];
