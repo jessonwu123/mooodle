@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validateMeetingPolishText, canPolishMeeting, validateMeetingPolishLanguage, validateMeetingPolishImages, withMeetingPolishLanguage, MEETING_POLISH_IMAGE_LIMIT } from "./meeting-polish";
+import { validateMeetingPolishText, canPolishMeeting, validateMeetingPolishLanguage, validateMeetingPolishImages, validateMeetingPolishTranscript, withMeetingPolishLanguage, MEETING_POLISH_IMAGE_LIMIT } from "./meeting-polish";
 
 test("仅教师和管理员能生成课堂反馈", () => {
   assert.equal(canPolishMeeting(["teacher"]), true);
@@ -47,4 +47,18 @@ test("课堂笔记图片仅接受限定格式与数量的 data URL", () => {
   assert.throws(() => validateMeetingPolishImages(["data:image/gif;base64,AAAA"]));
   assert.throws(() => validateMeetingPolishImages(["data:image/jpeg;base64," + "A".repeat(5_600_000)]));
   assert.throws(() => validateMeetingPolishImages(Array(MEETING_POLISH_IMAGE_LIMIT + 1).fill(jpeg)));
+});
+
+test("逐字稿可选，旧版请求默认无逐字稿", () => {
+  assert.equal(validateMeetingPolishTranscript(undefined), "");
+  assert.equal(validateMeetingPolishTranscript(null), "");
+  assert.equal(validateMeetingPolishTranscript(""), "");
+});
+
+test("逐字稿仅接受限定长度的字符串", () => {
+  assert.equal(validateMeetingPolishTranscript(" 老师：我们先看这道题 "), "老师：我们先看这道题");
+  assert.equal(validateMeetingPolishTranscript("字".repeat(100000)).length, 100000);
+  assert.throws(() => validateMeetingPolishTranscript("字".repeat(100001)));
+  assert.throws(() => validateMeetingPolishTranscript(123));
+  assert.throws(() => validateMeetingPolishTranscript(["老师：你好"]));
 });
