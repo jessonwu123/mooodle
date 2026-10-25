@@ -99,6 +99,13 @@
       "when": 1792908894915,
       "tag": "0013_ai_credit_usage_ledger",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792909031706,
+      "tag": "0014_protect_student_account_creator",
+      "breakpoints": true
     }
   ]
 }
