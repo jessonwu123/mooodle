@@ -50,12 +50,12 @@ async function extractMeetingTranscript() {
     // Sample during delayed rendering, not just once after a fixed short delay.
     let previous = -1;
     let stable = 0;
-    for (let i = 0; i < 10; i++) {
-      await new Promise(resolve => setTimeout(resolve, 100));
+    for (let i = 0; i < 12; i++) {
+      await new Promise(resolve => setTimeout(resolve, 80));
       const size = collect();
       stable = size === previous ? stable + 1 : 0;
       previous = size;
-      if (i >= 4 && stable >= 3) break;
+      if (i >= 3 && stable >= 2) break;
     }
   };
   let reachedStart = false;
@@ -71,11 +71,11 @@ async function extractMeetingTranscript() {
         const beforeCount = records.size;
         const beforeHeight = scroller.scrollHeight;
         const beforeTop = scroller.scrollTop;
-        scroller.scrollTop = Math.min(beforeTop + Math.max(40, scroller.clientHeight * 0.45), scroller.scrollHeight);
+        scroller.scrollTop = Math.min(beforeTop + Math.max(40, scroller.clientHeight * 0.8), scroller.scrollHeight);
         await settle();
         const atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2;
         bottomStable = atBottom && records.size === beforeCount && scroller.scrollHeight === beforeHeight ? bottomStable + 1 : 0;
-        if (bottomStable >= 4) { reachedEnd = true; break; }
+        if (bottomStable >= 2) { reachedEnd = true; break; }
         if (!atBottom && scroller.scrollTop === beforeTop) break;
       }
     } else { await settle(); }

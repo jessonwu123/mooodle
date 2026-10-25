@@ -33,6 +33,8 @@ const transcriptClear = document.getElementById("transcript-clear");
 const transcriptStatus = document.getElementById("transcript-status");
 let transcriptText = "";
 const transcriptPreview = document.getElementById("transcript-preview");
+const extrasKey = "meetingExtras";
+const persistExtras = () => chrome.storage.local.set({ [extrasKey]: { images: noteImageData, transcript: transcriptText, transcriptNote: transcriptStatus.textContent, savedAt: Date.now() } });
 const setTranscriptStatus = (msg) => {
   transcriptStatus.textContent = msg; transcriptClear.hidden = !transcriptText;
   transcriptPreview.value = transcriptText;
@@ -47,7 +49,7 @@ const renderNoteImages = () => {
     img.src = image; img.alt = `课堂笔记图片 ${index + 1}`;
     const remove = document.createElement("button");
     remove.type = "button"; remove.textContent = "×"; remove.title = "移除这张图片";
-    remove.onclick = () => { noteImageData.splice(index, 1); renderNoteImages(); };
+    remove.onclick = () => { noteImageData.splice(index, 1); renderNoteImages(); persistExtras(); };
     item.append(img, remove);
     noteImageList.append(item);
   });
@@ -90,6 +92,7 @@ noteImages.addEventListener("change", async () => {
       noteImageData.push(...segments);
     }
     renderNoteImages();
+    persistExtras();
     set(`已添加课堂笔记图片，生成反馈时会一并参考（共 ${noteImageData.length} 段，长图已按原清晰度分段）。`, "ok");
   } catch (error) { set(error.message || "图片读取失败，请换一张重试", "err"); }
 });
@@ -128,6 +131,14 @@ chrome.storage.local.get(key).then((data) => {
   const draft = data[key];
   if (draft && Date.now() - draft.createdAt < 86400000) {notes.value = draft.text; title.value = draft.title || "";originalText=draft.originalText || "";feedback.value=draft.feedback || "";feedbackReady=!!draft.feedbackReady;document.getElementById("feedback-box").hidden=!feedback.value;useFeedback.disabled=!feedbackReady;copyFeedback.disabled=!feedbackReady;restoreOriginal.hidden=!originalText;}
   else chrome.storage.local.remove(key);
+  update();
+});
+chrome.storage.local.get(extrasKey).then((data) => {
+  const extras = data[extrasKey];
+  if (extras && Date.now() - extras.savedAt < 86400000) {
+    if (Array.isArray(extras.images) && extras.images.length) { noteImageData = extras.images; renderNoteImages(); }
+    if (extras.transcript) { transcriptText = extras.transcript; setTranscriptStatus(extras.transcriptNote || "已恢复上次提取的逐字稿。"); }
+  } else if (extras) chrome.storage.local.remove(extrasKey);
   update();
 });
 document.getElementById("read").addEventListener("click", async () => {
@@ -218,6 +229,7 @@ transcriptRead.addEventListener("click", async () => {
     transcriptText = text;
     const coverage = result.truncated ? "已达10万字上限，非全文" : result.reachedStart && result.reachedEnd ? "已遍历列表首尾；仍请对照录制结束时间核对" : "未能确认列表首尾，可能不完整";
     setTranscriptStatus(`已提取 ${text.length} 字 · ${result.count} 条 · ${result.firstTime}—${result.lastTime}。${coverage}。`);
+    persistExtras();
     document.getElementById("transcript-preview-box").open = true;
     set("逐字稿已读取，请核对全文和最后一条发言时间。", "ok");
   } catch (error) {
@@ -225,7 +237,7 @@ transcriptRead.addEventListener("click", async () => {
     set(error.message || "逐字稿提取失败", "err");
   } finally { update(); }
 });
-transcriptClear.addEventListener("click", () => { transcriptText = ""; setTranscriptStatus("在纪要页面打开插件可提取发言逐字稿，生成反馈时与纪要、图片一起参考。"); set("已清除逐字稿。", "ok"); });
+transcriptClear.addEventListener("click", () => { transcriptText = ""; setTranscriptStatus("在纪要页面打开插件可提取发言逐字稿，生成反馈时与纪要、图片一起参考。"); persistExtras(); set("已清除逐字稿。", "ok"); });
 const itemsBox = document.getElementById("items");
 const addItem = () => { const row=document.createElement("div");row.className="item";row.innerHTML='<input placeholder="知识点名称" maxlength="100"><input type="number" min="0" max="100" value="80"><span>%</span><button type="button">×</button>';row.querySelector("button").onclick=()=>row.remove();itemsBox.append(row); };
 document.getElementById("add-item").addEventListener("click", addItem);
@@ -248,7 +260,7 @@ save.addEventListener("click", async () => {
   finally {update();}
 });
 document.getElementById("clear").addEventListener("click", async () => {
-  polishController?.abort();await chrome.storage.local.remove(key); notes.value = "";feedback.value="";originalText="";feedbackReady=false;noteImageData=[];renderNoteImages();transcriptText="";setTranscriptStatus("在纪要页面打开插件可提取发言逐字稿，生成反馈时与纪要、图片一起参考。");document.getElementById("feedback-box").hidden=true;restoreOriginal.hidden=true;update(); set("本机纪要已清除。","ok");
+  polishController?.abort();await chrome.storage.local.remove([key, extrasKey]); notes.value = "";feedback.value="";originalText="";feedbackReady=false;noteImageData=[];renderNoteImages();transcriptText="";setTranscriptStatus("在纪要页面打开插件可提取发言逐字稿，生成反馈时与纪要、图片一起参考。");document.getElementById("feedback-box").hidden=true;restoreOriginal.hidden=true;update(); set("本机纪要已清除。","ok");
 });
 polish.addEventListener("click", async () => {
   const text=notes.value.trim();
