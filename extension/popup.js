@@ -28,6 +28,11 @@ let feedbackReady = false;
 const noteImages = document.getElementById("note-images");
 const noteImageList = document.getElementById("note-image-list");
 let noteImageData = [];
+const transcriptRead = document.getElementById("transcript-read");
+const transcriptClear = document.getElementById("transcript-clear");
+const transcriptStatus = document.getElementById("transcript-status");
+let transcriptText = "";
+const setTranscriptStatus = (msg) => { transcriptStatus.textContent = msg; transcriptClear.hidden = !transcriptText; };
 const renderNoteImages = () => {
   noteImageList.replaceChildren();
   noteImageData.forEach((image, index) => {
