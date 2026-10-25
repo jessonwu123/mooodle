@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { validateMeetingPolishText, canPolishMeeting, validateMeetingPolishLanguage, validateMeetingPolishImages, validateMeetingPolishTranscript, withMeetingPolishLanguage, MEETING_POLISH_IMAGE_LIMIT } from "./meeting-polish";
+import { meetingPolishInstructions, meetingPolishTranscriptNote } from "./meeting-polish";
 
 test("仅教师和管理员能生成课堂反馈", () => {
   assert.equal(canPolishMeeting(["teacher"]), true);
@@ -61,4 +62,14 @@ test("逐字稿仅接受限定长度的字符串", () => {
   assert.throws(() => validateMeetingPolishTranscript("字".repeat(100001)));
   assert.throws(() => validateMeetingPolishTranscript(123));
   assert.throws(() => validateMeetingPolishTranscript(["老师：你好"]));
+});
+test("提示词要求老师讲解优先、术语沿用老师说法、AI 仅作补充", () => {
+  assert.ok(meetingPolishTranscriptNote.includes("优先于模型自行归纳的思路逻辑"));
+  assert.ok(meetingPolishTranscriptNote.includes("一律采用老师课上使用的说法"));
+  assert.ok(meetingPolishTranscriptNote.includes("只作为老师提及内容的补充和优化"));
+});
+
+test("提示词要求语气像老师与家长当面交流", () => {
+  assert.ok(meetingPolishInstructions.includes("语气要求"));
+  assert.ok(meetingPolishInstructions.includes("当面交流"));
 });
