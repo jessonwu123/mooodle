@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validateMeetingPolishText, canPolishMeeting, validateMeetingPolishLanguage, withMeetingPolishLanguage } from "./meeting-polish";
+import { validateMeetingPolishText, canPolishMeeting, validateMeetingPolishLanguage, validateMeetingPolishImages, withMeetingPolishLanguage, MEETING_POLISH_IMAGE_LIMIT } from "./meeting-polish";
 
 test("仅教师和管理员能生成课堂反馈", () => {
   assert.equal(canPolishMeeting(["teacher"]), true);
