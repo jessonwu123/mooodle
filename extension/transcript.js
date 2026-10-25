@@ -51,11 +51,11 @@ async function extractMeetingTranscript() {
     let previous = -1;
     let stable = 0;
     for (let i = 0; i < 12; i++) {
-      await new Promise(resolve => setTimeout(resolve, 60));
+      await new Promise(resolve => setTimeout(resolve, 80));
       const size = collect();
       stable = size === previous ? stable + 1 : 0;
       previous = size;
-      if (i >= 2 && stable >= 2) break;
+      if (i >= 3 && stable >= 2) break;
     }
   };
   let reachedStart = false;
