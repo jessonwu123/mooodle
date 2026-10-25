@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { createResponsesCall } from "./ai/responses.server.ts";
 import { getLovableAiGatewayResponseHeaders } from "./ai/run-id.server.ts";
-import { canPolishMeeting, validateMeetingPolishText } from "./meeting-polish";
+import { canPolishMeeting, validateMeetingPolishText, validateMeetingPolishLanguage, withMeetingPolishLanguage } from "./meeting-polish";
 
 export const meetingPolishCors = {
   "Access-Control-Allow-Origin": "*",
@@ -34,7 +34,8 @@ export async function handleMeetingPolish(request: Request): Promise<Response> {
   if (roleError) return json("教师权限读取失败", 503);
   if (!canPolishMeeting((roles || []).map(r => r.role))) return json("仅教师和管理员可生成课堂反馈", 403);
   let text: string;
-  try { const body = await request.json(); text = validateMeetingPolishText(body?.text); }
+  let language: "zh" | "en";
+  try { const body = await request.json(); text = validateMeetingPolishText(body?.text); language = validateMeetingPolishLanguage(body?.language); }
   catch (error) { return json(error instanceof Error ? error.message : "请检查纪要内容", 400); }
   const { supabaseAdmin: admin } = await import("@/integrations/supabase/client.server");
   const { data: blocked, error: stateError } = await admin.from("practice_ai_access_state").select("message,status").eq("id", "gateway").maybeSingle();
@@ -42,7 +43,7 @@ export async function handleMeetingPolish(request: Request): Promise<Response> {
   if (blocked) return json(blocked.message, blocked.status);
   const apiKey = process.env.LOVABLE_API_KEY;
   if (!apiKey) return json("AI 服务尚未配置", 503);
-  const call = createResponsesCall(request, { baseURL: "https://ai.gateway.lovable.dev/v1", apiKey, model: "openai/gpt-6-astra" }, [{ role: "user", content: text }], instructions);
+  const call = createResponsesCall(request, { baseURL: "https://ai.gateway.lovable.dev/v1", apiKey, model: "openai/gpt-6-astra" }, [{ role: "user", content: text }], withMeetingPolishLanguage(instructions, language));
   const upstream = await call.upstream;
   const safeError = (body: { message?: string; error?: { message?: string } }) => body.message || body.error?.message || "AI 生成未完成，原纪要已保留";
   const persistBlock = async (status: number, message: string) => {
