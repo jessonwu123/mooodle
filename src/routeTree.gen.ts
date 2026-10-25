@@ -19,6 +19,7 @@ import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } fr
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminCalcPracticeRouteImport } from './routes/admin.calc-practice'
 import { Route as AdminClassifiedBankRouteImport } from './routes/admin.classified-bank'
+import { Route as AdminCreditsRouteImport } from './routes/admin.credits'
 import { Route as AdminHomeworkRouteImport } from './routes/admin.homework'
 import { Route as AdminScheduleRouteImport } from './routes/admin.schedule'
 import { Route as ApiMeetingPluginRouteImport } from './routes/api/meeting-plugin'
@@ -84,6 +85,11 @@ const AdminCalcPracticeRoute = AdminCalcPracticeRouteImport.update({
 const AdminClassifiedBankRoute = AdminClassifiedBankRouteImport.update({
   id: '/classified-bank',
   path: '/classified-bank',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminCreditsRoute = AdminCreditsRouteImport.update({
+  id: '/credits',
+  path: '/credits',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminHomeworkRoute = AdminHomeworkRouteImport.update({
@@ -169,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/calc-practice': typeof AdminCalcPracticeRoute
   '/admin/classified-bank': typeof AdminClassifiedBankRoute
+  '/admin/credits': typeof AdminCreditsRoute
   '/admin/homework': typeof AdminHomeworkRoute
   '/admin/schedule': typeof AdminScheduleRoute
   '/api/meeting-plugin': typeof ApiMeetingPluginRoute
@@ -194,6 +201,7 @@ export interface FileRoutesByTo {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/calc-practice': typeof AdminCalcPracticeRoute
   '/admin/classified-bank': typeof AdminClassifiedBankRoute
+  '/admin/credits': typeof AdminCreditsRoute
   '/admin/homework': typeof AdminHomeworkRoute
   '/admin/schedule': typeof AdminScheduleRoute
   '/api/meeting-plugin': typeof ApiMeetingPluginRoute
@@ -221,6 +229,7 @@ export interface FileRoutesById {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/calc-practice': typeof AdminCalcPracticeRoute
   '/admin/classified-bank': typeof AdminClassifiedBankRoute
+  '/admin/credits': typeof AdminCreditsRoute
   '/admin/homework': typeof AdminHomeworkRoute
   '/admin/schedule': typeof AdminScheduleRoute
   '/api/meeting-plugin': typeof ApiMeetingPluginRoute
@@ -249,6 +258,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/admin/calc-practice'
     | '/admin/classified-bank'
+    | '/admin/credits'
     | '/admin/homework'
     | '/admin/schedule'
     | '/api/meeting-plugin'
@@ -274,6 +284,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/admin/calc-practice'
     | '/admin/classified-bank'
+    | '/admin/credits'
     | '/admin/homework'
     | '/admin/schedule'
     | '/api/meeting-plugin'
@@ -300,6 +311,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/admin/calc-practice'
     | '/admin/classified-bank'
+    | '/admin/credits'
     | '/admin/homework'
     | '/admin/schedule'
     | '/api/meeting-plugin'
@@ -403,6 +415,13 @@ declare module '@tanstack/react-router' {
       path: '/classified-bank'
       fullPath: '/admin/classified-bank'
       preLoaderRoute: typeof AdminClassifiedBankRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/credits': {
+      id: '/admin/credits'
+      path: '/credits'
+      fullPath: '/admin/credits'
+      preLoaderRoute: typeof AdminCreditsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/homework': {
@@ -509,6 +528,7 @@ declare module '@tanstack/react-router' {
 interface AdminRouteChildren {
   AdminCalcPracticeRoute: typeof AdminCalcPracticeRoute
   AdminClassifiedBankRoute: typeof AdminClassifiedBankRoute
+  AdminCreditsRoute: typeof AdminCreditsRoute
   AdminHomeworkRoute: typeof AdminHomeworkRoute
   AdminScheduleRoute: typeof AdminScheduleRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -523,6 +543,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminCalcPracticeRoute: AdminCalcPracticeRoute,
   AdminClassifiedBankRoute: AdminClassifiedBankRoute,
+  AdminCreditsRoute: AdminCreditsRoute,
   AdminHomeworkRoute: AdminHomeworkRoute,
   AdminScheduleRoute: AdminScheduleRoute,
   AdminIndexRoute: AdminIndexRoute,

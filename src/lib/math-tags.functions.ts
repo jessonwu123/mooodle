@@ -223,7 +223,7 @@ ${JSON.stringify(qPayload)}
 请只返回严格 JSON：
 { "assignments": [ { "question_id": "<uuid>", "tag_ids": ["<uuid>", ...] }, ... ] }`;
 
-    const resp = await (await import("./ai/astra-chat.server")).astraChat(apiKey, { messages: [{ role: "user", content: prompt }] as any, json: true });
+    const resp = await (await import("./ai/astra-chat.server")).astraChat(apiKey, { messages: [{ role: "user", content: prompt }] as any, json: true, usage: { actorId: context.userId, feature: "paper_tags" } });
     if (!resp.ok) {
       const t = await resp.text();
       if (resp.status === 429) throw new Error("AI 调用过于频繁，请稍后再试");
@@ -375,7 +375,7 @@ ${JSON.stringify(qPayload)}
 请只返回严格 JSON：
 { "assignments": [ { "question_id": "<uuid>", "tag_ids": ["<uuid>", ...] }, ... ] }`;
 
-      const resp = await (await import("./ai/astra-chat.server")).astraChat(apiKey, { messages: [{ role: "user", content: prompt }] as any, json: true });
+      const resp = await (await import("./ai/astra-chat.server")).astraChat(apiKey, { messages: [{ role: "user", content: prompt }] as any, json: true, usage: { actorId: context.userId, feature: "bank_tags" } });
       if (!resp.ok) {
         const t = await resp.text();
         if (resp.status === 429) throw new Error("AI 调用过于频繁，请稍后再试");

@@ -1,5 +1,6 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { streamText, type ModelMessage } from "ai";
+import { createCreditUsageTracker, observeCreditStream, type AiUsageContext } from "./credit-usage.server";
 
 import {
   createLovableAiGatewayRunIdFetch,
@@ -12,6 +13,7 @@ export function createResponsesCall(
   config: { baseURL: string; apiKey: string; model: string },
   messages: ModelMessage[],
   instructions?: string,
+  usageContext?: AiUsageContext,
 ) {
   const runIdFetch = createLovableAiGatewayRunIdFetch(getLovableAiGatewayRunId(request));
   let resolveUpstream: (value: Response | null) => void = () => {};
@@ -21,11 +23,16 @@ export function createResponsesCall(
     apiKey: config.apiKey,
     headers: { "Lovable-API-Key": config.apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
     fetch: async (input, init) => {
+      let tracker: Awaited<ReturnType<typeof createCreditUsageTracker>> | null = null;
       try {
+        tracker = usageContext ? await createCreditUsageTracker(usageContext, config.model, config.apiKey) : null;
         const response = await runIdFetch.fetch(input, init);
-        resolveUpstream(response.clone());
-        return response;
-      } catch (error) { resolveUpstream(null); throw error; }
+        resolveUpstream(response.ok ? new Response(null, { status: response.status, headers: response.headers }) : response.clone());
+        if (!tracker) return response;
+        await tracker.response(response);
+        if (!response.ok) { await tracker.finish(); return response; }
+        return observeCreditStream(response, tracker);
+      } catch (error) { resolveUpstream(null); await tracker?.finish(error); throw error; }
     },
   });
   const reasoning = config.model !== "openai/chat-latest";

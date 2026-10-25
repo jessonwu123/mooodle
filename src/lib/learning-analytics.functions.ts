@@ -235,7 +235,7 @@ ${JSON.stringify(compact, null, 2)}
 - 不要重复罗列原始数据数字，重在洞察和建议。
 - 不要输出 JSON 或代码块，直接输出 Markdown 正文。`;
 
-    const resp = await (await import("./ai/astra-chat.server")).astraChat(apiKey, { messages: [{ role: "user", content: prompt }] as any, json: false });
+    const resp = await (await import("./ai/astra-chat.server")).astraChat(apiKey, { messages: [{ role: "user", content: prompt }] as any, json: false, usage: { actorId: context.userId, feature: "learning_analytics" } });
     if (!resp.ok) {
       const t = await resp.text();
       if (resp.status === 429) throw new Error("AI 调用过于频繁，请稍后再试");

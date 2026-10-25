@@ -75,7 +75,7 @@ export const extractSolutionsForPaper = createServerFn({ method: "POST" })
       },
     ];
 
-    const resp = await (await import("./ai/astra-chat.server")).astraChat(apiKey, { messages: messages as any, json: true });
+    const resp = await (await import("./ai/astra-chat.server")).astraChat(apiKey, { messages: messages as any, json: true, usage: { actorId: context.userId, feature: "solution_extract" } });
     if (!resp.ok) {
       const t = await resp.text();
       if (resp.status === 429) throw new Error("AI 调用过于频繁，请稍后再试");
@@ -229,6 +229,7 @@ export const extractSolutionsForPaper = createServerFn({ method: "POST" })
       const zhMap = await translateBatchToZh(
         apiKey,
         missing.map((s) => ({ number: s.number, en: s.solution_md })),
+        context.userId,
       );
       for (const q of questions as Array<{ id: string; question_number: number }>) {
         const zh = zhMap.get(q.question_number);
@@ -248,6 +249,7 @@ export const extractSolutionsForPaper = createServerFn({ method: "POST" })
 async function translateBatchToZh(
   apiKey: string,
   items: Array<{ number: number; en: string }>,
+  actorId: string,
 ): Promise<Map<number, string>> {
   const result = new Map<number, string>();
   const CHUNK = 6;
@@ -266,7 +268,7 @@ async function translateBatchToZh(
 { "translations": [ { "number": 1, "zh": "..." }, ... ] }
 
 ${payload}`;
-    const resp = await (await import("./ai/astra-chat.server")).astraChat(apiKey, { messages: [{ role: "user", content: prompt }] as any, json: true });
+    const resp = await (await import("./ai/astra-chat.server")).astraChat(apiKey, { messages: [{ role: "user", content: prompt }] as any, json: true, usage: { actorId, feature: "solution_translate" } });
     if (!resp.ok) continue; // best-effort
     const j = await resp.json();
     const c = j.choices?.[0]?.message?.content;
@@ -311,6 +313,7 @@ export const translateMissingSolutions = createServerFn({ method: "POST" })
     const zhMap = await translateBatchToZh(
       apiKey,
       need.map((r: any) => ({ number: r.question_number, en: r.solution_md })),
+      context.userId,
     );
     let translated = 0;
     for (const r of need as any[]) {
