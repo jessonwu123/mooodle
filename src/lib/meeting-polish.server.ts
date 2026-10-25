@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { createResponsesCall } from "./ai/responses.server.ts";
 import { getLovableAiGatewayResponseHeaders } from "./ai/run-id.server.ts";
-import { canPolishMeeting, validateMeetingPolishText, validateMeetingPolishLanguage, withMeetingPolishLanguage } from "./meeting-polish";
+import { canPolishMeeting, validateMeetingPolishText, validateMeetingPolishLanguage, validateMeetingPolishImages, withMeetingPolishLanguage } from "./meeting-polish";
 
 export const meetingPolishCors = {
   "Access-Control-Allow-Origin": "*",
@@ -35,7 +35,8 @@ export async function handleMeetingPolish(request: Request): Promise<Response> {
   if (!canPolishMeeting((roles || []).map(r => r.role))) return json("仅教师和管理员可生成课堂反馈", 403);
   let text: string;
   let language: "zh" | "en";
-  try { const body = await request.json(); text = validateMeetingPolishText(body?.text); language = validateMeetingPolishLanguage(body?.language); }
+  let images: string[];
+  try { const body = await request.json(); text = validateMeetingPolishText(body?.text); language = validateMeetingPolishLanguage(body?.language); images = validateMeetingPolishImages(body?.images); }
   catch (error) { return json(error instanceof Error ? error.message : "请检查纪要内容", 400); }
   const { supabaseAdmin: admin } = await import("@/integrations/supabase/client.server");
   const { data: blocked, error: stateError } = await admin.from("practice_ai_access_state").select("message,status").eq("id", "gateway").maybeSingle();
