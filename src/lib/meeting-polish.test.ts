@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validateMeetingPolishText, canPolishMeeting, validateMeetingPolishLanguage, validateMeetingPolishImages, validateMeetingPolishTranscript, withMeetingPolishLanguage, MEETING_POLISH_IMAGE_LIMIT } from "./meeting-polish";
+import { validateMeetingPolishText, canPolishMeeting, validateMeetingPolishLanguage, validateMeetingPolishImages, validateMeetingPolishTranscript, withMeetingPolishLanguage, MEETING_POLISH_IMAGE_LIMIT, TRANSCRIPT_FILTER_MIN_LENGTH, meetingTranscriptFilterInstructions } from "./meeting-polish";
 import { meetingPolishInstructions, meetingPolishTranscriptNote } from "./meeting-polish";
 
 test("仅教师和管理员能生成课堂反馈", () => {
@@ -72,4 +72,16 @@ test("提示词要求老师讲解优先、术语沿用老师说法、AI 仅作�
 test("提示词要求语气像老师与家长当面交流", () => {
   assert.ok(meetingPolishInstructions.includes("语气要求"));
   assert.ok(meetingPolishInstructions.includes("当面交流"));
+});
+
+test("长逐字稿先经低成本模型过滤，短逐字稿直接送主模型", () => {
+  assert.equal(TRANSCRIPT_FILTER_MIN_LENGTH, 2000);
+  assert.ok(TRANSCRIPT_FILTER_MIN_LENGTH > 0);
+});
+
+test("过滤提示词保留老师原话、只删无关内容", () => {
+  assert.ok(meetingTranscriptFilterInstructions.includes("保留原话"));
+  assert.ok(meetingTranscriptFilterInstructions.includes("不改写、不概括"));
+  assert.ok(meetingTranscriptFilterInstructions.includes("删除寒暄"));
+  assert.ok(meetingTranscriptFilterInstructions.includes("宁可多保留"));
 });
