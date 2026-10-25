@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_credit_usage: {
+        Row: {
+          actor_kind: string
+          actor_name: string
+          actor_user_id: string
+          cached_input_tokens: number | null
+          estimated_credits: number | null
+          feature: string
+          finished_at: string | null
+          gateway_run_id: string | null
+          http_status: number | null
+          id: string
+          input_tokens: number | null
+          model: string
+          output_tokens: number | null
+          pricing_snapshot: Json | null
+          started_at: string
+          status: string
+          student_id: string | null
+          teacher_user_id: string | null
+        }
+        Insert: {
+          actor_kind: string
+          actor_name: string
+          actor_user_id: string
+          cached_input_tokens?: number | null
+          estimated_credits?: number | null
+          feature: string
+          finished_at?: string | null
+          gateway_run_id?: string | null
+          http_status?: number | null
+          id?: string
+          input_tokens?: number | null
+          model: string
+          output_tokens?: number | null
+          pricing_snapshot?: Json | null
+          started_at?: string
+          status?: string
+          student_id?: string | null
+          teacher_user_id?: string | null
+        }
+        Update: {
+          actor_kind?: string
+          actor_name?: string
+          actor_user_id?: string
+          cached_input_tokens?: number | null
+          estimated_credits?: number | null
+          feature?: string
+          finished_at?: string | null
+          gateway_run_id?: string | null
+          http_status?: number | null
+          id?: string
+          input_tokens?: number | null
+          model?: string
+          output_tokens?: number | null
+          pricing_snapshot?: Json | null
+          started_at?: string
+          status?: string
+          student_id?: string | null
+          teacher_user_id?: string | null
+        }
+        Relationships: []
+      }
       assessment_item_history: {
         Row: {
           comment: string | null
@@ -1191,6 +1254,7 @@ export type Database = {
       students: {
         Row: {
           access_level: string
+          account_created_by: string | null
           archive_kind: string
           auth_user_id: string | null
           created_at: string
@@ -1214,6 +1278,7 @@ export type Database = {
         }
         Insert: {
           access_level?: string
+          account_created_by?: string | null
           archive_kind?: string
           auth_user_id?: string | null
           created_at?: string
@@ -1237,6 +1302,7 @@ export type Database = {
         }
         Update: {
           access_level?: string
+          account_created_by?: string | null
           archive_kind?: string
           auth_user_id?: string | null
           created_at?: string
@@ -1385,6 +1451,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      ai_credit_usage_summary: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
       claim_limited_practice_ai_analysis: {
         Args: { p_session_id: string; p_user_id: string }
         Returns: number
