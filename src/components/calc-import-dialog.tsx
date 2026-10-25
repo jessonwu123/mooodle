@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MathText } from "@/components/math-text";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { importCalcQuestions } from "@/lib/math-papers.functions";
-import { calcRowFromCells, parseCalcLines, type CalcImportRow } from "@/lib/calc-import";
+import { calcRowFromCells, parseCalcCsv, parseCalcLines, type CalcImportRow } from "@/lib/calc-import";
 
 type CalcTag = { id: string; name: string; parent_id?: string | null };
 
@@ -37,7 +37,17 @@ export function CalcImportDialog({
   };
 
   const handleCalcFile = async (file: File) => {
+    setCalcRows([]);
+    setCalcText("");
     try {
+      if (/\.csv$/i.test(file.name)) {
+        const text = await file.text();
+        const rows = parseCalcCsv(text);
+        setCalcText(text);
+        setCalcRows(rows);
+        toast.success(`已读取 ${file.name}`);
+        return;
+      }
       const XLSX = await import("xlsx");
       const wb = XLSX.read(await file.arrayBuffer());
       const firstSheet = wb.SheetNames[0];
@@ -51,8 +61,9 @@ export function CalcImportDialog({
       const lines = cells
         .map((r) => r.join("\t"))
         .join("\n");
+      const rows = cells.map(calcRowFromCells).filter((row): row is CalcRow => row !== null);
       setCalcText(lines);
-      setCalcRows(cells.map(calcRowFromCells).filter((row): row is CalcRow => row !== null));
+      setCalcRows(rows);
       toast.success(`已读取 ${file.name}`);
     } catch (err) {
       toast.error("文件读取失败：" + (err instanceof Error ? err.message : ""));
