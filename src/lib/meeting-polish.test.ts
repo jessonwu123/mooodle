@@ -48,3 +48,17 @@ test("课堂笔记图片仅接受限定格式与数量的 data URL", () => {
   assert.throws(() => validateMeetingPolishImages(["data:image/jpeg;base64," + "A".repeat(5_600_000)]));
   assert.throws(() => validateMeetingPolishImages(Array(MEETING_POLISH_IMAGE_LIMIT + 1).fill(jpeg)));
 });
+
+test("逐字稿可选，旧版请求默认无逐字稿", () => {
+  assert.equal(validateMeetingPolishTranscript(undefined), "");
+  assert.equal(validateMeetingPolishTranscript(null), "");
+  assert.equal(validateMeetingPolishTranscript(""), "");
+});
+
+test("逐字稿仅接受限定长度的字符串", () => {
+  assert.equal(validateMeetingPolishTranscript(" 老师：我们先看这道题 "), "老师：我们先看这道题");
+  assert.equal(validateMeetingPolishTranscript("字".repeat(100000)).length, 100000);
+  assert.throws(() => validateMeetingPolishTranscript("字".repeat(100001)));
+  assert.throws(() => validateMeetingPolishTranscript(123));
+  assert.throws(() => validateMeetingPolishTranscript(["老师：你好"]));
+});
