@@ -1,14 +1,8 @@
+import { assertQuestionBankEditor } from "@/lib/question-bank-access";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-async function assertAdmin(context: { supabase: any; userId: string }) {
-  const { data: isAdmin } = await context.supabase.rpc("has_role", {
-    _user_id: context.userId,
-    _role: "admin",
-  });
-  if (!isAdmin) throw new Error("仅管理员可执行");
-}
 
 const ExtractInput = z.object({
   paperId: z.string().uuid(),
@@ -19,7 +13,7 @@ export const extractSolutionsForPaper = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ExtractInput.parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertQuestionBankEditor(context);
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
 
@@ -298,7 +292,7 @@ export const translateMissingSolutions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => TranslateInput.parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertQuestionBankEditor(context);
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
     const { data: rows, error } = await context.supabase
@@ -336,7 +330,7 @@ export const saveSolutionImages = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => SaveImagesInput.parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertQuestionBankEditor(context);
     const { error } = await context.supabase
       .from("math_questions")
       .update({ solution_images: data.images })
@@ -350,7 +344,7 @@ export const clearSolutionsForPaper = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ClearInput.parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertQuestionBankEditor(context);
     const { error } = await context.supabase
       .from("math_questions")
       .update({ solution_md: null, solution_md_zh: null, solution_images: [] })
