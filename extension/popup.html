@@ -8,6 +8,8 @@
 <div class="row"><button id="load" class="primary">匹配当日课次</button></div>
 <label for="session">课表中的课次</label><select id="session"><option value="">请先匹配当日课次</option></select>
 <button id="read" class="primary">读取已复制纪要</button>
+<div class="row"><button id="transcript-read">提取页面逐字稿</button><button id="transcript-clear" hidden>清除逐字稿</button></div>
+<p class="hint" id="transcript-status">在纪要页面打开插件可提取发言逐字稿，生成反馈时与纪要、图片一起参考。</p>
 <textarea id="notes" aria-label="纪要预览" placeholder="也可以在这里粘贴纪要"></textarea>
 <label for="feedback-language">反馈语言</label><select id="feedback-language"><option value="zh">中文</option><option value="en">English（英文）</option></select>
 <label for="note-images">课堂笔记图片（选填，长图自动按原清晰度分段）</label><div class="row"><input id="note-images" type="file" accept="image/jpeg,image/png,image/webp" multiple></div><div id="note-image-list"></div>

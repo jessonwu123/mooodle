@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "课堂档案 · 纪要存档",
-  "version": "1.5.1",
-  "description": "主动读取已复制的腾讯会议纪要，可附课堂笔记图片，预览后导入选定课节的课堂总结。",
+  "version": "1.6.0",
+  "description": "读取腾讯会议纪要与发言逐字稿，可附课堂笔记图片，预览后导入选定课节的课堂总结。",
   "permissions": ["storage", "clipboardRead", "activeTab", "scripting", "tabs"],
   "host_permissions": ["https://mooodle.lovable.app/*", "https://elwiaeitctyhmockanld.supabase.co/*"],
   "background": { "service_worker": "background.js" },
