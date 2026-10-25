@@ -2,7 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { createResponsesCall } from "./ai/responses.server.ts";
 import { getLovableAiGatewayResponseHeaders } from "./ai/run-id.server.ts";
-import { canPolishMeeting, validateMeetingPolishText, validateMeetingPolishLanguage, validateMeetingPolishImages, validateMeetingPolishTranscript, withMeetingPolishLanguage, meetingPolishInstructions, meetingPolishTranscriptNote } from "./meeting-polish";
+import { canPolishMeeting, validateMeetingPolishText, validateMeetingPolishLanguage, validateMeetingPolishImages, validateMeetingPolishTranscript, withMeetingPolishLanguage, meetingPolishInstructions, meetingPolishTranscriptNote, TRANSCRIPT_FILTER_MIN_LENGTH } from "./meeting-polish";
+import { filterMeetingTranscript } from "./ai/transcript-filter.server";
 
 export const meetingPolishCors = {
   "Access-Control-Allow-Origin": "*",

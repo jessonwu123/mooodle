@@ -1,5 +1,5 @@
 // Server-only: pre-filters the meeting transcript with a low-cost model
-// (google/gemini-2.5-flash-lite, chat completions) to remove off-topic chatter
+// (google/gemini-3.1-flash-lite, chat completions) to remove off-topic chatter
 // before the main gpt-6-astra feedback call, cutting input-token cost.
 // Any failure falls back to the original transcript; only gateway 402/403
 // blocks are surfaced to the caller.
@@ -7,7 +7,7 @@
 import { createCreditUsageTracker, type AiUsageContext } from "./credit-usage.server";
 import { meetingTranscriptFilterInstructions } from "../meeting-polish";
 
-export const TRANSCRIPT_FILTER_MODEL = "google/gemini-2.5-flash-lite";
+export const TRANSCRIPT_FILTER_MODEL = "google/gemini-3.1-flash-lite";
 
 export type TranscriptFilterResult =
   | { text: string }
