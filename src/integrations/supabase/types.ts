@@ -1395,6 +1395,24 @@ export type Database = {
         }
         Relationships: []
       }
+      teacher_question_bank_permissions: {
+        Row: {
+          can_edit: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          can_edit?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          can_edit?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       teacher_xngj_credentials: {
         Row: {
           created_at: string
@@ -1455,6 +1473,7 @@ export type Database = {
         Args: { p_from: string; p_to: string }
         Returns: Json
       }
+      can_edit_question_bank: { Args: never; Returns: boolean }
       claim_limited_practice_ai_analysis: {
         Args: { p_session_id: string; p_user_id: string }
         Returns: number
@@ -1574,6 +1593,10 @@ export type Database = {
           ip_address: string
           occurred_at: string
         }[]
+      }
+      set_teacher_question_bank_permission: {
+        Args: { _can_edit: boolean; _user_id: string }
+        Returns: undefined
       }
       student_login_email: { Args: { _username: string }; Returns: string }
       user_can_read_paper: { Args: { _paper_id: string }; Returns: boolean }

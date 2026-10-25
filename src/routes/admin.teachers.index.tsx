@@ -4,6 +4,7 @@ import { ArrowLeft, UserPlus, ShieldCheck, ChevronRight, Users, Shield, History 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -72,6 +73,8 @@ interface LoginEvent {
 
 function TeachersPage() {
   const { session } = useAuth();
+  const [editPermissions, setEditPermissions] = useState<Record<string, boolean>>({});
+  const [permissionBusy, setPermissionBusy] = useState<string | null>(null);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState("");
@@ -113,6 +116,9 @@ function TeachersPage() {
       setLoading(false);
       return;
     }
+    const { data: permissions, error: permissionError } = await supabase.from("teacher_question_bank_permissions").select("user_id, can_edit");
+    if (permissionError) toast.error("加载题库权限失败：" + permissionError.message);
+    setEditPermissions(Object.fromEntries((permissions ?? []).map((p) => [p.user_id, p.can_edit])));
     setTeachers(((data ?? []) as Teacher[]).map((t) => ({
       ...t,
       student_count: Number(t.student_count ?? 0),
@@ -126,6 +132,18 @@ function TeachersPage() {
       .then((rows) => setInviters(new Map(rows.map((r) => [r.invitee_user_id, { email: r.inviter_email, code: r.invite_code }]))))
       .catch(() => undefined);
   }, []);
+
+  const setBankPermission = async (uid: string, canEdit: boolean) => {
+    setPermissionBusy(uid);
+    try {
+      const { error } = await supabase.rpc("set_teacher_question_bank_permission", { _user_id: uid, _can_edit: canEdit });
+      if (error) throw error;
+      setEditPermissions((prev) => ({ ...prev, [uid]: canEdit }));
+      toast.success(canEdit ? "已开通题库新增、修改和删除权限" : "已设为仅使用和下载题库");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "权限设置失败");
+    } finally { setPermissionBusy(null); }
+  };
 
   const grantRole = async (uid: string, role: "teacher" | "admin") => {
     const { error } = await supabase
@@ -327,7 +345,7 @@ function TeachersPage() {
                       <span>
                         邀请人：
                         {inviters.get(t.user_id)
-                          ? `${inviters.get(t.user_id)!.email ?? "未知"}（邀请码 ${inviters.get(t.user_id)!.code}）`
+                          ? `${inviters.get(t.user_id)?.email ?? "未知"}（邀请码 ${inviters.get(t.user_id)?.code}）`
                           : "—"}
                       </span>
                       <button
@@ -353,7 +371,13 @@ function TeachersPage() {
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </Link>
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center gap-3">
+                  {t.is_teacher && !t.is_admin && (
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Switch aria-label={`题库编辑权限 · ${t.email}`} checked={editPermissions[t.user_id] === true} disabled={permissionBusy === t.user_id} onCheckedChange={(checked) => void setBankPermission(t.user_id, checked)} />
+                      <span>{editPermissions[t.user_id] ? "题库可编辑" : "题库仅使用 / 下载"}</span>
+                    </label>
+                  )}
                   {!t.is_admin ? (
                     <Button
                       variant="outline"

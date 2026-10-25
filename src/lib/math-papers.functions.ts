@@ -1,3 +1,4 @@
+import { assertQuestionBankEditor } from "@/lib/question-bank-access";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
@@ -36,11 +37,7 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ExtractInput.parse(d))
   .handler(async ({ data, context }) => {
-    const { data: isAdmin } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (!isAdmin) throw new Error("仅管理员可执行");
+    await assertQuestionBankEditor(context);
 
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
@@ -298,11 +295,7 @@ export const saveMathPaper = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => SaveInput.parse(d))
   .handler(async ({ data, context }) => {
-    const { data: isAdmin } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (!isAdmin) throw new Error("仅管理员可执行");
+    await assertQuestionBankEditor(context);
 
     const { supabase } = context;
     const { data: paper, error } = await supabase
@@ -359,11 +352,7 @@ export const createMathPaper = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { data: isAdmin } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (!isAdmin) throw new Error("仅管理员可执行");
+    await assertQuestionBankEditor(context);
     const { data: paper, error } = await context.supabase
       .from("math_papers")
       .insert({
@@ -409,11 +398,7 @@ export const replaceMathPaperQuestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ReplaceInput.parse(d))
   .handler(async ({ data, context }) => {
-    const { data: isAdmin } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (!isAdmin) throw new Error("仅管理员可执行");
+    await assertQuestionBankEditor(context);
     const { supabase } = context;
     const { data: paper, error: e0 } = await supabase
       .from("math_papers")
@@ -488,11 +473,7 @@ export const deleteMathPaper = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ paperId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { data: isAdmin } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (!isAdmin) throw new Error("仅管理员可执行");
+    await assertQuestionBankEditor(context);
     const { error } = await context.supabase.from("math_papers").delete().eq("id", data.paperId);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -515,11 +496,7 @@ export const bulkUpdateQuestionAnswers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => BulkAnswersInput.parse(d))
   .handler(async ({ data, context }) => {
-    const { data: isAdmin } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (!isAdmin) throw new Error("仅管理员可执行");
+    await assertQuestionBankEditor(context);
     let updated = 0;
     for (const { number, answer } of data.answers) {
       const { error, count } = await context.supabase
@@ -557,13 +534,8 @@ export const importCalcQuestions = createServerFn({ method: "POST" })
       validateCalcMath(question.stem);
       validateCalcMath(question.answer ?? "");
     }
-    const [{ data: isAdmin }, { data: isTeacher }] = await Promise.all([
-      context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" }),
-      context.supabase.rpc("has_role", { _user_id: context.userId, _role: "teacher" }),
-    ]);
-    if (!isAdmin && !isTeacher) throw new Error("仅教师或管理员可执行");
-    // 已验证教师/管理员身份；题库表的写策略仅管理员，这里用服务端客户端执行写入
-    const { supabaseAdmin: supabase } = await import("@/integrations/supabase/client.server");
+    await assertQuestionBankEditor(context);
+    const supabase = context.supabase;
 
     // 计算题统一存放在一个隐藏的容器（kind="calc"），不在原始题库中显示为试卷
     let { data: paper } = await supabase
@@ -646,14 +618,6 @@ export const importCalcQuestions = createServerFn({ method: "POST" })
   });
 
 // ===== 修改 / 删除单道计算题 =====
-async function assertTeacherOrAdmin(context: { supabase: any; userId: string }) {
-  const [{ data: isAdmin }, { data: isTeacher }] = await Promise.all([
-    context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" }),
-    context.supabase.rpc("has_role", { _user_id: context.userId, _role: "teacher" }),
-  ]);
-  if (!isAdmin && !isTeacher) throw new Error("仅教师或管理员可执行");
-}
-
 export const updateCalcQuestion = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -666,8 +630,8 @@ export const updateCalcQuestion = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await assertTeacherOrAdmin(context);
-    const { supabaseAdmin: supabase } = await import("@/integrations/supabase/client.server");
+    await assertQuestionBankEditor(context);
+    const supabase = context.supabase;
     const { error } = await supabase
       .from("math_questions")
       .update({
@@ -684,7 +648,7 @@ export const deleteCalcQuestion = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ questionId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertTeacherOrAdmin(context);
+    await assertQuestionBankEditor(context);
     const { supabaseAdmin: supabase } = await import("@/integrations/supabase/client.server");
     // 先清理关联数据，再删题目本身
     await supabase.from("math_question_tags").delete().eq("question_id", data.questionId);

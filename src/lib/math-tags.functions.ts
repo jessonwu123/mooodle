@@ -1,3 +1,4 @@
+import { assertQuestionBankEditor } from "@/lib/question-bank-access";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
@@ -10,13 +11,6 @@ const TagInput = z.object({
   parentId: z.string().uuid().nullable().optional(),
 });
 
-async function assertAdmin(context: { supabase: any; userId: string }) {
-  const { data: isAdmin } = await context.supabase.rpc("has_role", {
-    _user_id: context.userId,
-    _role: "admin",
-  });
-  if (!isAdmin) throw new Error("仅管理员可执行");
-}
 
 export const listTags = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -34,7 +28,7 @@ export const createTag = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => TagInput.parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertQuestionBankEditor(context);
     if (data.parentId) {
       const { data: parent, error: parentError } = await context.supabase
         .from("math_tags")
@@ -56,8 +50,8 @@ export const createTag = createServerFn({ method: "POST" })
       })
       .select("id")
       .single();
-    if (error) throw new Error(error.message);
-    return { id: row!.id as string };
+    if (error || !row) throw new Error(error?.message ?? "创建标签失败");
+    return { id: row.id as string };
   });
 
 export const updateTag = createServerFn({ method: "POST" })
@@ -75,7 +69,7 @@ export const updateTag = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertQuestionBankEditor(context);
     if (data.parentId === data.id) throw new Error("标签不能归入自身");
     if (data.parentId) {
       const { data: parent, error: parentError } = await context.supabase
@@ -105,7 +99,7 @@ export const deleteTag = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertQuestionBankEditor(context);
     const { error } = await context.supabase.from("math_tags").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -123,7 +117,7 @@ export const setQuestionTags = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertQuestionBankEditor(context);
     const { supabase } = context;
     const { error: eDel } = await supabase
       .from("math_question_tags")
@@ -167,7 +161,7 @@ export const autoTagPaper = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertQuestionBankEditor(context);
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
 
@@ -287,7 +281,7 @@ export const autoTagByTags = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertQuestionBankEditor(context);
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
 

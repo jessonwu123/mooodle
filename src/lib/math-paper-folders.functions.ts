@@ -1,15 +1,8 @@
+import { assertQuestionBankEditor } from "@/lib/question-bank-access";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-async function assertAdmin(context: { supabase: { rpc: (...args: never[]) => unknown }; userId: string }) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: isAdmin } = await (context.supabase as any).rpc("has_role", {
-    _user_id: context.userId,
-    _role: "admin",
-  });
-  if (!isAdmin) throw new Error("仅管理员可执行");
-}
 
 export const listMathPaperFolders = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -33,7 +26,7 @@ export const createMathPaperFolder = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertQuestionBankEditor(context);
     const { data: row, error } = await context.supabase
       .from("math_paper_folders")
       .insert({
@@ -53,7 +46,7 @@ export const renameMathPaperFolder = createServerFn({ method: "POST" })
     z.object({ id: z.string().uuid(), name: z.string().trim().min(1).max(120) }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertQuestionBankEditor(context);
     const { error } = await context.supabase
       .from("math_paper_folders")
       .update({ name: data.name })
@@ -66,7 +59,7 @@ export const deleteMathPaperFolder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertQuestionBankEditor(context);
     // Move papers in this folder up to parent (or root)
     const { data: folder } = await context.supabase
       .from("math_paper_folders")
@@ -108,7 +101,7 @@ export const createMathPaperFiles = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertQuestionBankEditor(context);
     const rows = data.files.map((f) => ({
       folder_id: data.folderId,
       kind: data.kind,
@@ -150,7 +143,7 @@ export const moveMathPaper = createServerFn({ method: "POST" })
     z.object({ paperId: z.string().uuid(), folderId: z.string().uuid().nullable() }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertQuestionBankEditor(context);
     const { error } = await context.supabase
       .from("math_papers")
       .update({ folder_id: data.folderId })

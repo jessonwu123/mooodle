@@ -1,3 +1,4 @@
+import { useQuestionBankAccess } from "@/hooks/use-question-bank-access";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -58,6 +59,7 @@ type PaperRow = { id: string; year: number; name: string };
 type DraftRow = { name: string; description: string; parentId: string | null };
 
 export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
+  const { canEdit } = useQuestionBankAccess();
   const isCalc = variant === "calc";
   const tagCategoryOk = (c: string) => (isCalc ? c === "calc" : true);
   const fetchTags = useServerFn(listTags);
@@ -523,7 +525,8 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
           </div>
           <h1 className="mt-1 text-2xl font-bold text-foreground">{isCalc ? "按知识点筛选计算题" : "按知识点浏览题目"}</h1>
         </div>
-        {isCalc && <CalcImportDialog tags={tags} onImported={() => void loadAll()} />}
+        {canEdit && isCalc && <CalcImportDialog tags={tags} onImported={() => void loadAll()} />}
+        {canEdit && <>
         <Button variant="outline" onClick={openAi} className="gap-1.5">
           <Sparkles className="h-4 w-4" />
           AI 更新标签
@@ -532,6 +535,7 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
           <Settings2 className="h-4 w-4" />
           管理知识点
         </Button>
+        </>}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
@@ -592,7 +596,7 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
           <div className="flex-1 space-y-0.5 overflow-y-auto pr-1">
             {tagGroups.length === 0 ? (
               <div className="rounded border border-dashed p-4 text-center text-xs text-muted-foreground">
-                {tags.length === 0 ? "还没有知识点，点击右上角「管理知识点」添加。" : "没有匹配的知识点"}
+                {tags.length === 0 ? "暂无知识点。" : "没有匹配的知识点"}
               </div>
             ) : (
               tagGroups.map(({ parent, children }) => {
@@ -744,15 +748,18 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
                             查看原题
                           </button>
                         )}
-                        <button
+                        {canEdit && <>
+                        <Button
+                          variant="ghost" size="sm"
                           type="button"
                           onClick={() => openEditQuestion(q)}
                           className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
                         >
                           <Pencil className="h-3 w-3" />
                           修改
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          variant="ghost" size="sm"
                           type="button"
                           disabled={deletingQ === q.id}
                           onClick={() => handleDeleteQuestion(q)}
@@ -764,7 +771,8 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
                             <Trash2 className="h-3 w-3" />
                           )}
                           删除
-                        </button>
+                        </Button>
+                        </>}
                       </span>
                     </div>
                     <MathText
@@ -805,17 +813,17 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
                             title={t.description ?? undefined}
                           >
                             {t.name}
-                            <button
+                            {canEdit && <Button variant="ghost" size="icon"
                               onClick={() => removeQuestionTag(q.id, tid)}
                               className="rounded-full p-0.5 text-muted-foreground hover:bg-background hover:text-destructive"
                               aria-label="移除"
                             >
                               <X className="h-2.5 w-2.5" />
-                            </button>
+                            </Button>}
                           </span>
                         );
                       })}
-                      <Popover
+                      {canEdit && <Popover
                         open={openTagPopoverFor === q.id}
                         onOpenChange={(o) => {
                           setOpenTagPopoverFor(o ? q.id : null);
@@ -880,7 +888,7 @@ export function ClassifiedBankView({ variant }: { variant: "exam" | "calc" }) {
                             )}
                           </div>
                         </PopoverContent>
-                      </Popover>
+                      </Popover>}
                     </div>
                   </div>
                 );

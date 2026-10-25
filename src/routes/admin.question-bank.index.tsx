@@ -1,3 +1,5 @@
+import { useQuestionBankAccess } from "@/hooks/use-question-bank-access";
+import { useAuth } from "@/hooks/use-auth";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -81,6 +83,7 @@ const SearchSchema = z.object({
 export const Route = createFileRoute("/admin/question-bank/")({
   validateSearch: zodValidator(SearchSchema),
   component: QuestionBankPage,
+  head: () => ({ meta: [{ title: "mooodle · 原始数学题库" }, { name: "description", content: "浏览和下载数学试卷，授权教师可维护题库。" }, { property: "og:title", content: "mooodle · 原始数学题库" }, { property: "og:description", content: "浏览和下载数学试卷。" }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
 });
 
 interface FolderRow {
@@ -184,6 +187,8 @@ function triggerBrowserDownload(url: string, filename: string) {
 }
 
 function QuestionBankPage() {
+  const { canEdit } = useQuestionBankAccess();
+  const { isAdmin } = useAuth();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/admin/question-bank/" });
   const currentFolderId = search.folder;
@@ -1108,6 +1113,7 @@ function QuestionBankPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {canEdit && <>
           <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="gap-1.5">
@@ -1150,7 +1156,8 @@ function QuestionBankPage() {
               {syncing ? syncProgress || "同步中..." : "一键同步答案"}
             </Button>
           )}
-          {currentFolderId && (
+          </>}
+          {isAdmin && currentFolderId && (
             <FolderPermissionsDialog
               folderId={currentFolderId}
               folderName={breadcrumb[breadcrumb.length - 1]?.name ?? "当前文件夹"}
@@ -1191,7 +1198,7 @@ function QuestionBankPage() {
         </div>
       ) : subfolders.length === 0 && papers.length === 0 ? (
         <div className="rounded-2xl border border-dashed bg-card/50 p-10 text-center text-sm text-muted-foreground">
-          这里还是空的。新建一个文件夹，或直接上传 PDF。
+          暂无文件。
         </div>
       ) : (
         <div className="space-y-2">
@@ -1207,7 +1214,7 @@ function QuestionBankPage() {
                 <Folder className="h-5 w-5 text-amber-500" />
                 <div className="font-medium truncate">{f.name}</div>
               </button>
-              <FolderPermissionsDialog
+              {isAdmin && <FolderPermissionsDialog
                 folderId={f.id}
                 folderName={f.name}
                 trigger={
@@ -1220,8 +1227,8 @@ function QuestionBankPage() {
                     <Shield className="h-4 w-4" />
                   </Button>
                 }
-              />
-              <AlertDialog>
+              />}
+              {canEdit && <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="ghost"
@@ -1248,7 +1255,7 @@ function QuestionBankPage() {
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
-              </AlertDialog>
+              </AlertDialog>}
             </div>
           ))}
           {papers.map((p) => {
@@ -1302,7 +1309,7 @@ function QuestionBankPage() {
                   >
                     <Download className="h-3.5 w-3.5" /> 下载
                   </Button>
-                  {p.kind === "paper" && (
+                  {canEdit && p.kind === "paper" && (
                     <Button
                       variant="secondary"
                       size="sm"
@@ -1318,7 +1325,7 @@ function QuestionBankPage() {
                       {p.question_count > 0 ? "重新抽题" : "抽取题目"}
                     </Button>
                   )}
-                  <AlertDialog>
+                  {canEdit && <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
                         variant="ghost"
@@ -1345,7 +1352,7 @@ function QuestionBankPage() {
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
-                  </AlertDialog>
+                  </AlertDialog>}
                 </div>
               </div>
             );
@@ -1654,7 +1661,7 @@ function QuestionEditor({
         <CropEditDialog
           open={cropOpen}
           onOpenChange={setCropOpen}
-          initialRegions={q.regions!}
+          initialRegions={q.regions ?? []}
           pageImages={pageImages}
           paperPdfFile={paperPdfFile}
           totalPdfPages={totalPdfPages}

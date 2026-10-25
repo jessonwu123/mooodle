@@ -1,3 +1,4 @@
+import { useQuestionBankAccess } from "@/hooks/use-question-bank-access";
 import { useRef, useState } from "react";
 import { Upload, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,12 +24,14 @@ export function EditableQuestionImage({
   onUpdated?: (newPath: string, newUrl: string) => void;
   emptyHint?: string;
 }) {
+  const { canEdit } = useQuestionBankAccess();
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
 
   const pick = () => inputRef.current?.click();
 
   const handleFile = async (file: File) => {
+    if (!canEdit) return;
     setBusy(true);
     try {
       const ext = (file.name.split(".").pop() || "png").toLowerCase();
@@ -64,9 +67,10 @@ export function EditableQuestionImage({
         <img src={signedUrl} alt={alt} className={className} />
       ) : (
         <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed bg-muted/30 px-4 py-8 text-xs text-muted-foreground">
-          {emptyHint}
+          {canEdit ? emptyHint : "暂无原题截图"}
         </div>
       )}
+      {canEdit && <>
       <input
         ref={inputRef}
         type="file"
@@ -88,6 +92,7 @@ export function EditableQuestionImage({
         {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
         {busy ? "上传中..." : signedUrl ? "替换截图" : "上传截图"}
       </Button>
+      </>}
     </div>
   );
 }
