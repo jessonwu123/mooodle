@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { validateCalcMath } from "@/lib/calc-import";
 
 const ExtractInput = z
   .object({
@@ -552,6 +553,10 @@ export const importCalcQuestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ImportCalcInput.parse(d))
   .handler(async ({ data, context }) => {
+    for (const question of data.questions) {
+      validateCalcMath(question.stem);
+      validateCalcMath(question.answer ?? "");
+    }
     const [{ data: isAdmin }, { data: isTeacher }] = await Promise.all([
       context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" }),
       context.supabase.rpc("has_role", { _user_id: context.userId, _role: "teacher" }),
