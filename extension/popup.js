@@ -81,7 +81,7 @@ const sendToApp = async (message) => {
   } finally { clearTimeout(timer); }
 };
 date.value = new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Shanghai",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
-const update = () => { stage.disabled = !notes.value.trim(); save.disabled = !notes.value.trim() || !select.value || !!polishController; polish.disabled = !notes.value.trim() || !!polishController; feedbackLanguage.disabled = !!polishController; };
+const update = () => { stage.disabled = !notes.value.trim(); save.disabled = !notes.value.trim() || !select.value || !!polishController; polish.disabled = !notes.value.trim() || !!polishController; feedbackLanguage.disabled = !!polishController; noteImages.disabled = !!polishController; };
 const remember = () => chrome.storage.local.set({[key]:{text:notes.value,title:title.value,originalText,feedback:feedback.value,feedbackReady,createdAt:Date.now()}});
 const render = () => {
   const ranked = MeetingMatching.rank(title.value,sessions);
@@ -201,7 +201,7 @@ save.addEventListener("click", async () => {
   finally {update();}
 });
 document.getElementById("clear").addEventListener("click", async () => {
-  polishController?.abort();await chrome.storage.local.remove(key); notes.value = "";feedback.value="";originalText="";feedbackReady=false;document.getElementById("feedback-box").hidden=true;restoreOriginal.hidden=true;update(); set("本机纪要已清除。","ok");
+  polishController?.abort();await chrome.storage.local.remove(key); notes.value = "";feedback.value="";originalText="";feedbackReady=false;noteImageData=[];renderNoteImages();document.getElementById("feedback-box").hidden=true;restoreOriginal.hidden=true;update(); set("本机纪要已清除。","ok");
 });
 polish.addEventListener("click", async () => {
   const text=notes.value.trim();
@@ -214,7 +214,7 @@ polish.addEventListener("click", async () => {
     await remember();
     const auth=await sendToApp({action:"ai-token"});
     if(auth.error || !auth.accessToken)throw new Error(auth.error || "请先登录教师账号");
-    const res=await fetch("https://mooodle.lovable.app/api/public/meeting-polish",{method:"POST",headers:{Authorization:`Bearer ${auth.accessToken}`,"Content-Type":"application/json"},body:JSON.stringify({text,language}),signal:controller.signal});
+    const res=await fetch("https://mooodle.lovable.app/api/public/meeting-polish",{method:"POST",headers:{Authorization:`Bearer ${auth.accessToken}`,"Content-Type":"application/json"},body:JSON.stringify({text,language,images:noteImageData.length?noteImageData:undefined}),signal:controller.signal});
     if(!res.ok){const data=await res.json().catch(()=>({}));throw new Error(data.error || `生成失败（${res.status}），请确认网站已发布更新`);}
     if(!res.body || !res.headers.get("content-type")?.includes("application/x-ndjson"))throw new Error("网站未返回生成结果，请确认已发布最新更新");
     const reader=res.body.getReader(),decoder=new TextDecoder();let buffer="",done=false;
