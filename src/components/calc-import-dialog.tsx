@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MathText } from "@/components/math-text";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { importCalcQuestions } from "@/lib/math-papers.functions";
+import { calcRowFromCells, parseCalcLines, type CalcImportRow } from "@/lib/calc-import";
 
 type CalcTag = { id: string; name: string; parent_id?: string | null };
 
@@ -17,7 +18,7 @@ export function CalcImportDialog({
   tags: CalcTag[];
   onImported?: () => void;
 }) {
-  type CalcRow = { stem: string; answer: string; tags: string[] };
+  type CalcRow = CalcImportRow;
   const [calcOpen, setCalcOpen] = useState(false);
   const [calcText, setCalcText] = useState("");
   const [calcRows, setCalcRows] = useState<CalcRow[]>([]);
@@ -25,45 +26,33 @@ export function CalcImportDialog({
   const [calcImporting, setCalcImporting] = useState(false);
   const calcFileRef = useRef<HTMLInputElement | null>(null);
 
-  const parseCalcLines = (text: string): CalcRow[] => {
-    const rows: CalcRow[] = [];
-    for (const raw of text.split(/\r?\n/)) {
-      const line = raw.trim();
-      if (!line) continue;
-      const parts = line.split(/\||｜|\t/).map((s) => s.trim());
-      const stem = parts[0] ?? "";
-      if (!stem || stem === "题干" || stem === "题目") continue;
-      rows.push({
-        stem,
-        answer: parts[1] ?? "",
-        tags: (parts[2] ?? "")
-          .split(/[,，、;；]/)
-          .map((s) => s.trim())
-          .filter(Boolean),
-      });
-    }
-    return rows;
-  };
-
   const handleCalcTextChange = (text: string) => {
     setCalcText(text);
-    setCalcRows(parseCalcLines(text));
+    try {
+      setCalcRows(parseCalcLines(text));
+    } catch (err) {
+      setCalcRows([]);
+      toast.error(err instanceof Error ? err.message : "导入格式错误");
+    }
   };
 
   const handleCalcFile = async (file: File) => {
     try {
       const XLSX = await import("xlsx");
       const wb = XLSX.read(await file.arrayBuffer());
-      const sheet = wb.Sheets[wb.SheetNames[0]!];
+      const firstSheet = wb.SheetNames[0];
+      const sheet = firstSheet ? wb.Sheets[firstSheet] : undefined;
+      if (!sheet) throw new Error("文件没有可读取的工作表");
       const grid = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, {
         header: 1,
         defval: "",
       });
-      const lines = grid
-        .map((r) => r.map((c) => String(c ?? "").trim()).join("|"))
+      const cells = grid.map((r) => r.map((c) => String(c ?? "").trim()));
+      const lines = cells
+        .map((r) => r.join("\t"))
         .join("\n");
       setCalcText(lines);
-      setCalcRows(parseCalcLines(lines));
+      setCalcRows(cells.map(calcRowFromCells).filter((row): row is CalcRow => row !== null));
       toast.success(`已读取 ${file.name}`);
     } catch (err) {
       toast.error("文件读取失败：" + (err instanceof Error ? err.message : ""));
