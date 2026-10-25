@@ -54,7 +54,7 @@ export async function handleMeetingPolish(request: Request): Promise<Response> {
     { type: "text", text: userText },
     ...images.map((image) => ({ type: "image" as const, image: new URL(image) })),
   ];
-  const call = createResponsesCall(request, { baseURL: "https://ai.gateway.lovable.dev/v1", apiKey, model: "openai/gpt-6-astra" }, [{ role: "user", content: userContent }], withMeetingPolishLanguage(instructions, language) + imageNote, { actorId: auth.user.id, feature: "meeting_feedback" });
+  const call = createResponsesCall(request, { baseURL: "https://ai.gateway.lovable.dev/v1", apiKey, model: "openai/gpt-6-astra" }, [{ role: "user", content: userContent }], withMeetingPolishLanguage(instructions, language) + imageNote + transcriptNote, { actorId: auth.user.id, feature: "meeting_feedback" });
   const upstream = await call.upstream;
   const safeError = (body: { message?: string; error?: { message?: string } }) => body.message || body.error?.message || "AI 生成未完成，原纪要已保留";
   const persistBlock = async (status: number, message: string) => {
