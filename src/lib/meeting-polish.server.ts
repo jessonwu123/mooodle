@@ -32,9 +32,10 @@ export async function handleMeetingPolish(request: Request): Promise<Response> {
   if (roleError) return json("教师权限读取失败", 503);
   if (!canPolishMeeting((roles || []).map(r => r.role))) return json("仅教师和管理员可生成课堂反馈", 403);
   let text: string;
+  let transcript: string;
   let language: "zh" | "en";
   let images: string[];
-  try { const body = await request.json(); text = validateMeetingPolishText(body?.text); language = validateMeetingPolishLanguage(body?.language); images = validateMeetingPolishImages(body?.images); }
+  try { const body = await request.json(); text = validateMeetingPolishText(body?.text); transcript = validateMeetingPolishTranscript(body?.transcript); language = validateMeetingPolishLanguage(body?.language); images = validateMeetingPolishImages(body?.images); }
   catch (error) { return json(error instanceof Error ? error.message : "请检查纪要内容", 400); }
   const { supabaseAdmin: admin } = await import("@/integrations/supabase/client.server");
   const { data: blocked, error: stateError } = await admin.from("practice_ai_access_state").select("message,status").eq("id", "gateway").maybeSingle();
