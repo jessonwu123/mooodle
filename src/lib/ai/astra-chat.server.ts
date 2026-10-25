@@ -52,13 +52,12 @@ export async function astraChat(
       ...(useJson ? { text: { format: { type: "json_object" } } } : {}),
     }),
   });
-  });
   } catch (error) { await tracker.finish(error); throw error; }
   await tracker.response(upstream);
   if (!upstream.ok || !upstream.body) { await tracker.finish(); return upstream; }
 
   upstream = observeCreditStream(upstream, tracker);
-
+  if (!upstream.body) return upstream;
   const reader = upstream.body.getReader();
   const decoder = new TextDecoder();
   let buf = "";

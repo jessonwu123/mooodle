@@ -23,10 +23,11 @@ export function createResponsesCall(
     apiKey: config.apiKey,
     headers: { "Lovable-API-Key": config.apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
     fetch: async (input, init) => {
-      const tracker = usageContext ? await createCreditUsageTracker(usageContext, config.model, config.apiKey) : null;
+      let tracker: Awaited<ReturnType<typeof createCreditUsageTracker>> | null = null;
       try {
+        tracker = usageContext ? await createCreditUsageTracker(usageContext, config.model, config.apiKey) : null;
         const response = await runIdFetch.fetch(input, init);
-        resolveUpstream(new Response(null, { status: response.status, headers: response.headers }));
+        resolveUpstream(response.ok ? new Response(null, { status: response.status, headers: response.headers }) : response.clone());
         if (!tracker) return response;
         await tracker.response(response);
         if (!response.ok) { await tracker.finish(); return response; }
