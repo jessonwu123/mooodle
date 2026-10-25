@@ -2,6 +2,8 @@
 // (openai/gpt-6-astra) through the Lovable AI Gateway Responses API, streamed, and
 // returns a chat-completions-shaped Response so existing parsing code keeps working.
 
+import { createCreditUsageTracker, observeCreditStream, type AiUsageContext } from "./credit-usage.server";
+
 export const DEFAULT_AI_MODEL = "openai/gpt-6-astra";
 
 type ChatPart = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
@@ -23,14 +25,17 @@ function toInput(messages: ChatMessage[]) {
 
 export async function astraChat(
   apiKey: string,
-  opts: { messages: ChatMessage[]; json?: boolean; signal?: AbortSignal },
+  opts: { messages: ChatMessage[]; json?: boolean; signal?: AbortSignal; usage: AiUsageContext },
 ): Promise<Response> {
   const allText = opts.messages
     .flatMap((m) => (typeof m.content === "string" ? [m.content] : m.content.map((p) => (p.type === "text" ? p.text : ""))))
     .join(" ");
   // A bare json_object format is only accepted when the input mentions JSON.
   const useJson = opts.json && /json/i.test(allText);
-  const upstream = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
+  const tracker = await createCreditUsageTracker(opts.usage, DEFAULT_AI_MODEL, apiKey);
+  let upstream: Response;
+  try {
+  upstream = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -47,7 +52,12 @@ export async function astraChat(
       ...(useJson ? { text: { format: { type: "json_object" } } } : {}),
     }),
   });
-  if (!upstream.ok || !upstream.body) return upstream;
+  });
+  } catch (error) { await tracker.finish(error); throw error; }
+  await tracker.response(upstream);
+  if (!upstream.ok || !upstream.body) { await tracker.finish(); return upstream; }
+
+  upstream = observeCreditStream(upstream, tracker);
 
   const reader = upstream.body.getReader();
   const decoder = new TextDecoder();

@@ -55,7 +55,7 @@ export const ensureStudentAccount = createServerFn({ method: "POST" })
 
     const { error: uErr } = await supabaseAdmin
       .from("students")
-      .update({ username, auth_user_id: authUserId })
+      .update({ username, auth_user_id: authUserId, account_created_by: userId })
       .eq("id", student.id);
     if (uErr) throw new Error("保存账号失败：" + uErr.message);
 

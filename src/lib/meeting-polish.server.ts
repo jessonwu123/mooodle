@@ -43,7 +43,7 @@ export async function handleMeetingPolish(request: Request): Promise<Response> {
   if (blocked) return json(blocked.message, blocked.status);
   const apiKey = process.env.LOVABLE_API_KEY;
   if (!apiKey) return json("AI 服务尚未配置", 503);
-  const call = createResponsesCall(request, { baseURL: "https://ai.gateway.lovable.dev/v1", apiKey, model: "openai/gpt-6-astra" }, [{ role: "user", content: text }], withMeetingPolishLanguage(instructions, language));
+  const call = createResponsesCall(request, { baseURL: "https://ai.gateway.lovable.dev/v1", apiKey, model: "openai/gpt-6-astra" }, [{ role: "user", content: text }], withMeetingPolishLanguage(instructions, language), { actorId: auth.user.id, feature: "meeting_feedback" });
   const upstream = await call.upstream;
   const safeError = (body: { message?: string; error?: { message?: string } }) => body.message || body.error?.message || "AI 生成未完成，原纪要已保留";
   const persistBlock = async (status: number, message: string) => {

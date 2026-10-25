@@ -98,7 +98,7 @@ export const extractPaperQuestions = createServerFn({ method: "POST" })
       },
     ];
 
-    const resp = await (await import("./ai/astra-chat.server")).astraChat(apiKey, { messages: messages as any, json: true });
+    const resp = await (await import("./ai/astra-chat.server")).astraChat(apiKey, { messages: messages as any, json: true, usage: { actorId: context.userId, feature: "paper_extract" } });
     if (!resp.ok) {
       const text = await resp.text();
       if (resp.status === 429) throw new Error("AI 调用过于频繁，请稍后再试");
