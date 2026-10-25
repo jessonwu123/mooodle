@@ -16,7 +16,7 @@ export const ensureStudentAccount = createServerFn({ method: "POST" })
     const { userId } = context;
     const { data: student, error } = await supabaseAdmin
       .from("students")
-      .select("id, name, username, auth_user_id, created_by, archive_kind")
+      .select("id, name, username, auth_user_id, created_by, archive_kind, account_created_by")
       .eq("id", data.studentId)
       .maybeSingle();
     if (error || !student) throw new Error("学生不存在");
@@ -55,7 +55,7 @@ export const ensureStudentAccount = createServerFn({ method: "POST" })
 
     const { error: uErr } = await supabaseAdmin
       .from("students")
-      .update({ username, auth_user_id: authUserId, account_created_by: userId })
+      .update({ username, auth_user_id: authUserId, account_created_by: student.account_created_by ?? (student.auth_user_id ? null : userId) })
       .eq("id", student.id);
     if (uErr) throw new Error("保存账号失败：" + uErr.message);
 

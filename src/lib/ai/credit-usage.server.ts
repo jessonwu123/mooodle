@@ -11,7 +11,7 @@ export async function createCreditUsageTracker(context: AiUsageContext, model: s
   ]);
   if (studentError) throw new Error("AI 用量归属读取失败，请稍后重试");
   const actorName = student?.name || user.user?.email || "已删除账号";
-  const teacherId = creditTeacherFor(context.actorId, !!student, student?.account_created_by ?? student?.created_by ?? null);
+  const teacherId = creditTeacherFor(context.actorId, !!student, student?.account_created_by ?? null);
   const { data: row, error } = await admin.from("ai_credit_usage").insert({ actor_user_id: context.actorId, teacher_user_id: teacherId, student_id: student?.id ?? null, actor_kind: student ? "student" : "teacher", actor_name: actorName, feature: context.feature, model }).select("id").single();
   if (error || !row) throw new Error("AI 用量记录暂不可用，请稍后重试");
   let pricing: CreditPricing | null = null;
