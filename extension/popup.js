@@ -32,7 +32,12 @@ const transcriptRead = document.getElementById("transcript-read");
 const transcriptClear = document.getElementById("transcript-clear");
 const transcriptStatus = document.getElementById("transcript-status");
 let transcriptText = "";
-const setTranscriptStatus = (msg) => { transcriptStatus.textContent = msg; transcriptClear.hidden = !transcriptText; };
+const transcriptPreview = document.getElementById("transcript-preview");
+const setTranscriptStatus = (msg) => {
+  transcriptStatus.textContent = msg; transcriptClear.hidden = !transcriptText;
+  transcriptPreview.value = transcriptText;
+  document.getElementById("transcript-preview-box").hidden = !transcriptText;
+};
 const renderNoteImages = () => {
   noteImageList.replaceChildren();
   noteImageData.forEach((image, index) => {
@@ -200,53 +205,21 @@ document.getElementById("title-read").addEventListener("click", async () => {
     await remember();if(sessions.length) render();
   } catch(error) {set(error.message || "无法读取标题，请手动填写课堂关键名字","err");}
 });
-// 在腾讯会议纪要页面提取发言逐字稿：按时间戳定位发言条目，自动滚动加载虚拟列表，去重后拼接
-const extractTranscript = async () => {
-  const timeRe = /^\d{1,2}:\d{2}(:\d{2})?$/;
-  const isStamp = (el) => el.children.length === 0 && timeRe.test((el.textContent || "").trim());
-  const collect = (seen, lines) => {
-    for (const stamp of [...document.querySelectorAll("*")].filter(isStamp)) {
-      const item = stamp.closest("li,tr,article,section,[class*=item],[class*=Item],[class*=record],[class*=Record],[class*=message],[class*=Message]") || stamp.parentElement;
-      if (!item) continue;
-      let text = (item.innerText || "").replace(/\s+/g, " ").trim();
-      text = text.replace(/\d{1,2}:\d{2}(:\d{2})?/g, "").replace(/\s+/g, " ").trim();
-      if (text.length < 2 || seen.has(text)) continue;
-      seen.add(text); lines.push(text);
-    }
-  };
-  const seen = new Set(); const lines = [];
-  collect(seen, lines);
-  const firstStamp = [...document.querySelectorAll("*")].find(isStamp);
-  let scroller = firstStamp?.parentElement || null;
-  while (scroller && !(scroller.scrollHeight > scroller.clientHeight + 100)) scroller = scroller.parentElement;
-  if (scroller) {
-    const originalTop = scroller.scrollTop;
-    for (let i = 0; i < 300; i++) {
-      scroller.scrollTop = i * Math.max(200, scroller.clientHeight * 0.8);
-      await new Promise((r) => setTimeout(r, 120));
-      collect(seen, lines);
-      if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 20 && i > 2) break;
-    }
-    scroller.scrollTop = originalTop;
-  }
-  if (!lines.length) {
-    const fallback = (document.body.innerText || "").replace(/\s+/g, " ").trim();
-    return fallback.slice(0, 100000);
-  }
-  return lines.join("\n").slice(0, 100000);
-};
 transcriptRead.addEventListener("click", async () => {
   try {
     transcriptRead.disabled = true;
     setTranscriptStatus("正在提取页面逐字稿，请勿操作页面…");
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id || !tab.url?.startsWith("https://meeting.tencent.com/")) throw new Error("请在腾讯会议纪要页面打开插件，再提取逐字稿");
-    const results = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: extractTranscript });
-    const text = (results[0]?.result || "").trim();
-    if (text.length < 10) throw new Error("未在页面上找到逐字稿内容，请确认已打开「逐字稿/ transcript」面板");
+    const results = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: extractMeetingTranscript });
+    const result = results[0]?.result;
+    const text = result?.text?.trim();
+    if (!text || text.length < 10) throw new Error("未读取到发言正文，请确认已打开逐字稿面板");
     transcriptText = text;
-    setTranscriptStatus(`已提取逐字稿 ${text.length} 字，生成反馈时会与纪要、图片一起参考。`);
-    set("逐字稿提取完成。", "ok");
+    const coverage = result.truncated ? "已达10万字上限，非全文" : result.reachedStart && result.reachedEnd ? "已遍历列表首尾；仍请对照录制结束时间核对" : "未能确认列表首尾，可能不完整";
+    setTranscriptStatus(`已提取 ${text.length} 字 · ${result.count} 条 · ${result.firstTime}—${result.lastTime}。${coverage}。`);
+    document.getElementById("transcript-preview-box").open = true;
+    set("逐字稿已读取，请核对全文和最后一条发言时间。", "ok");
   } catch (error) {
     setTranscriptStatus(error.message || "逐字稿提取失败，请刷新纪要页面后重试");
     set(error.message || "逐字稿提取失败", "err");
@@ -289,7 +262,11 @@ polish.addEventListener("click", async () => {
     const auth=await sendToApp({action:"ai-token"});
     if(auth.error || !auth.accessToken)throw new Error(auth.error || "请先登录教师账号");
     const res=await fetch("https://mooodle.lovable.app/api/public/meeting-polish",{method:"POST",headers:{Authorization:`Bearer ${auth.accessToken}`,"Content-Type":"application/json"},body:JSON.stringify({text,language,transcript:transcriptText||undefined,images:noteImageData.length?noteImageData:undefined}),signal:controller.signal});
-    if(!res.ok){const data=await res.json().catch(()=>({}));throw new Error(data.error || `生成失败（${res.status}），请确认网站已发布更新`);}
+    if(!res.ok){
+      const data=await res.json().catch(()=>({}));
+      const message = typeof data.error === "string" ? data.error : data.message || data.error?.message;
+      throw new Error(message || (res.status === 404 ? "生成请求返回404，暂无法确定是网站入口还是AI服务不可用；原纪要和逐字稿已保留。" : `生成失败（${res.status}），原纪要和逐字稿已保留。`));
+    }
     if(!res.body || !res.headers.get("content-type")?.includes("application/x-ndjson"))throw new Error("网站未返回生成结果，请确认已发布最新更新");
     const reader=res.body.getReader(),decoder=new TextDecoder();let buffer="",done=false;
     const consume=line=>{if(!line.trim())return;const event=JSON.parse(line);if(event.type==="error")throw new Error(event.message);if(event.type==="text")feedback.value+=event.text;if(event.type==="done")done=true;};
