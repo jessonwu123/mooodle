@@ -31,3 +31,20 @@ test("语言切换保留全部原有诊断提示词，中文不附加修改", ()
   assert.ok(english.length > original.length);
   assert.notEqual(english, withMeetingPolishLanguage(original, "zh"));
 });
+
+test("课堂笔记图片可选，旧版请求默认无图片", () => {
+  assert.deepEqual(validateMeetingPolishImages(undefined), []);
+  assert.deepEqual(validateMeetingPolishImages([]), []);
+});
+
+test("课堂笔记图片仅接受限定格式与数量的 data URL", () => {
+  const jpeg = "data:image/jpeg;base64," + "A".repeat(100);
+  const png = "data:image/png;base64," + "B".repeat(100);
+  const webp = "data:image/webp;base64," + "C".repeat(100);
+  assert.deepEqual(validateMeetingPolishImages([jpeg, png, webp]), [jpeg, png, webp]);
+  assert.throws(() => validateMeetingPolishImages("not-an-array"));
+  assert.throws(() => validateMeetingPolishImages(["https://example.com/a.png"]));
+  assert.throws(() => validateMeetingPolishImages(["data:image/gif;base64,AAAA"]));
+  assert.throws(() => validateMeetingPolishImages(["data:image/jpeg;base64," + "A".repeat(5_600_000)]));
+  assert.throws(() => validateMeetingPolishImages(Array(MEETING_POLISH_IMAGE_LIMIT + 1).fill(jpeg)));
+});
