@@ -2,7 +2,7 @@
 - AI credit usage is recorded in a service-written/admin-readable ledger by both shared gateway helpers, observing terminal SSE usage without saving prompts; immutable login-account creator snapshots drive student attribution, live pricing snapshots give estimated credits, and missing usage stays NULL.
 - Institution classes use students.archive_kind with an owner/name unique key and imported_lessons.archive_student_id; import triggers link future rows and course-protection triggers prohibit manual metadata or login changes while assessment modules remain reusable.
 - Meeting imports use local teacher credentials and bearer-authenticated /api/meeting-plugin with teacher RLS; saving requires confirmation and optimistic concurrency, refuses ambiguous same-day sessions (date-keyed ratings), updates only filled rating fields, and creates missing ratings with app defaults. /meeting-import retains its nonce bridge.
-- Online practice hints are pre-generated and stored on the question, served through existing authenticated question access and validated as method-only; opening hints never triggers AI or spends additional credits.
+- Online practice hints are pre-generated and stored on the question, served through existing authenticated question access and validated as method-only; opening hints never triggers AI or spends credits.
 - Exam statistics identify whole-paper sessions by exact question-set coverage and derive correctness from saved attempt logs; sessions store validated pre-submission hint IDs, NULL meaning untracked historical usage.
 - math_question_hint_generation_batches is private; only authorized maintenance tools stage/apply validated hints.
 - MathText normalizes unsupported array spacing for KaTeX without changing question data.
