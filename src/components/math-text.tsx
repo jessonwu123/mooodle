@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
+import { normalizeMathDisplay } from "@/lib/math-display";
 
 /**
  * 将带有 $...$ / $$...$$ LaTeX 的文本渲染为 HTML。
@@ -60,7 +61,7 @@ export function MathText({
       .map((p) => {
         if (p.type === "text") return escape(p.value);
         try {
-          return katex.renderToString(p.value, {
+          return katex.renderToString(normalizeMathDisplay(p.value), {
             throwOnError: false,
             displayMode: p.type === "block",
             output: "html",
