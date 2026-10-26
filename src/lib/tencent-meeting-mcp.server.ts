@@ -25,6 +25,8 @@ async function callMcp(token: string, method: string, params: Record<string, unk
   } | null;
   if (!data) throw new Error("腾讯会议返回了无法识别的响应");
   if (data.error) throw new Error(normalizeMcpError(data.error.message));
+  // tools/list 等方法直接返回 result 对象；tools/call 的结果在 result.content[0].text 里
+  if (data.result && !data.result.content) return data.result;
   const text = data.result?.content?.find((c) => c.type === "text")?.text;
   if (!text) throw new Error(data.result?.isError ? "腾讯会议拒绝了这次请求" : "腾讯会议返回了空结果");
   const inner = JSON.parse(text) as { status_code?: number; body?: string; message?: string };
