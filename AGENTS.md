@@ -10,7 +10,7 @@
 - Online practice modes share a count selector with strict integer validation, retaining each server limit; exam practice subsets its loaded paper in the browser to preserve full-paper downloads and server behavior.
 
 - Math knowledge tags use a self-referencing nullable `parent_id` with exactly two levels, preserving existing tags as top-level while allowing shared filtering across question-bank workflows.
-- Calculation imports parse UTF-8 CSV explicitly without spreadsheet delimiter guessing, preserve Excel cell boundaries, split text pipes only outside TeX math, and reject extra columns or unpaired math markers before writes; this prevents formula fragments from becoming tags even through stale clients.
+- Calculation imports parse UTF-8 CSV explicitly without delimiter guessing, preserve Excel cell boundaries, split text pipes only outside TeX math, and reject extra columns or unpaired math markers before writes; this prevents formula fragments from becoming tags even through stale clients.
 - Teacher homework and parent practice downloads share HomeworkBuilder with audience-specific filter layouts so selection and PDF rendering stay consistent; parent data/images use authenticated student-scoped downloads and folder permissions, while calculations retain shared student access.
 - Downloadable PDFs are prepared before a separate synchronous download action so browser downloads and mobile sharing retain user activation.
 - Practice mistake analysis reads authenticated saved-session answers, streams through a server route, and atomically claims a durable account/day quota with session idempotency; this prevents forged results, duplicate billing and concurrent quota overruns.
