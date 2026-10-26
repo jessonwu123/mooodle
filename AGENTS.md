@@ -4,7 +4,8 @@
 - Meeting imports use local teacher credentials and bearer-authenticated /api/meeting-plugin with teacher RLS; saving requires confirmation and optimistic concurrency, refuses ambiguous same-day sessions (date-keyed ratings), updates only filled rating fields, creates missing ratings with app defaults and appends progress items. /meeting-import retains its nonce bridge.
 - Online practice hints are pre-generated and stored on the question, served through existing authenticated question access and validated as method-only; opening hints never triggers AI or spends additional credits.
 - Exam statistics identify whole-paper sessions by exact question-set coverage and derive correctness from saved attempt logs; sessions store validated pre-submission hint IDs, with NULL reserved for untracked historical usage.
-- Bulk hint generation retains private batch provenance in math_question_hint_generation_batches; application users have no access, and only explicitly authorized maintenance tools may stage and apply validated hints.
+- math_question_hint_generation_batches is private; only authorized maintenance tools stage/apply validated hints.
+- MathText normalizes unsupported array spacing for KaTeX without changing question data.
 
 - Online practice modes share a count selector with strict integer validation, retaining each server limit; exam practice subsets its loaded paper in the browser to preserve full-paper downloads and server behavior.
 
