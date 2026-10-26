@@ -42,7 +42,7 @@ export function MeetingTokenButton() {
         <Video className="h-4 w-4" />腾讯会议 Token
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>腾讯会议 Token</DialogTitle>
             <DialogDescription>保存后可在「会议纪要存档」页面自动读取 AI 纪要和文字转写，一键生成课堂反馈。仅支持个人版/专业版账号。</DialogDescription>
