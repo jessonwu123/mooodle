@@ -113,6 +113,13 @@
       "when": 1792948932811,
       "tag": "0015_teacher_question_bank_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793008995208,
+      "tag": "0016_teacher_meeting_tokens",
+      "breakpoints": true
     }
   ]
 }
