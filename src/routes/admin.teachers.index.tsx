@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import { StudentAccountsPanel } from "@/components/student-accounts-panel";
 import { listTeacherInviters } from "@/lib/access.functions";
+import { compareAccountsByLastSignIn } from "@/lib/account-sort";
 
 export const Route = createFileRoute("/admin/teachers/")({
   component: TeachersPage,
@@ -119,10 +120,10 @@ function TeachersPage() {
     const { data: permissions, error: permissionError } = await supabase.from("teacher_question_bank_permissions").select("user_id, can_edit");
     if (permissionError) toast.error("加载题库权限失败：" + permissionError.message);
     setEditPermissions(Object.fromEntries((permissions ?? []).map((p) => [p.user_id, p.can_edit])));
-    setTeachers(((data ?? []) as Teacher[]).map((t) => ({
+    setTeachers((((data ?? []) as Teacher[]).map((t) => ({
       ...t,
       student_count: Number(t.student_count ?? 0),
-    })));
+    }))).sort(compareAccountsByLastSignIn));
     setLoading(false);
   };
 

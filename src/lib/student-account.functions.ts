@@ -7,6 +7,7 @@ import {
   internalEmailFor,
   assertTeacher,
 } from "@/lib/student-account.server";
+import { compareAccountsByLastSignIn } from "@/lib/account-sort";
 
 /** 教师创建/确保某个学生的登录账号 */
 export const ensureStudentAccount = createServerFn({ method: "POST" })
@@ -143,16 +144,18 @@ export const listStudentAccounts = createServerFn({ method: "POST" })
       }
     }
 
-    return students.map((s) => ({
-      id: s.id,
-      name: s.name,
-      username: s.username,
-      auth_user_id: s.auth_user_id,
-      created_at: s.created_at,
-      created_by_email: s.created_by ? creatorEmail.get(s.created_by) ?? null : null,
-      access_level: s.access_level,
-      last_sign_in_at: s.auth_user_id ? lastSignIn.get(s.auth_user_id) ?? null : null,
-    }));
+    return students
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        username: s.username,
+        auth_user_id: s.auth_user_id,
+        created_at: s.created_at,
+        created_by_email: s.created_by ? creatorEmail.get(s.created_by) ?? null : null,
+        access_level: s.access_level,
+        last_sign_in_at: s.auth_user_id ? lastSignIn.get(s.auth_user_id) ?? null : null,
+      }))
+      .sort(compareAccountsByLastSignIn);
   });
 
 /** 删除学生账号（含档案与登录账号） */
