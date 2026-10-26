@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { deleteMeetingMcpToken, getMeetingMcpTokenStatus, saveMeetingMcpToken } from "@/lib/meeting-mcp.functions";
+import tokenGuide from "@/assets/tencent-token-guide.png.asset.json";
 
 type Status = { configured: boolean; updatedAt: string | null } | null;
 
@@ -50,7 +51,9 @@ export function MeetingTokenButton() {
             <p className="mb-2 font-medium">获取教程</p>
             <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
               <li>打开 <a className="text-primary underline" href="https://meeting.tencent.com/ai-skill.html" target="_blank" rel="noreferrer">腾讯会议 Skill 页面</a>，用上课的个人/专业版腾讯会议账号登录。</li>
-              <li>在页面上找到 MCP Token，点击复制。</li>
+              <li>在页面第 2 步「复制 Token」处点击右侧「复制」（不用复制第 1 步的安装指令）。
+                <img src={tokenGuide.url} alt="腾讯会议 Skill 页面：第 2 步 Token 右侧的复制按钮" className="mt-2 w-full rounded border" />
+              </li>
               <li>粘贴到下方输入框，点击「验证并保存」。</li>
               <li>上课时在腾讯会议「录制」菜单开启【文字转写】和【元宝纪要】（免费，无需录屏）。</li>
               <li>课后打开 <a className="text-primary underline" href="/meeting-import">会议纪要存档</a> 页面，选日期即可读取并生成反馈。</li>
