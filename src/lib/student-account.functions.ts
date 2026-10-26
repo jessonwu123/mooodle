@@ -155,15 +155,7 @@ export const listStudentAccounts = createServerFn({ method: "POST" })
         access_level: s.access_level,
         last_sign_in_at: s.auth_user_id ? lastSignIn.get(s.auth_user_id) ?? null : null,
       }))
-      .sort((a, b) => {
-        // 最近登录的排最前，从未登录过的排最后；同为未登录按创建时间倒序
-        if (a.last_sign_in_at && b.last_sign_in_at) {
-          return b.last_sign_in_at.localeCompare(a.last_sign_in_at);
-        }
-        if (a.last_sign_in_at) return -1;
-        if (b.last_sign_in_at) return 1;
-        return b.created_at.localeCompare(a.created_at);
-      });
+      .sort(compareAccountsByLastSignIn);
   });
 
 /** 删除学生账号（含档案与登录账号） */
