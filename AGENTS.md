@@ -11,7 +11,7 @@
 
 - Math knowledge tags use a self-referencing nullable `parent_id` with exactly two levels, preserving existing tags as top-level while allowing shared filtering across question-bank workflows.
 - Calculation imports parse UTF-8 CSV explicitly without spreadsheet delimiter guessing, preserve Excel cell boundaries, split text pipes only outside TeX math, and reject extra columns or unpaired math markers before writes; this prevents formula fragments from becoming tags even through stale clients.
-- Teacher homework and parent practice downloads share HomeworkBuilder so selection, ordering, screenshot preference and answer rendering stay consistent; parent data and image access must use authenticated student-scoped download functions with folder download permissions, while calculations retain the existing shared student access.
+- Teacher homework and parent practice downloads share HomeworkBuilder with audience-specific filter layouts so selection and PDF rendering stay consistent; parent data/images use authenticated student-scoped downloads and folder permissions, while calculations retain shared student access.
 - Downloadable PDFs are prepared before a separate synchronous download action so browser downloads and mobile sharing retain user activation.
 - Practice mistake analysis reads authenticated saved-session answers, streams through a server route, and atomically claims a durable account/day quota with session idempotency; this prevents forged results, duplicate billing and concurrent quota overruns.
 - Explicit answer-correction batches update questions and append immutable old/new answer snapshots atomically to math_question_answer_change_log; teacher/admin-only reads and retained snapshots preserve traceability without write access.

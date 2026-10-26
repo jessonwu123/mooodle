@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, Download, Loader2, Search, X, ArrowUp, ArrowDown, ClipboardList, GripVertical } from "lucide-react";
+import { ArrowLeft, Download, Loader2, Search, X, ArrowUp, ArrowDown, ClipboardList, GripVertical, Tags } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -276,6 +276,41 @@ export function HomeworkBuilder({ studentId }: { studentId?: string }) {
 
   const visibleTags = tags.filter((t: any) => source === "all" || (source === "calc" ? t.category === "calc" : t.category !== "calc")).filter((t) => t.name.toLowerCase().includes(tagSearch.trim().toLowerCase()));
 
+  const knowledgeFilter = (
+    <div className={studentId ? "" : "flex min-h-0 flex-1 flex-col"}>
+      <div className={studentId ? "mb-1.5 flex items-center gap-2" : "mb-3 flex items-center gap-2"}>
+        {!studentId && <Tags className="h-4 w-4 text-primary" />}
+        <Label className={studentId ? "text-xs text-muted-foreground" : "text-sm font-semibold"}>
+          {studentId ? "知识点（不选 = 全部）" : "知识点"}
+        </Label>
+        {!studentId && <span className="text-xs text-muted-foreground">{visibleTags.length}</span>}
+        {studentId && <Input value={tagSearch} onChange={(e) => setTagSearch(e.target.value)} placeholder="搜索知识点" className="h-7 max-w-40 text-xs" />}
+      </div>
+      {!studentId && <div className="relative mb-2">
+        <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input value={tagSearch} onChange={(e) => setTagSearch(e.target.value)} placeholder="搜索知识点..." className="h-8 pl-7 text-sm" />
+      </div>}
+      <div className={studentId ? "flex max-h-32 flex-wrap gap-1.5 overflow-y-auto" : "max-h-80 min-h-0 flex-1 space-y-0.5 overflow-y-auto pr-1 lg:max-h-none"}>
+        {visibleTags
+          .filter((tag) => !tag.parent_id)
+          .flatMap((parent) => [parent, ...visibleTags.filter((tag) => tag.parent_id === parent.id)])
+          .map((t) => studentId ? (
+            <Badge key={t.id} variant={tagFilter.has(t.id) ? "default" : "secondary"}
+              className={`cursor-pointer ${t.parent_id ? "ml-3" : "font-semibold"}`}
+              onClick={() => toggleSet(tagFilter, t.id, setTagFilter)}>
+              {t.parent_id ? `└ ${t.name}` : t.name}
+            </Badge>
+          ) : (
+            <label key={t.id} className={`flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted ${tagFilter.has(t.id) ? "bg-muted" : ""} ${t.parent_id ? "ml-5" : "font-medium"}`}>
+              <Checkbox className="mt-0.5 shrink-0" checked={tagFilter.has(t.id)} onCheckedChange={() => toggleSet(tagFilter, t.id, setTagFilter)} />
+              <span className="min-w-0 flex-1 break-words">{t.name}</span>
+            </label>
+          ))}
+        {!visibleTags.length && <span className="text-xs text-muted-foreground">暂无知识点</span>}
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       {!studentId && <div className="flex flex-wrap items-center gap-2">
@@ -291,7 +326,11 @@ export function HomeworkBuilder({ studentId }: { studentId?: string }) {
         </h1>
       </div>}
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+      <div className={studentId ? "" : "grid items-start gap-4 lg:grid-cols-[320px_minmax(0,1fr)]"}>
+        {!studentId && <aside aria-label="知识点筛选" className="flex min-h-0 flex-col rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-card)] lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-hidden">
+          {knowledgeFilter}
+        </aside>}
+      <div className={`grid min-w-0 items-start gap-4 ${studentId ? "lg:grid-cols-[1fr_320px]" : "xl:grid-cols-[minmax(0,1fr)_280px]"}`}>
         <div className="space-y-4 min-w-0">
           <Card className="space-y-3 p-4">
             <div className="flex flex-wrap gap-1.5">
@@ -316,28 +355,7 @@ export function HomeworkBuilder({ studentId }: { studentId?: string }) {
                 ))}
               </div>
             </div>}
-            <div>
-              <div className="mb-1.5 flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground">知识点（不选 = 全部）</Label>
-                <Input value={tagSearch} onChange={(e) => setTagSearch(e.target.value)} placeholder="搜索知识点" className="h-7 max-w-40 text-xs" />
-              </div>
-              <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto">
-                {visibleTags
-                  .filter((tag) => !tag.parent_id)
-                  .flatMap((parent) => [parent, ...visibleTags.filter((tag) => tag.parent_id === parent.id)])
-                  .map((t) => (
-                  <Badge
-                    key={t.id}
-                    variant={tagFilter.has(t.id) ? "default" : "secondary"}
-                    className={`cursor-pointer ${t.parent_id ? "ml-3" : "font-semibold"}`}
-                    onClick={() => toggleSet(tagFilter, t.id, setTagFilter)}
-                  >
-                    {t.parent_id ? `└ ${t.name}` : t.name}
-                  </Badge>
-                ))}
-                {!visibleTags.length && <span className="text-xs text-muted-foreground">暂无知识点</span>}
-              </div>
-            </div>
+            {studentId && knowledgeFilter}
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="按题干关键词搜索" className="pl-8" />
@@ -415,7 +433,7 @@ export function HomeworkBuilder({ studentId }: { studentId?: string }) {
           )}
         </div>
 
-        <Card className="h-fit space-y-3 p-4 lg:sticky lg:top-4">
+        <Card className={`h-fit min-w-0 space-y-3 p-4 ${studentId ? "lg:sticky lg:top-4" : "xl:sticky xl:top-4"}`}>
           <div className="font-medium">已选 {selected.length} 题</div>
           <div>
             <Label className="text-xs text-muted-foreground">作业标题</Label>
@@ -495,6 +513,7 @@ export function HomeworkBuilder({ studentId }: { studentId?: string }) {
             </Button>
           </div>
         </Card>
+      </div>
       </div>
 
       {renderData && (
