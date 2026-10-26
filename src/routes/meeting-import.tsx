@@ -7,6 +7,7 @@ import { mergeMeetingNotes } from "@/lib/meeting-notes";
 import { LessonRatingDialog } from "@/components/lesson-rating-dialog";
 import { Button } from "@/components/ui/button";
 import { canConnectMeetingPlugin } from "@/lib/meeting-connection";
+import { MeetingMcpPanel } from "@/components/meeting-mcp-panel";
 
 export const Route = createFileRoute("/meeting-import")({
   head: () => ({ meta: [{title:"mooodle · 会议纪要存档"},{name:"description",content:"连接课堂纪要插件，核对课次并存入学生课堂总结。"},{property:"og:title",content:"mooodle · 会议纪要存档"},{property:"og:description",content:"核对腾讯会议纪要与学生课次，保存课堂总结。"},{property:"og:type",content:"website"},{name:"twitter:card",content:"summary"}] }),
@@ -61,6 +62,8 @@ function MeetingImport() {
   return <main className="mx-auto max-w-2xl space-y-6 px-6 py-12">
     <h1 className="text-2xl font-semibold">会议纪要存档</h1>
     {loading ? <p>确认登录状态中…</p> : !session || !isTeacher ? <><p>请先登录 mooodle 教师账号，再返回此页面。</p><Button asChild><Link to="/login">登录 mooodle</Link></Button></> : <>
+      <MeetingMcpPanel />
+      <h2 className="text-lg font-semibold">插件存档</h2>
       <p className="text-muted-foreground">{status}</p>
       <Button onClick={() => {setConnected(v => !v);setStatus(connected ? "连接已关闭" : "已自动连接");}}>{connected ? "断开插件连接" : "重新连接插件"}</Button>
       {pending && <LessonRatingDialog open onOpenChange={open => {if (!open) setPending(null);}} studentId={pending.lesson.studentId} lessonDate={pending.lesson.date} editable initialSummary={pending.text} onSaved={() => {setStatus("课堂总结和评分已保存");setPending(null);}} />}
