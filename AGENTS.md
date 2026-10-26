@@ -7,7 +7,7 @@
 - math_question_hint_generation_batches is private; only authorized maintenance tools stage/apply validated hints.
 - MathText normalizes unsupported array spacing for KaTeX without changing question data.
 
-- Online practice modes share a count selector with strict integer validation, retaining each server limit; exam practice subsets its loaded paper in the browser to preserve full-paper downloads and server behavior.
+- Online practice modes share a count selector with strict integer validation, retaining each server limit; exam practice subsets its loaded paper in the browser to preserve full-paper downloads.
 
 - Math knowledge tags use a self-referencing nullable `parent_id` with exactly two levels, preserving existing tags as top-level while allowing shared filtering across question-bank workflows.
 - Calculation imports parse UTF-8 CSV explicitly without delimiter guessing, preserve Excel cell boundaries, split text pipes only outside TeX math, and reject extra columns or unpaired math markers before writes; this prevents formula fragments from becoming tags even through stale clients.
