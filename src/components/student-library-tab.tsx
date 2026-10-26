@@ -13,6 +13,7 @@ import {
   getStudentPaperUrl,
   type FolderPermLevel,
 } from "@/lib/folder-permissions.functions";
+import { sortLibraryPapersByYear } from "@/lib/library-sort";
 
 interface LibFolder {
   id: string;
@@ -50,7 +51,7 @@ export function StudentLibraryTab({ studentId }: { studentId: string }) {
     try {
       const res = await getStudentLibrary({ data: { studentId, folderId } });
       setSubfolders(res.subfolders);
-      setPapers(res.papers);
+      setPapers(sortLibraryPapersByYear(res.papers));
       setCurrentLevel(res.currentLevel);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "加载失败");

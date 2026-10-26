@@ -189,7 +189,8 @@ export const getStudentLibrary = createServerFn({ method: "POST" })
         .from("math_papers")
         .select("id, year, name, kind, created_at, question_count")
         .eq("folder_id", data.folderId)
-        .order("created_at", { ascending: false });
+        .order("year", { ascending: true, nullsFirst: false })
+        .order("name", { ascending: true });
       if (e2) throw new Error(e2.message);
       papers = (ps ?? []) as typeof papers;
     }
