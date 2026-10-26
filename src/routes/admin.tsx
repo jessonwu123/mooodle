@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ProfileEditDialog } from "@/components/profile-edit-dialog";
 import { InviteCodeButton } from "@/components/invite-code-button";
+import { MeetingTokenButton } from "@/components/meeting-token-button";
 
 export const Route = createFileRoute("/admin")({
   component: AdminLayout,
@@ -90,6 +91,7 @@ function AdminLayout() {
             </Link>
           </div>
           <div className="flex items-center gap-2">
+            <MeetingTokenButton />
             <InviteCodeButton />
             <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5">
               <LogOut className="h-4 w-4" />
