@@ -7,6 +7,7 @@ import {
   internalEmailFor,
   assertTeacher,
 } from "@/lib/student-account.server";
+import { compareAccountsByLastSignIn } from "@/lib/account-sort";
 
 /** 教师创建/确保某个学生的登录账号 */
 export const ensureStudentAccount = createServerFn({ method: "POST" })
