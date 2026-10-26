@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import { StudentAccountsPanel } from "@/components/student-accounts-panel";
 import { listTeacherInviters } from "@/lib/access.functions";
+import { compareAccountsByLastSignIn } from "@/lib/account-sort";
 
 export const Route = createFileRoute("/admin/teachers/")({
   component: TeachersPage,
