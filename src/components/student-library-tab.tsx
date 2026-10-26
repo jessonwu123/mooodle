@@ -13,6 +13,7 @@ import {
   getStudentPaperUrl,
   type FolderPermLevel,
 } from "@/lib/folder-permissions.functions";
+import { sortLibraryPapersByYear } from "@/lib/library-sort";
 
 interface LibFolder {
   id: string;
